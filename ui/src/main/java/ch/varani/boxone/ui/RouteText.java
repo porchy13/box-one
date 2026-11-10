@@ -1,6 +1,7 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.detour.Budget;
 
 import java.text.MessageFormat;
 import java.time.Duration;
@@ -9,7 +10,7 @@ import java.util.ResourceBundle;
 
 /**
  * The summary of a route in its card (DESIGN.md §14): its distance and its duration, in the formats of the language of
- * the application, e.g. "12,4 km · 1 h 05" in French; the durations of the detours too.
+ * the application, e.g. "12,4 km · 1 h 05" in French; the durations and the budgets of the detours too.
  *
  * <p><b>Algorithm</b>: the distance in kilometres with one decimal; the duration rounded to the minute, in minutes
  * below one hour ({@value #MINUTES_PATTERN}), in hours and minutes from one hour on ({@value #HOURS_PATTERN}).</p>
@@ -30,6 +31,10 @@ final class RouteText {
   static final String MINUTES_PATTERN = "route.minutes";
   /** The key of a duration of one hour or more, in hours and minutes. */
   static final String HOURS_PATTERN = "route.hours";
+  /** The key of an amount in percent. */
+  static final String PERCENT_PATTERN = "route.percent";
+  /** The key of a budget in percent: the time it gives, then its amount in percent. */
+  static final String PERCENT_BUDGET_PATTERN = "route.percentBudget";
   /** The number of metres in a kilometre. */
   private static final double METRES_PER_KILOMETRE = 1000;
   /** The number of minutes in an hour. */
@@ -79,6 +84,41 @@ final class RouteText {
     return minutes < MINUTES_PER_HOUR
         ? format(texts, MINUTES_PATTERN, locale, minutes)
         : format(texts, HOURS_PATTERN, locale, minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR);
+  }
+
+  /**
+   * Writes the amount of a budget of a detour, in its unit: "15 min", "20 %".
+   *
+   * @param budget the budget.
+   * @param texts the texts of the user interface.
+   * @param locale the locale of the application, which gives the formats.
+   *
+   * @return the amount and its unit.
+   */
+  static String amount(final Budget budget, final ResourceBundle texts, final Locale locale) {
+    final String key = switch (budget.unit()) {
+      case MINUTES -> MINUTES_PATTERN;
+      case PERCENT -> PERCENT_PATTERN;
+    };
+    return format(texts, key, locale, budget.amount());
+  }
+
+  /**
+   * Writes the budget of a detour: its time, followed for a budget in percent by its amount, e.g. "9 min (20 %)".
+   *
+   * @param budget the budget.
+   * @param fastest the duration of the fastest route, of which a budget in percent is a share.
+   * @param texts the texts of the user interface.
+   * @param locale the locale of the application, which gives the formats.
+   *
+   * @return the budget.
+   */
+  static String budget(final Budget budget, final Duration fastest, final ResourceBundle texts, final Locale locale) {
+    final String time = duration(budget.of(fastest), texts, locale);
+    return switch (budget.unit()) {
+      case MINUTES -> time;
+      case PERCENT -> format(texts, PERCENT_BUDGET_PATTERN, locale, time, amount(budget, texts, locale));
+    };
   }
 
   /**

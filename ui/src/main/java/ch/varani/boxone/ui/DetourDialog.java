@@ -4,6 +4,7 @@ import ch.varani.boxone.detour.Budget;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.geometry.HPos;
+import javafx.scene.Node;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
@@ -14,18 +15,26 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.stage.Window;
 
-import java.util.Arrays;
+import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.regex.Pattern;
 
 /**
- * The choice of a detour (development plan, phase 3; DESIGN.md §7, §14): its budget, 15 or 30 minutes, and its seed,
- * a new one drawn for each detour, which the user may replace by the seed of an earlier detour to generate it again.
+ * The choice of a detour (development plan, phase 3; DESIGN.md §7, §14): its budget, and its seed, a new one drawn for
+ * each detour, which the user may replace by the seed of an earlier detour to generate it again.
+ *
+ * <p><b>Budget</b> (issues #9 and #10 of GitLab): its unit, minutes or percent of the fastest route, then its amount,
+ * from the budgets of the unit ({@link Budget.Unit#budgets()}); a change of the unit selects the budget of the new unit
+ * nearest to the time of the former one. The caption under it says, for a budget in percent, the time it gives on the
+ * fastest route shown.</p>
  *
  * <p><b>Rules</b>: the seed is a number of 1 to {@value #SEED_DIGITS} digits, the seeds drawn for the user
  * ({@link ch.varani.boxone.detour.DetourGenerator#newSeed}); while it is not, the field is marked, its caption says
@@ -44,8 +53,12 @@ final class DetourDialog {
   static final String TITLE = "detour.title";
   /** The key of the label of the budget. */
   static final String BUDGET_LABEL = "detour.budget";
-  /** The key of the caption under the budget. */
+  /** The key of the caption under a budget in minutes. */
   static final String BUDGET_HINT = "detour.budgetHint";
+  /** The key of the caption under a budget in percent, with the time it gives and the duration of the fastest route. */
+  static final String PERCENT_HINT = "detour.percentHint";
+  /** The beginning of the keys of the units of the budget ({@code detour.unit.<unit>}). */
+  static final String UNIT_KEYS = "detour.unit.";
   /** The key of the label of the seed. */
   static final String SEED_LABEL = "detour.seed";
   /** The key of the caption under the seed. */
@@ -56,8 +69,10 @@ final class DetourDialog {
   static final String GENERATE = "detour.generate";
   /** The key of the button that cancels. */
   static final String CANCEL = "detour.cancel";
-  /** The identifier of the choice of the budget. */
+  /** The identifier of the choice of the amount of the budget. */
   static final String BUDGET_ID = "budgetChoice";
+  /** The identifier of the choice of the unit of the budget. */
+  static final String UNIT_ID = "unitChoice";
   /** The identifier of the field of the seed. */
   static final String SEED_ID = "seedField";
   /**
@@ -71,7 +86,10 @@ final class DetourDialog {
   private static final String INVALID = "invalid";
   /** The style class of a caption telling an error (base.css). */
   private static final String ERROR = "error";
-  /** The smallest width of the fields, in pixels. */
+  /**
+   * The smallest width of the fields, in pixels; the column of the fields is wider when the amount and the unit of the
+   * budget need it, the amount never narrower than its text.
+   */
   private static final double FIELD_WIDTH = 240;
 
   // *******************************************************************************************************************
@@ -80,10 +98,20 @@ final class DetourDialog {
 
   /** The dialog. */
   private final Dialog<Request> dialog = new Dialog<>();
-  /** The budgets, in the order of the choice. */
-  private final List<Budget> budgets = Arrays.asList(Budget.values());
-  /** The choice of the budget, by its duration. */
+  /** The units of the budget, in the order of the choice. */
+  private final List<Budget.Unit> units = List.of(Budget.Unit.values());
+  /** The choice of the unit of the budget. */
+  private final ComboBox<String> unit = new ComboBox<>();
+  /** The choice of the amount of the budget, among the budgets of the unit. */
   private final ComboBox<String> budget = new ComboBox<>();
+  /** The caption under the budget. */
+  private final Label budgetHint = new Label();
+  /** The texts of the user interface. */
+  private final ResourceBundle texts;
+  /** The locale of the application, for the durations and the numbers. */
+  private final Locale locale;
+  /** The duration of the fastest route shown, of which a budget in percent is a share. */
+  private final Duration fastest;
   /** The seed. */
   private final TextField seed = new TextField();
 
@@ -98,11 +126,15 @@ final class DetourDialog {
    * @param texts the texts of the user interface.
    * @param locale the locale of the application, for the durations.
    * @param current the budget selected first: the one of the last detour.
+   * @param fastest the duration of the fastest route shown, of which a budget in percent is a share.
    * @param newSeed the seed proposed, a new one.
    * @param stylesheets the style sheets of the theme of the main window.
    */
   DetourDialog(final Window owner, final ResourceBundle texts, final Locale locale, final Budget current,
-               final long newSeed, final List<String> stylesheets) {
+               final Duration fastest, final long newSeed, final List<String> stylesheets) {
+    this.texts = texts;
+    this.locale = locale;
+    this.fastest = fastest;
     dialog.initOwner(owner);
     dialog.setTitle(texts.getString(TITLE));
     final ButtonType generate = new ButtonType(texts.getString(GENERATE), ButtonBar.ButtonData.OK_DONE);
@@ -111,9 +143,19 @@ final class DetourDialog {
     pane.getStylesheets().setAll(stylesheets);
     pane.getButtonTypes().setAll(generate, cancel);
     budget.setId(BUDGET_ID);
+    unit.setId(UNIT_ID);
     seed.setId(SEED_ID);
-    budgets.forEach(choice -> budget.getItems().add(RouteText.duration(choice.getDuration(), texts, locale)));
-    budget.getSelectionModel().select(budgets.indexOf(current));
+    units.forEach(choice -> unit.getItems().add(texts.getString(UNIT_KEYS + choice.name())));
+    unit.getSelectionModel().select(units.indexOf(current.unit()));
+    fill(current);
+    unit.getSelectionModel().selectedIndexProperty().addListener((property, before, after) -> changeUnit(
+        units.get(before.intValue()).budgets().get(budget.getSelectionModel().getSelectedIndex())));
+    budget.getSelectionModel().selectedIndexProperty().addListener((property, before, after) -> {
+      if (after.intValue() >= 0) {
+        describe();
+      }
+    });
+    describe();
     seed.setText(String.valueOf(newSeed));
     final BooleanBinding invalid = Bindings.createBooleanBinding(() -> !isValid(seed.getText()), seed.textProperty());
     final Label seedHint = new Label();
@@ -122,8 +164,8 @@ final class DetourDialog {
     invalid.addListener((property, before, after) -> mark(seedHint, after));
     pane.setContent(form(texts, seedHint));
     pane.lookupButton(generate).disableProperty().bind(invalid);
-    dialog.setResultConverter(button -> button == generate ? new Request(
-        budgets.get(budget.getSelectionModel().getSelectedIndex()), Long.parseLong(seed.getText().strip())) : null);
+    dialog.setResultConverter(button -> button == generate
+        ? new Request(selected(), Long.parseLong(seed.getText().strip())) : null);
   }
 
   // *******************************************************************************************************************
@@ -156,6 +198,58 @@ final class DetourDialog {
   }
 
   /**
+   * Returns the budget selected.
+   *
+   * @return the budget of the unit and the amount selected.
+   */
+  private Budget selected() {
+    return units.get(unit.getSelectionModel().getSelectedIndex()).budgets()
+                .get(budget.getSelectionModel().getSelectedIndex());
+  }
+
+  /**
+   * Lists the amounts of the unit of a budget, and selects it.
+   *
+   * @param chosen the budget to select.
+   */
+  private void fill(final Budget chosen) {
+    final List<Budget> budgets = chosen.unit().budgets();
+    budget.getItems().setAll(budgets.stream().map(choice -> RouteText.amount(choice, texts, locale)).toList());
+    budget.getSelectionModel().select(budgets.indexOf(chosen));
+  }
+
+  /**
+   * Follows a change of the unit: selects the budget of the new unit whose time, on the fastest route shown, is the
+   * nearest to the time of the former budget; the smaller one when two are as near.
+   *
+   * @param former the budget selected before the change.
+   */
+  private void changeUnit(final Budget former) {
+    final long time = former.of(fastest).toMillis();
+    final List<Budget> budgets = units.get(unit.getSelectionModel().getSelectedIndex()).budgets();
+    Budget nearest = budgets.getFirst();
+    for (final Budget choice : budgets) {
+      if (Math.abs(choice.of(fastest).toMillis() - time) < Math.abs(nearest.of(fastest).toMillis() - time)) {
+        nearest = choice;
+      }
+    }
+    fill(nearest);
+  }
+
+  /**
+   * Writes the caption under the budget: what the budget is, and for a budget in percent the time it gives on the
+   * fastest route shown.
+   */
+  private void describe() {
+    final Budget chosen = selected();
+    budgetHint.setText(switch (chosen.unit()) {
+      case MINUTES -> texts.getString(BUDGET_HINT);
+      case PERCENT -> new MessageFormat(texts.getString(PERCENT_HINT), locale).format(new Object[] {
+          RouteText.duration(chosen.of(fastest), texts, locale), RouteText.duration(fastest, texts, locale)});
+    });
+  }
+
+  /**
    * Marks the field of the seed and its caption as invalid, or not: the border of the field and the colour of the
    * caption, whose text says what is expected (DESIGN.md §7: never a colour alone).
    *
@@ -185,13 +279,16 @@ final class DetourDialog {
     form.getStyleClass().add("form");
     final ColumnConstraints labels = new ColumnConstraints();
     labels.setHalignment(HPos.RIGHT);
-    final ColumnConstraints fields = new ColumnConstraints(FIELD_WIDTH, FIELD_WIDTH, Double.MAX_VALUE);
+    final ColumnConstraints fields = new ColumnConstraints(FIELD_WIDTH, Region.USE_COMPUTED_SIZE, Double.MAX_VALUE);
     fields.setHgrow(Priority.ALWAYS);
     form.getColumnConstraints().setAll(labels, fields);
-    budget.setMaxWidth(Double.MAX_VALUE);
-    final Label budgetHint = new Label(texts.getString(BUDGET_HINT));
-    field(form, 0, texts.getString(BUDGET_LABEL), budget, budgetHint);
-    field(form, 2, texts.getString(SEED_LABEL), seed, seedHint);
+    final HBox choice = new HBox(budget, unit);
+    choice.getStyleClass().add("field-row");
+    HBox.setHgrow(unit, Priority.ALWAYS);
+    budget.setMinWidth(Region.USE_PREF_SIZE);
+    unit.setMaxWidth(Double.MAX_VALUE);
+    field(form, 0, texts.getString(BUDGET_LABEL), budget, choice, budgetHint);
+    field(form, 2, texts.getString(SEED_LABEL), seed, seed, seedHint);
     return form;
   }
 
@@ -201,16 +298,17 @@ final class DetourDialog {
    * @param form the form.
    * @param row the row of the field; its caption takes the next one.
    * @param text the label of the field.
-   * @param field the field.
+   * @param field the control the label is for.
+   * @param node the node laid at the right of the label: the field, or a row holding it.
    * @param hint the caption under the field.
    */
   private static void field(final GridPane form, final int row, final String text, final Control field,
-                            final Label hint) {
+                            final Node node, final Label hint) {
     final Label label = new Label(text);
     label.setLabelFor(field);
     label.getStyleClass().add("field-label");
     form.add(label, 0, row);
-    form.add(field, 1, row);
+    form.add(node, 1, row);
     hint.getStyleClass().add("caption");
     hint.setWrapText(true);
     form.add(hint, 1, row + 1);

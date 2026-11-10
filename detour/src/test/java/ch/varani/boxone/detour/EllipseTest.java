@@ -31,6 +31,10 @@ final class EllipseTest {
   private static final double RATIO_FIFTEEN = 1.5;
   /** The major axis over the focal distance, for a budget of 30 minutes on the fastest route: 60 / 30. */
   private static final double RATIO_THIRTY = 2;
+  /** A budget of 15 minutes. */
+  private static final Duration FIFTEEN = Duration.ofMinutes(15);
+  /** A budget of 30 minutes. */
+  private static final Duration THIRTY = Duration.ofMinutes(30);
   /** The seed of the draws. */
   private static final long SEED = 2026;
 
@@ -41,8 +45,8 @@ final class EllipseTest {
   @DisplayName("Phase 3: the width of the ellipse depends on the budget")
   void axesTest() {
     final double focal = LineRouter.distance(YVERDON, LAUSANNE);
-    final Ellipse fifteen = Ellipse.of(YVERDON, LAUSANNE, FASTEST, Budget.FIFTEEN_MINUTES.getDuration());
-    final Ellipse thirty = Ellipse.of(YVERDON, LAUSANNE, FASTEST, Budget.THIRTY_MINUTES.getDuration());
+    final Ellipse fifteen = Ellipse.of(YVERDON, LAUSANNE, FASTEST, FIFTEEN);
+    final Ellipse thirty = Ellipse.of(YVERDON, LAUSANNE, FASTEST, THIRTY);
     assertAll(
         () -> assertEquals(focal * RATIO_FIFTEEN, 2 * fifteen.semiMajor(), focal * TOLERANCE),
         () -> assertEquals(focal * RATIO_THIRTY, 2 * thirty.semiMajor(), focal * TOLERANCE),
@@ -60,7 +64,7 @@ final class EllipseTest {
   @Test
   @DisplayName("Phase 3: the waypoints are drawn in an ellipse whose foci are the start and the finish")
   void drawTest() {
-    final Ellipse ellipse = Ellipse.of(YVERDON, LAUSANNE, FASTEST, Budget.FIFTEEN_MINUTES.getDuration());
+    final Ellipse ellipse = Ellipse.of(YVERDON, LAUSANNE, FASTEST, FIFTEEN);
     final RandomGenerator random = RandomGeneratorFactory.of(DetourGenerator.ALGORITHM).create(SEED);
     final double major = 2 * ellipse.semiMajor();
     int beyondMinor = 0;
@@ -81,12 +85,29 @@ final class EllipseTest {
   @Test
   @DisplayName("Phase 3: the waypoints are ordered from the start towards the finish")
   void alongTest() {
-    final Ellipse ellipse = Ellipse.of(YVERDON, LAUSANNE, FASTEST, Budget.THIRTY_MINUTES.getDuration());
+    final Ellipse ellipse = Ellipse.of(YVERDON, LAUSANNE, FASTEST, THIRTY);
     final double half = LineRouter.distance(YVERDON, LAUSANNE) / 2;
     assertAll(
         () -> assertEquals(-half, ellipse.along(YVERDON), half * TOLERANCE),
         () -> assertEquals(half, ellipse.along(LAUSANNE), half * TOLERANCE),
         () -> assertEquals(0, ellipse.along(ellipse.centre()), half * TOLERANCE));
+  }
+
+  /**
+   * A budget of 0 minutes gives a flat ellipse: the segment from the start to the finish, where every point drawn lies.
+   */
+  @Test
+  @DisplayName("Issue #9: a budget of 0 minutes draws the waypoints on the segment from the start to the finish")
+  void flatTest() {
+    final Ellipse ellipse = Ellipse.of(YVERDON, LAUSANNE, FASTEST, Duration.ZERO);
+    final RandomGenerator random = RandomGeneratorFactory.of(DetourGenerator.ALGORITHM).create(SEED);
+    final double focal = LineRouter.distance(YVERDON, LAUSANNE);
+    final GeoPoint point = ellipse.draw(random);
+    assertAll(
+        () -> assertEquals(0, ellipse.semiMinor()),
+        () -> assertEquals(focal, 2 * ellipse.semiMajor(), focal * TOLERANCE),
+        () -> assertEquals(focal, LineRouter.distance(YVERDON, point) + LineRouter.distance(point, LAUSANNE),
+                           focal * TOLERANCE));
   }
 
 }

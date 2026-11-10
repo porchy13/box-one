@@ -20,7 +20,8 @@ import java.util.Objects;
  * @param route the route through the waypoints, from the start to the finish.
  * @param fastest the fastest route from the start to the finish.
  * @param waypoints the waypoints drawn, in the order the route passes them; unmodifiable.
- * @param budget the budget of the detour: the route is longer than the fastest route by its duration at most.
+ * @param budget the budget of the detour: the route is longer than the fastest route by its duration at most
+ *               ({@link Budget#of(java.time.Duration)} of the duration of the fastest route).
  * @param seed the seed of the random draws.
  */
 public record Detour(Route route, Route fastest, List<GeoPoint> waypoints, Budget budget, long seed) {

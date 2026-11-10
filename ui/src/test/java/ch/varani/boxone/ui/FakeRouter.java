@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * A router of the tests: it returns a fixed route from the start to the finish asked, longer by
- * {@link #WAYPOINT_COST} per waypoint, or throws a fixed exception, and counts its closings.
+ * {@link #WAYPOINT_COST} and {@link #WAYPOINT_LENGTH} per waypoint, or throws a fixed exception, and counts its
+ * closings.
  *
  * <p>Not thread-safe: used from the JavaFX Application Thread only.</p>
  */
@@ -19,8 +20,10 @@ final class FakeRouter implements Router {
   static final double DISTANCE = 12_345;
   /** The duration of the routes. */
   static final Duration DURATION = Duration.ofMinutes(75);
-  /** The time a waypoint adds to the routes: three waypoints stay within the shorter budget of a detour. */
+  /** The time a waypoint adds to the routes: three waypoints stay within the budget proposed first, 15 minutes. */
   static final Duration WAYPOINT_COST = Duration.ofMinutes(1);
+  /** The length a waypoint adds to the routes, in metres: a detour drives other roads than the fastest route. */
+  static final double WAYPOINT_LENGTH = 100;
 
   /** The exception thrown by the routing, or {@code null} to return a route. */
   private final RuntimeException failure;
@@ -48,14 +51,17 @@ final class FakeRouter implements Router {
    *
    * @param points the start, the waypoints and the finish.
    *
-   * @return the route, of {@link #DISTANCE} metres in {@link #DURATION}, plus {@link #WAYPOINT_COST} per waypoint.
+   * @return the route, of {@link #DISTANCE} metres in {@link #DURATION}, plus {@link #WAYPOINT_LENGTH} and
+   *         {@link #WAYPOINT_COST} per waypoint.
    */
   @Override
   public Route route(final List<GeoPoint> points) {
     if (failure != null) {
       throw failure;
     }
-    return new Route(points, List.of(), DISTANCE, DURATION.plus(WAYPOINT_COST.multipliedBy(points.size() - 2L)));
+    final long waypoints = points.size() - 2L;
+    return new Route(points, List.of(), DISTANCE + WAYPOINT_LENGTH * waypoints,
+                     DURATION.plus(WAYPOINT_COST.multipliedBy(waypoints)));
   }
 
   /**

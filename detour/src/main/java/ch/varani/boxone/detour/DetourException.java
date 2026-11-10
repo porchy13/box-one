@@ -3,7 +3,7 @@ package ch.varani.boxone.detour;
 import java.io.Serial;
 
 /**
- * Thrown when no detour can be generated within the budget.
+ * Thrown when no detour can be generated within the budget, or when a budget is invalid.
  *
  * <p>The exception carries a {@link DetourError}, translated by the user interface. Its message is the name of the
  * error only: it never contains a position (AGENTS.md §5).</p>

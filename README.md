@@ -57,9 +57,11 @@ theme, accent and colours following the system.
 - **Fastest route**: click on the map to place the start, click again to place the finish; the fastest route by car
   is drawn as a dashed line, with its distance and its duration in a card at the top right of the map. A third click
   begins a new route.
-- **Detour**: once the fastest route is shown, Route › Generate a detour… (Shortcut+D) asks for a budget, 15 or
-  30 minutes, and a seed, a new one proposed each time. The detour passes through waypoints drawn at random around
-  the start and the finish, takes longer than the fastest route by the budget at most, drives no road twice nor
+- **Detour**: once the fastest route is shown, Route › Generate a detour… (Shortcut+D) asks for a budget, in minutes
+  (0 to 60, by steps of 5) or in percent of the duration of the fastest route (5 to 100 %, by steps of 5, the time it
+  gives shown under the choice), and a seed, a new one proposed each time. The detour passes through waypoints drawn
+  at random around the start and the finish, drives other roads than the fastest route and takes longer by the budget
+  at most (with 0 minutes, the same duration by other roads, seldom found), drives no road twice nor
   turns back, and drives the roads for residents or private and the tracks (forest roads) only around the start
   and the finish; no waypoint lies on them nor on a service road (driveway, parking aisle). It is drawn as a solid line over the fastest route, with its distance
   and duration in the card, and its seed at the right of the status bar, where it can be selected and copied: the

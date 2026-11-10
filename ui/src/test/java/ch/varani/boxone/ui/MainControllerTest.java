@@ -68,6 +68,8 @@ final class MainControllerTest {
   private static final double CASTLE_LONGITUDE = 6.6413;
   /** The texts of the tests, in French. */
   private static final ResourceBundle TEXTS = Languages.bundle(Languages.FRENCH);
+  /** The index of the budget of 30 minutes in the choice of the detour: after 0, 5… 25 minutes. */
+  private static final int THIRTY_MINUTES = 6;
 
   /** The data folder of the tests. */
   @TempDir
@@ -405,7 +407,7 @@ final class MainControllerTest {
     final AtomicReference<String> seed = new AtomicReference<>();
     robot.interact(() -> {
       seed.set(robot.lookup("#" + DetourDialog.SEED_ID).queryAs(TextField.class).getText());
-      robot.lookup("#" + DetourDialog.BUDGET_ID).queryAs(ComboBox.class).getSelectionModel().select(1);
+      robot.lookup("#" + DetourDialog.BUDGET_ID).queryAs(ComboBox.class).getSelectionModel().select(THIRTY_MINUTES);
       button(robot, ButtonBar.ButtonData.OK_DONE).fire();
     });
     WaitForAsyncUtils.waitForFxEvents();

@@ -55,7 +55,8 @@ record Ellipse(GeoPoint centre, double axis, double semiMajor, double semiMinor)
    * @param start the start, a focus.
    * @param finish the finish, the other focus.
    * @param fastest the duration of the fastest route from the start to the finish, positive.
-   * @param budget the time the detour may add to the fastest route, positive.
+   * @param budget the time the detour may add to the fastest route, non-negative: 0 gives a flat ellipse, the segment
+   *               from the start to the finish.
    *
    * @return the ellipse, with the axes {@code 2a = 2c (T + B) / T} and {@code 2b = 2 √(a² − c²)}.
    */

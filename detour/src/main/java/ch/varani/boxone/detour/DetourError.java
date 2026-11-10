@@ -15,6 +15,13 @@ public enum DetourError {
    * {@value DetourGenerator#MAX_ATTEMPTS} draws: the start and the finish are too close, or the roads around them too
    * few (the edge of the map, a lake…).
    */
-  NO_DETOUR
+  NO_DETOUR,
+
+  /**
+   * The budget is not a multiple of {@value Budget#STEP} within the bounds of its unit: {@value Budget#MIN_MINUTES}
+   * to {@value Budget#MAX_MINUTES} minutes, or {@value Budget#MIN_PERCENT} to {@value Budget#MAX_PERCENT} percent
+   * (issues #9 and #10 of GitLab).
+   */
+  INVALID_BUDGET
 
 }

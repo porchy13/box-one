@@ -8,7 +8,7 @@ import ch.varani.boxone.routing.RoutingException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -19,6 +19,7 @@ import java.util.concurrent.CancellationException;
 import java.util.random.RandomGenerator;
 import java.util.random.RandomGeneratorFactory;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,6 +46,12 @@ final class DetourGeneratorTest {
   private static final long[] SEEDS = LongStream.range(0, GENERATIONS).toArray();
   /** A seed of the tests. */
   private static final long SEED = 123_456;
+  /** The metres a route by other roads adds to the fastest route, in the tests of a budget of 0 minutes. */
+  private static final double OTHER_ROADS = 100;
+  /** A budget of 15 minutes. */
+  private static final Budget FIFTEEN_MINUTES = Budget.DEFAULT;
+  /** A budget of 30 minutes. */
+  private static final Budget THIRTY_MINUTES = new Budget(Budget.Unit.MINUTES, 30);
   /** The relative tolerance on the ellipse, for the plane projection. */
   private static final double TOLERANCE = 1e-3;
 
@@ -55,18 +62,18 @@ final class DetourGeneratorTest {
    * @param budget the budget.
    */
   @ParameterizedTest
-  @EnumSource(Budget.class)
-  @DisplayName("Phase 3: successive generations give different detours, all within the budget")
+  @MethodSource("budgets")
+  @DisplayName("Issues #9 and #10: successive generations give different detours within each budget but 0 minutes")
   void budgetTest(final Budget budget) {
     final DetourGenerator generator = new DetourGenerator(new LineRouter());
     final Set<Route> routes = new HashSet<>();
     for (final long seed : SEEDS) {
       final Detour detour = generator.generate(START, FINISH, budget, seed);
       final Duration fastest = detour.fastest().duration();
-      final Ellipse ellipse = Ellipse.of(START, FINISH, fastest, budget.getDuration());
+      final Ellipse ellipse = Ellipse.of(START, FINISH, fastest, budget.of(fastest));
       final List<Double> along = detour.waypoints().stream().map(ellipse::along).toList();
       assertAll(
-          () -> assertTrue(detour.route().duration().compareTo(fastest.plus(budget.getDuration())) <= 0),
+          () -> assertTrue(detour.route().duration().compareTo(fastest.plus(budget.of(fastest))) <= 0),
           () -> assertTrue(detour.route().duration().compareTo(fastest) > 0),
           () -> assertFalse(detour.waypoints().isEmpty()),
           () -> assertTrue(detour.waypoints().size() <= DetourGenerator.MAX_WAYPOINTS),
@@ -80,14 +87,73 @@ final class DetourGeneratorTest {
   }
 
   /**
+   * Returns the budgets of the user but 0 minutes, under which the straight lines through waypoints are always too
+   * long.
+   *
+   * @return the budgets in minutes from 5 to 60, and in percent from 5 to 100.
+   */
+  static Stream<Budget> budgets() {
+    return Stream.of(Budget.Unit.values()).flatMap(unit -> unit.budgets().stream())
+                 .filter(budget -> budget.amount() > 0);
+  }
+
+  /**
+   * A budget of 0 minutes accepts a route of the same duration as the fastest one by other roads: a length that
+   * differs by more than a metre.
+   */
+  @Test
+  @DisplayName("Issue #9: a budget of 0 minutes accepts a route of the same duration by other roads")
+  void zeroTest() {
+    final Budget zero = new Budget(Budget.Unit.MINUTES, 0);
+    final Route fastest = LineRouter.line(List.of(START, FINISH));
+    final LineRouter router = new LineRouter(points -> new Route(points, List.of(), fastest.distance() + OTHER_ROADS,
+                                                                 fastest.duration()));
+    final Detour detour = new DetourGenerator(router).generate(START, FINISH, zero, SEED);
+    assertAll(
+        () -> assertEquals(fastest.duration(), detour.route().duration()),
+        () -> assertEquals(zero, detour.budget()));
+  }
+
+  /**
+   * Another route than the fastest one has a length that differs by more than a metre; the same roads a millisecond
+   * longer, the rounding of the router through a waypoint on the fastest route, are the fastest route.
+   */
+  @Test
+  @DisplayName("Phase 3: a route of the same length is the fastest route, even a millisecond longer")
+  void otherTest() {
+    final Route fastest = LineRouter.line(List.of(START, FINISH));
+    final Duration longer = fastest.duration().plusMillis(1);
+    assertAll(
+        () -> assertFalse(DetourGenerator.isOther(fastest, fastest)),
+        () -> assertFalse(DetourGenerator.isOther(with(fastest, DetourGenerator.SAME_LENGTH, fastest.duration()),
+                                                  fastest)),
+        () -> assertTrue(DetourGenerator.isOther(with(fastest, -OTHER_ROADS, fastest.duration()), fastest)),
+        () -> assertTrue(DetourGenerator.isOther(with(fastest, OTHER_ROADS, fastest.duration()), fastest)),
+        () -> assertFalse(DetourGenerator.isOther(with(fastest, 0, longer), fastest)));
+  }
+
+  /**
+   * Returns a route of the line of another one, with another length and duration.
+   *
+   * @param route the route.
+   * @param longer the metres added to its length, negative to shorten it.
+   * @param duration the duration of the new route.
+   *
+   * @return the new route.
+   */
+  private static Route with(final Route route, final double longer, final Duration duration) {
+    return new Route(route.points(), List.of(), route.distance() + longer, duration);
+  }
+
+  /**
    * The same seed and the same inputs give the same detour.
    */
   @Test
   @DisplayName("Phase 3: the same seed gives the same detour")
   void seedTest() {
     final DetourGenerator generator = new DetourGenerator(new LineRouter());
-    assertEquals(generator.generate(START, FINISH, Budget.THIRTY_MINUTES, SEED),
-                 generator.generate(START, FINISH, Budget.THIRTY_MINUTES, SEED));
+    assertEquals(generator.generate(START, FINISH, THIRTY_MINUTES, SEED),
+                 generator.generate(START, FINISH, THIRTY_MINUTES, SEED));
   }
 
   /**
@@ -102,7 +168,7 @@ final class DetourGeneratorTest {
     });
     final DetourGenerator generator = new DetourGenerator(router);
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, FINISH, Budget.FIFTEEN_MINUTES, SEED));
+        () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, SEED));
     assertAll(
         () -> assertEquals(DetourError.NO_DETOUR, failure.getError()),
         () -> assertEquals(1 + DetourGenerator.MAX_ATTEMPTS, router.getRoutings()));
@@ -115,12 +181,12 @@ final class DetourGeneratorTest {
   @DisplayName("Phase 3: a detour of exactly T + budget is accepted")
   void limitTest() {
     final Duration limit = LineRouter.line(List.of(START, FINISH)).duration()
-        .plus(Budget.FIFTEEN_MINUTES.getDuration());
+        .plus(FIFTEEN_MINUTES.of(LineRouter.line(List.of(START, FINISH)).duration()));
     final LineRouter router = new LineRouter(points -> {
       final Route line = LineRouter.line(points);
       return new Route(line.points(), List.of(), line.distance(), limit);
     });
-    assertEquals(limit, new DetourGenerator(router).generate(START, FINISH, Budget.FIFTEEN_MINUTES, SEED).route()
+    assertEquals(limit, new DetourGenerator(router).generate(START, FINISH, FIFTEEN_MINUTES, SEED).route()
         .duration());
   }
 
@@ -133,7 +199,7 @@ final class DetourGeneratorTest {
     final LineRouter router = new LineRouter(points -> LineRouter.line(List.of(START, FINISH)));
     final DetourGenerator generator = new DetourGenerator(router);
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, FINISH, Budget.THIRTY_MINUTES, SEED));
+        () -> generator.generate(START, FINISH, THIRTY_MINUTES, SEED));
     assertEquals(DetourError.NO_DETOUR, failure.getError());
   }
 
@@ -146,7 +212,7 @@ final class DetourGeneratorTest {
     final LineRouter router = new LineRouter(points -> LineRouter.line(List.of(START, MIDDLE, START, FINISH)));
     final DetourGenerator generator = new DetourGenerator(router);
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, FINISH, Budget.THIRTY_MINUTES, SEED));
+        () -> generator.generate(START, FINISH, THIRTY_MINUTES, SEED));
     assertEquals(DetourError.NO_DETOUR, failure.getError());
   }
 
@@ -164,7 +230,7 @@ final class DetourGeneratorTest {
       }
       return LineRouter.line(points);
     });
-    final Detour detour = new DetourGenerator(router).generate(START, FINISH, Budget.FIFTEEN_MINUTES, SEED);
+    final Detour detour = new DetourGenerator(router).generate(START, FINISH, FIFTEEN_MINUTES, SEED);
     assertAll(
         () -> assertTrue(calls.size() > 1),
         () -> assertEquals(calls.getLast(), detour.waypoints().size() + 2));
@@ -179,7 +245,7 @@ final class DetourGeneratorTest {
     final RoutingException failure = new RoutingException(RoutingError.NO_ROUTE);
     final DetourGenerator generator = new DetourGenerator(new FailingRouter(failure));
     assertSame(failure, assertThrows(RoutingException.class,
-                                     () -> generator.generate(START, FINISH, Budget.FIFTEEN_MINUTES, SEED)));
+                                     () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, SEED)));
   }
 
   /**
@@ -190,7 +256,7 @@ final class DetourGeneratorTest {
   void samePlaceTest() {
     final DetourGenerator generator = new DetourGenerator(new LineRouter());
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, START, Budget.FIFTEEN_MINUTES, SEED));
+        () -> generator.generate(START, START, FIFTEEN_MINUTES, SEED));
     assertEquals(DetourError.NO_DETOUR, failure.getError());
   }
 
@@ -204,7 +270,7 @@ final class DetourGeneratorTest {
     Thread.currentThread().interrupt();
     try {
       assertThrows(CancellationException.class,
-                   () -> generator.generate(START, FINISH, Budget.FIFTEEN_MINUTES, SEED));
+                   () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, SEED));
     } finally {
       assertTrue(Thread.interrupted());
     }

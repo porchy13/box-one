@@ -30,6 +30,7 @@ import javafx.stage.Stage;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -170,7 +171,9 @@ final class MainController {
   /** The route shown, the fastest one or a detour, or {@code null} while there is none. */
   private Route route;
   /** The budget of the last detour asked, proposed for the next one. */
-  private Budget budget = Budget.FIFTEEN_MINUTES;
+  private Budget budget = Budget.DEFAULT;
+  /** The duration of the fastest route shown, alone or under a detour, of which a budget in percent is a share. */
+  private Duration fastest = Duration.ZERO;
   /** The pane of the map, under the veil, injected by the view. */
   @FXML
   private StackPane mapPane;
@@ -361,6 +364,7 @@ final class MainController {
   private void routed(final Route route) {
     routing = null;
     map.setRoute(route);
+    fastest = route.duration();
     showRoute(route, null);
     setStatus(STATUS_ROUTED);
   }
@@ -373,9 +377,10 @@ final class MainController {
   private void detoured(final Detour detour) {
     routing = null;
     map.setDetour(detour.fastest(), detour.route());
+    fastest = detour.fastest().duration();
     showRoute(detour.route(), detour);
     status.setText(new MessageFormat(texts.getString(STATUS_DETOUR), locale).format(new Object[] {
-        RouteText.duration(detour.budget().getDuration(), texts, locale),
+        RouteText.budget(detour.budget(), fastest, texts, locale),
         RouteText.duration(detour.fastest().duration(), texts, locale)}));
   }
 
@@ -453,7 +458,7 @@ final class MainController {
    */
   @FXML
   private void generateDetour() {
-    final Dialog<DetourDialog.Request> dialog = new DetourDialog(stage, texts, locale, budget,
+    final Dialog<DetourDialog.Request> dialog = new DetourDialog(stage, texts, locale, budget, fastest,
         DetourGenerator.newSeed(RandomGenerator.getDefault()), stage.getScene().getStylesheets()).getDialog();
     dialog.setOnHidden(event -> {
       if (dialog.getResult() != null) {

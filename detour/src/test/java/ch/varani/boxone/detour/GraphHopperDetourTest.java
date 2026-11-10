@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -68,18 +69,18 @@ final class GraphHopperDetourTest {
     final DetourGenerator generator = new DetourGenerator(router);
     final Set<Route> routes = new HashSet<>();
     for (int seed = 0; seed < GENERATIONS; seed++) {
-      final Detour detour = generator.generate(STATION, CASTLE, Budget.FIFTEEN_MINUTES, seed);
+      final Detour detour = generator.generate(STATION, CASTLE, Budget.DEFAULT, seed);
+      final Duration fastest = detour.fastest().duration();
       assertAll(
-          () -> assertTrue(detour.route().duration()
-                               .compareTo(detour.fastest().duration().plus(Budget.FIFTEEN_MINUTES.getDuration())) <= 0),
+          () -> assertTrue(detour.route().duration().compareTo(fastest.plus(Budget.DEFAULT.of(fastest))) <= 0),
           () -> assertTrue(detour.route().duration().compareTo(detour.fastest().duration()) > 0),
           () -> assertFalse(DetourGenerator.drivesTwice(detour.route())));
       routes.add(detour.route());
     }
     assertAll(
         () -> assertEquals(GENERATIONS, routes.size()),
-        () -> assertEquals(generator.generate(STATION, CASTLE, Budget.FIFTEEN_MINUTES, 1),
-                           generator.generate(STATION, CASTLE, Budget.FIFTEEN_MINUTES, 1)));
+        () -> assertEquals(generator.generate(STATION, CASTLE, Budget.DEFAULT, 1),
+                           generator.generate(STATION, CASTLE, Budget.DEFAULT, 1)));
   }
 
 }

@@ -20,11 +20,13 @@ import java.util.random.RandomGeneratorFactory;
  * Generates a detour: a route from the start to the finish through random waypoints, longer than the fastest route by
  * the budget at most (development plan, phase 3).
  *
- * <p><b>Inputs</b>: the start, the finish, the budget (15 or 30 minutes) and the seed of the random draws.</p>
+ * <p><b>Inputs</b>: the start, the finish, the {@link Budget} (0 to 60 minutes, or 5 to 100 percent of the fastest
+ * route) and the seed of the random draws.</p>
  *
  * <p><b>Algorithm</b>:</p>
  * <ol>
- *   <li>the router computes the fastest route, of duration {@code T};</li>
+ *   <li>the router computes the fastest route, of duration {@code T}; the budget {@code B} follows from it
+ *       ({@link Budget#of(Duration)});</li>
  *   <li>the random generator {@value #ALGORITHM} is built from the seed: the same seed gives the same draws, on every
  *       Java runtime (AGENTS.md §2);</li>
  *   <li>each attempt draws the number of waypoints, from 1 to {@value #MAX_WAYPOINTS}, then the waypoints, uniformly
@@ -32,16 +34,19 @@ import java.util.random.RandomGeneratorFactory;
  *       waypoints are sorted along the major axis, from the start towards the finish, so that the route does not
  *       zigzag;</li>
  *   <li>the router computes the fastest route from the start to the finish through the waypoints; the route is
- *       accepted if its duration is {@code T + budget} at most and if it drives no segment of road twice, in either
+ *       accepted if its duration is {@code T + B} at most and if it drives no segment of road twice, in either
  *       direction (development plan, phase 3) — a U-turn drives back the segment just driven, so it is rejected as
- *       well —, and if it takes longer than {@code T}: a waypoint on the fastest route gives no detour;</li>
+ *       well —, and if it is another route than the fastest one: its length differs by more than
+ *       {@value #SAME_LENGTH} m. A waypoint on the fastest route gives the same roads, of the same length, and a
+ *       duration longer by a millisecond or so, the rounding of the times of the router; a route of the same duration
+ *       by other roads, the only detour of a budget of 0 minutes (issue #9 of GitLab), is another route;</li>
  *   <li>otherwise — the route is too long, drives a segment twice, or the router finds no route through a waypoint
  *       (far from every road, in a lake or beyond the edge of the map; on a junction or at the end of a dead end,
  *       where the route could turn back) — the next attempt draws again, up to {@value #MAX_ATTEMPTS} attempts.</li>
  * </ol>
  *
- * <p><b>Postconditions</b>: the detour returned takes longer than the fastest route, by the budget at most, and
- * drives no segment twice; with the same
+ * <p><b>Postconditions</b>: the detour returned is another route than the fastest one, longer by the budget at most,
+ * and drives no segment twice; with the same
  * inputs, the same seed and the same map, it is the same detour.</p>
  *
  * <p><b>Cancellation</b>: the generation stops between two attempts once its thread is interrupted (the cancellation
@@ -76,6 +81,12 @@ public final class DetourGenerator {
    * enough to be noted down and typed again.
    */
   public static final long SEED_BOUND = 1_000_000;
+  /**
+   * The largest difference of length, in metres, between a route through waypoints and the fastest route, under which
+   * the route of the same duration is the fastest one: a waypoint on the fastest route splits a segment in two, whose
+   * lengths add up to the length of the segment within a few millimetres.
+   */
+  static final double SAME_LENGTH = 1;
 
   // *******************************************************************************************************************
   // Attributes
@@ -120,7 +131,8 @@ public final class DetourGenerator {
    * @param budget the time the detour may add to the fastest route.
    * @param seed the seed of the random draws; any value.
    *
-   * @return the detour, longer than the fastest route by the budget at most, without segment driven twice.
+   * @return the detour, another route than the fastest one, longer by the budget at most, without segment driven
+   *         twice.
    *
    * @throws RoutingException if the router finds no fastest route from the start to the finish.
    * @throws DetourException {@link DetourError#NO_DETOUR} if no attempt gives a route within the budget, without
@@ -132,8 +144,9 @@ public final class DetourGenerator {
     if (fastest.duration().isZero()) {
       throw new DetourException(DetourError.NO_DETOUR);
     }
-    final Duration limit = fastest.duration().plus(budget.getDuration());
-    final Ellipse ellipse = Ellipse.of(start, finish, fastest.duration(), budget.getDuration());
+    final Duration extra = budget.of(fastest.duration());
+    final Duration limit = fastest.duration().plus(extra);
+    final Ellipse ellipse = Ellipse.of(start, finish, fastest.duration(), extra);
     final RandomGenerator random = RandomGeneratorFactory.of(ALGORITHM).create(seed);
     for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       if (Thread.currentThread().isInterrupted()) {
@@ -141,7 +154,7 @@ public final class DetourGenerator {
       }
       final List<GeoPoint> waypoints = waypoints(ellipse, random);
       final Optional<Route> route = route(start, waypoints, finish);
-      if (route.isPresent() && accepted(route.get(), fastest.duration(), limit)) {
+      if (route.isPresent() && accepted(route.get(), fastest, limit)) {
         return new Detour(route.get(), fastest, waypoints, budget, seed);
       }
     }
@@ -171,14 +184,28 @@ public final class DetourGenerator {
    * Tells whether the route of an attempt is a detour within the budget.
    *
    * @param route the route through the waypoints.
-   * @param fastest the duration {@code T} of the fastest route.
-   * @param limit the longest duration of a detour, {@code T + budget}.
+   * @param fastest the fastest route, of duration {@code T}.
+   * @param limit the longest duration of a detour, {@code T + B}.
    *
-   * @return {@code true} if the route takes longer than the fastest route, {@code T + budget} at most, and drives no
-   *         segment twice.
+   * @return {@code true} if the route is another route than the fastest one, takes {@code T + B} at most, and drives
+   *         no segment twice.
    */
-  private static boolean accepted(final Route route, final Duration fastest, final Duration limit) {
-    return route.duration().compareTo(fastest) > 0 && route.duration().compareTo(limit) <= 0 && !drivesTwice(route);
+  private static boolean accepted(final Route route, final Route fastest, final Duration limit) {
+    return route.duration().compareTo(limit) <= 0 && isOther(route, fastest) && !drivesTwice(route);
+  }
+
+  /**
+   * Tells whether a route through waypoints is another route than the fastest one: its length differs by more than
+   * {@value #SAME_LENGTH} m. The durations cannot tell: through a waypoint on the fastest route, the router rounds the
+   * time of each part of the split segment, and the same roads take a millisecond or so longer.
+   *
+   * @param route the route through the waypoints.
+   * @param fastest the fastest route.
+   *
+   * @return {@code true} if the route is another route.
+   */
+  static boolean isOther(final Route route, final Route fastest) {
+    return Math.abs(route.distance() - fastest.distance()) > SAME_LENGTH;
   }
 
   /**

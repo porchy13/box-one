@@ -30,7 +30,7 @@ final class DetourTest {
   @DisplayName("Phase 3: a detour is immutable")
   void copyTest() {
     final List<GeoPoint> waypoints = new ArrayList<>(List.of(WAYPOINT));
-    final Detour detour = new Detour(ROUTE, ROUTE, waypoints, Budget.FIFTEEN_MINUTES, 42);
+    final Detour detour = new Detour(ROUTE, ROUTE, waypoints, Budget.DEFAULT, 42);
     waypoints.clear();
     final List<GeoPoint> kept = detour.waypoints();
     assertAll(
@@ -47,11 +47,11 @@ final class DetourTest {
     final List<GeoPoint> waypoints = List.of(WAYPOINT);
     assertAll(
         () -> assertThrows(NullPointerException.class,
-                           () -> new Detour(null, ROUTE, waypoints, Budget.FIFTEEN_MINUTES, 1)),
+                           () -> new Detour(null, ROUTE, waypoints, Budget.DEFAULT, 1)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Detour(ROUTE, null, waypoints, Budget.FIFTEEN_MINUTES, 1)),
+                           () -> new Detour(ROUTE, null, waypoints, Budget.DEFAULT, 1)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Detour(ROUTE, ROUTE, null, Budget.FIFTEEN_MINUTES, 1)),
+                           () -> new Detour(ROUTE, ROUTE, null, Budget.DEFAULT, 1)),
         () -> assertThrows(NullPointerException.class, () -> new Detour(ROUTE, ROUTE, waypoints, null, 1)));
   }
 
