@@ -17,6 +17,7 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
+import javafx.scene.paint.Color;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.DisplayName;
@@ -71,6 +72,11 @@ final class MainControllerTest {
   private final QueueExecutor background = new QueueExecutor();
   /** The light or dark mode of the system. */
   private final ObjectProperty<ColorScheme> scheme = new SimpleObjectProperty<>(ColorScheme.LIGHT);
+  /** The accent of the system. */
+  private final ObjectProperty<Color> accent = new SimpleObjectProperty<>(Color.web("#007AFF"));
+  /** The mode and the colours of the system: the accent, a white background and a black text. */
+  private final SystemColors colors = new SystemColors(scheme, accent, new SimpleObjectProperty<>(Color.WHITE),
+                                                       new SimpleObjectProperty<>(Color.BLACK));
 
   /**
    * A window shown by the tests.
@@ -88,16 +94,16 @@ final class MainControllerTest {
    * @param mac whether the window is shown as on macOS.
    * @param exit quits the application.
    * @param services the services of the window.
-   * @param scheme the light or dark mode of the system.
+   * @param colors the mode and the colours of the system.
    *
    * @return the window.
    */
   private static Shown show(final FxRobot robot, final boolean mac, final Runnable exit,
-                             final Services services, final ObjectProperty<ColorScheme> scheme) {
+                             final Services services, final SystemColors colors) {
     final AtomicReference<Shown> window = new AtomicReference<>();
     robot.interact(() -> {
       final Stage stage = new Stage();
-      final MainController controller = new MainController(stage, TEXTS, Languages.FRENCH, mac, scheme, exit,
+      final MainController controller = new MainController(stage, TEXTS, Languages.FRENCH, mac, colors, exit,
                                                            services);
       controller.show();
       window.set(new Shown(stage, controller));
@@ -118,7 +124,7 @@ final class MainControllerTest {
   private Shown show(final FxRobot robot, final Function<Path, Optional<? extends Router>> loader,
                       final BiFunction<Path, Path, ? extends Router> importer,
                       final Function<javafx.stage.Window, Optional<Path>> chooser) {
-    return show(robot, false, () -> { }, new Services(data, background, loader, importer, chooser), scheme);
+    return show(robot, false, () -> { }, new Services(data, background, loader, importer, chooser), colors);
   }
 
   /**
@@ -210,7 +216,7 @@ final class MainControllerTest {
     final AtomicInteger exits = new AtomicInteger();
     final Shown window = show(robot, false, exits::incrementAndGet,
                                new Services(data, background, folder -> Optional.empty(),
-                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), scheme);
+                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), colors);
     final String loading = text(robot, window, "status");
     final boolean veiled = busy(window).isVisible();
     final String veil = text(robot, window, "busyText");
@@ -238,7 +244,8 @@ final class MainControllerTest {
         () -> assertFalse(hinted),
         () -> assertFalse(busy(window).isVisible()),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_NO_MAP), text(robot, window, "status")),
-        () -> assertTrue(window.stage().getScene().getStylesheets().getFirst().endsWith(Theme.LIGHT_TOKENS)));
+        () -> assertTrue(window.stage().getScene().getStylesheets().getFirst().startsWith(Theme.DATA)),
+        () -> assertTrue(window.stage().getScene().getStylesheets().get(1).endsWith(Theme.LIGHT_TOKENS)));
   }
 
   /**
@@ -251,7 +258,7 @@ final class MainControllerTest {
   void macTest(final FxRobot robot) {
     final Shown window = show(robot, true, () -> { },
                                new Services(data, background, folder -> Optional.empty(),
-                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), scheme);
+                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), colors);
     final List<Menu> menus = menuBar(robot, window).getMenus();
     assertAll(
         () -> assertEquals(List.of("fileMenu"), menus.stream().map(Menu::getId).toList()),
@@ -519,7 +526,7 @@ final class MainControllerTest {
     final Path blocked = Files.writeString(data.resolve("file"), "not a folder");
     final Shown window = show(robot, false, () -> { },
                                new Services(blocked, background, folder -> Optional.empty(),
-                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), scheme);
+                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), colors);
     fire(robot, window, "optionsItem");
     robot.interact(() -> button(robot, ButtonBar.ButtonData.OK_DONE).fire());
     WaitForAsyncUtils.waitForFxEvents();
@@ -527,36 +534,42 @@ final class MainControllerTest {
   }
 
   /**
-   * The map follows the light or dark mode of the system.
+   * The map follows the accent and the light or dark mode of the system.
    *
    * @param robot the TestFX robot.
    *
    * @throws TimeoutException if the page of the map does not load in time.
    */
   @Test
-  @DisplayName("Phase 1: the map follows the light or dark mode of the system")
+  @DisplayName("The map follows the accent and the light or dark mode of the system")
   void themeTest(final FxRobot robot) throws TimeoutException {
     final Shown window = show(robot, new FakeRouter());
     final WebView view = map(window);
-    final String light = color(robot, view);
+    final String lightAccent = color(robot, view, "accent");
+    final String lightDanger = color(robot, view, "danger");
+    robot.interact(() -> accent.set(Color.web("#FF9500")));
+    final String orange = color(robot, view, "accent");
     robot.interact(() -> scheme.set(ColorScheme.DARK));
     assertAll(
-        () -> assertEquals(Theme.tokens(Theme.class.getResource(Theme.LIGHT_TOKENS)).get("-c-accent"), light),
-        () -> assertEquals(Theme.tokens(Theme.class.getResource(Theme.DARK_TOKENS)).get("-c-accent"),
-                           color(robot, view)));
+        () -> assertEquals("#007AFF", lightAccent),
+        () -> assertEquals(Theme.tokens(Theme.class.getResource(Theme.LIGHT_TOKENS)).get("-c-danger"), lightDanger),
+        () -> assertEquals("#FF9500", orange),
+        () -> assertEquals(Theme.tokens(Theme.class.getResource(Theme.DARK_TOKENS)).get("-c-danger"),
+                           color(robot, view, "danger")));
   }
 
   /**
-   * Returns the accent of the page of the map.
+   * Returns a colour token of the page of the map.
    *
    * @param robot the TestFX robot.
    * @param view the view of the map.
+   * @param token the name of the token, without its prefix ({@code accent} for {@code --c-accent}).
    *
-   * @return the value of the variable {@code --c-accent} of the page.
+   * @return the value of the variable {@code --c-<token>} of the page.
    */
-  private static String color(final FxRobot robot, final WebView view) {
-    return String.valueOf(MapPages.script(robot, view,
-                                          "document.documentElement.style.getPropertyValue('--c-accent').trim()"));
+  private static String color(final FxRobot robot, final WebView view, final String token) {
+    return String.valueOf(MapPages.script(robot, view, "document.documentElement.style.getPropertyValue('--c-"
+                                                       + token + "').trim()"));
   }
 
   /**

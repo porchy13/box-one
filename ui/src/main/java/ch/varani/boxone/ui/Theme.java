@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,14 +17,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The theme of the window (DESIGN.md §2, §3, §12): the style sheets of the light or dark tokens, then the base and the
- * components, following the light or dark mode of the system.
+ * The theme of the window (DESIGN.md §2, §3, §12): the colours of the system, the style sheets of the light or dark
+ * tokens, then the base and the components, following the mode and the colours of the system.
  *
- * <p><b>Algorithm</b>: the scene gets {@value #DARK_TOKENS} when the system is in dark mode, {@value #LIGHT_TOKENS}
- * otherwise, then {@value #BASE} and {@value #COMPONENTS}; the style sheets are applied again when the mode of the
- * system changes. The page of the map, which cannot read the style sheets of JavaFX, gets the values of the tokens
- * ({@link #tokens()}), read from the style sheet of the tokens of the mode. The manual choice of the theme and the
- * accent of the system come with the settings (DESIGN.md §14).</p>
+ * <p><b>Algorithm</b>: the scene first gets the tokens taken from the accent, the background and the text of the system
+ * ({@link Palette}), as a style sheet built in memory ({@code data:} address); then {@value #DARK_TOKENS} when the
+ * system is in dark mode, {@value #LIGHT_TOKENS} otherwise, which hold the tokens that do not come from the system
+ * (errors, warnings, success, shadow); then {@value #BASE} and {@value #COMPONENTS}. The style sheets are applied again
+ * when the mode or a colour of the system changes. The page of the map, which cannot read the style sheets of JavaFX,
+ * gets the values of all the tokens ({@link #tokens()}).</p>
  *
  * <p>Confined to the JavaFX Application Thread.</p>
  */
@@ -41,6 +43,10 @@ final class Theme {
   static final String BASE = "base.css";
   /** The styles of the components. */
   static final String COMPONENTS = "components.css";
+  /** The beginning of the address of a style sheet built in memory, its content following in base 64. */
+  static final String DATA = "data:text/css;base64,";
+  /** The selectors of the tokens, as in the style sheets of the tokens: the window and the dialogs. */
+  private static final String SELECTORS = ".root, .dialog-pane {\n";
   /** A token of a style sheet of tokens: its name ({@code -c-…}) and its value, up to the semicolon. */
   private static final Pattern TOKEN = Pattern.compile("(-c-[a-z0-9-]++)\\s*+:\\s*+([^;]++);");
 
@@ -50,8 +56,8 @@ final class Theme {
 
   /** The scene of the window. */
   private final Scene scene;
-  /** The light or dark mode of the system. */
-  private final ObservableValue<ColorScheme> scheme;
+  /** The mode and the colours of the system. */
+  private final SystemColors system;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -61,12 +67,12 @@ final class Theme {
    * Applies the theme following the system to a scene, and follows the changes of the system.
    *
    * @param scene the scene of the window.
-   * @param scheme the light or dark mode of the system ({@code Platform.getPreferences().colorSchemeProperty()}).
+   * @param system the mode and the colours of the system ({@code SystemColors.of(Platform.getPreferences())}).
    */
-  Theme(final Scene scene, final ObservableValue<ColorScheme> scheme) {
+  Theme(final Scene scene, final SystemColors system) {
     this.scene = scene;
-    this.scheme = scheme;
-    scheme.addListener((property, before, after) -> apply());
+    this.system = system;
+    addListener(this::apply);
     apply();
   }
 
@@ -80,25 +86,31 @@ final class Theme {
    * @return {@code true} for the dark theme.
    */
   boolean isDark() {
-    return scheme.getValue() == ColorScheme.DARK;
+    return system.scheme().getValue() == ColorScheme.DARK;
   }
 
   /**
    * Returns the tokens of the theme shown, for the page of the map.
    *
-   * @return the names of the tokens ({@code -c-…}) and their values, in the order of the style sheet.
+   * @return the names of the tokens ({@code -c-…}) and their values: those of the system, then those of the style
+   *     sheet of the mode.
    */
   Map<String, String> tokens() {
-    return tokens(Theme.class.getResource(isDark() ? DARK_TOKENS : LIGHT_TOKENS));
+    final Map<String, String> tokens = new LinkedHashMap<>(systemTokens());
+    tokens.putAll(tokens(Theme.class.getResource(isDark() ? DARK_TOKENS : LIGHT_TOKENS)));
+    return tokens;
   }
 
   /**
-   * Follows the changes of the mode of the system.
+   * Follows the changes of the mode and of the colours of the system.
    *
-   * @param listener called after the style sheets of the new mode have been applied.
+   * @param listener called after the style sheets of the new mode or colours have been applied.
    */
   void addListener(final Runnable listener) {
-    scheme.addListener((property, before, after) -> listener.run());
+    for (final ObservableValue<?> value : List.of(system.scheme(), system.accent(), system.background(),
+                                                    system.text())) {
+      value.addListener((property, before, after) -> listener.run());
+    }
   }
 
   /**
@@ -126,21 +138,46 @@ final class Theme {
   }
 
   /**
-   * Applies the style sheets of the mode of the system to the scene.
+   * Applies the style sheets of the mode and of the colours of the system to the scene.
    */
   private void apply() {
-    scene.getStylesheets().setAll(stylesheets(isDark()));
+    scene.getStylesheets().setAll(stylesheets(isDark(), systemTokens()));
+  }
+
+  /**
+   * Returns the tokens taken from the current colours of the system.
+   *
+   * @return the names of the tokens ({@code -c-…}) and their values ({@link Palette#tokens}).
+   */
+  private Map<String, String> systemTokens() {
+    return Palette.tokens(system.accent().getValue(), system.background().getValue(), system.text().getValue());
   }
 
   /**
    * Returns the style sheets of a theme, in the order they apply.
    *
    * @param dark {@code true} for the dark theme.
+   * @param system the tokens taken from the colours of the system.
    *
-   * @return the addresses of the tokens, the base and the components.
+   * @return the addresses of the tokens of the system (built in memory), the tokens of the mode, the base and the
+   *     components.
    */
-  static List<String> stylesheets(final boolean dark) {
-    return List.of(url(dark ? DARK_TOKENS : LIGHT_TOKENS), url(BASE), url(COMPONENTS));
+  static List<String> stylesheets(final boolean dark, final Map<String, String> system) {
+    return List.of(sheet(system), url(dark ? DARK_TOKENS : LIGHT_TOKENS), url(BASE), url(COMPONENTS));
+  }
+
+  /**
+   * Builds a style sheet of tokens in memory.
+   *
+   * @param tokens the names of the tokens ({@code -c-…}) and their values.
+   *
+   * @return the {@code data:} address of a style sheet defining the tokens on the window and the dialogs.
+   */
+  static String sheet(final Map<String, String> tokens) {
+    final StringBuilder css = new StringBuilder(SELECTORS);
+    tokens.forEach((name, value) -> css.append("    ").append(name).append(": ").append(value).append(";\n"));
+    css.append("}\n");
+    return DATA + Base64.getEncoder().encodeToString(css.toString().getBytes(StandardCharsets.UTF_8));
   }
 
   /**

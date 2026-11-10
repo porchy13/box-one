@@ -9,7 +9,8 @@ All notable changes of the project are documented in this file.
   coverage, Javadoc), installers built by `jpackage` (`mvn -P installer clean verify`) and smoke test of the packaged
   application (`--smoke-test`).
 - **Main window**: the frame of the application, in French or English following the system, with the light or dark
-  theme of the system.
+  theme of the system and its colours: the accent, the background and the text chosen by the user for the system,
+  followed when they change.
 - **Map**: the national maps of swisstopo (default), or the maps of MapTiler with a personal key typed in the
   settings; the attributions of the provider and of OpenStreetMap on the map; the sensitivity of the zoom to the mouse
   wheel and to the trackpad, set in the settings.

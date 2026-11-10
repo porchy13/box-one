@@ -65,8 +65,8 @@ public final class BoxOneApplication extends Application {
                                                Thread.ofPlatform().name(BACKGROUND).daemon().factory()),
                                            GraphHopperRouter::load, GraphHopperRouter::importMap,
                                            new MapFiles(texts, FileChooser::showOpenDialog));
-    controller = new MainController(stage, texts, locale, isMac(os), Platform.getPreferences().colorSchemeProperty(),
-                                    Platform::exit, services);
+    controller = new MainController(stage, texts, locale, isMac(os),
+                                    SystemColors.of(Platform.getPreferences()), Platform::exit, services);
     controller.show();
   }
 

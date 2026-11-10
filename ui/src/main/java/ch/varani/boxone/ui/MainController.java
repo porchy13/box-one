@@ -4,8 +4,6 @@ import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingException;
-import javafx.application.ColorScheme;
-import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -110,8 +108,8 @@ final class MainController {
   private final Locale locale;
   /** Whether the application runs on macOS. */
   private final boolean mac;
-  /** The light or dark mode of the system. */
-  private final ObservableValue<ColorScheme> scheme;
+  /** The mode and the colours of the system. */
+  private final SystemColors colors;
   /** Quits the application. */
   private final Runnable exit;
   /** The data folder, the thread of the long work and the routing engine. */
@@ -190,17 +188,17 @@ final class MainController {
    * @param texts the texts of the user interface, in the language of the application.
    * @param locale the locale of the application ({@link Languages#resolve(Locale)}), for the formats.
    * @param mac whether the application runs on macOS.
-   * @param scheme the light or dark mode of the system.
+   * @param colors the mode and the colours of the system.
    * @param exit quits the application ({@code Platform::exit}, replaced in the tests).
    * @param services the data folder, the thread of the long work and the routing engine.
    */
   MainController(final Stage stage, final ResourceBundle texts, final Locale locale, final boolean mac,
-                 final ObservableValue<ColorScheme> scheme, final Runnable exit, final Services services) {
+                 final SystemColors colors, final Runnable exit, final Services services) {
     this.stage = stage;
     this.texts = texts;
     this.locale = locale;
     this.mac = mac;
-    this.scheme = scheme;
+    this.colors = colors;
     this.exit = exit;
     this.services = services;
     this.store = new SettingsStore(services.dataFolder().resolve(DataFolder.SETTINGS));
@@ -222,7 +220,7 @@ final class MainController {
     } else {
       fileMenu.getItems().removeAll(settingsSeparator, settingsItem);
     }
-    final Theme theme = new Theme(scene, scheme);
+    final Theme theme = new Theme(scene, colors);
     settings = store.load();
     map = new MapView(texts, this::clicked);
     map.setColors(theme.tokens());

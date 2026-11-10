@@ -39,7 +39,7 @@ mvn -pl ui javafx:run
 
 The application speaks the language of the system: French (formats of `fr-CH`), or English (`en-GB`) for any other
 language. Its interface follows [`DESIGN.md`](DESIGN.md): native menus (the global menu bar on macOS), light or dark
-theme following the system.
+theme, accent and colours following the system.
 
 ## Features
 

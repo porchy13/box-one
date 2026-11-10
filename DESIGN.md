@@ -1,18 +1,16 @@
 # DESIGN.md
 
 Design guide of Box One, a desktop application (Java / JavaFX).
-This document is the reference for every visual or interaction decision. When in doubt, the rule is: **behave like a native application of the system, with extra visual care.**
+This document is the reference for every visual or interaction decision. When in doubt, the rule is: **look and behave as close as possible to a native application of the system.** JavaFX draws its own controls (Modena), it cannot use those of the system; what it can take from the system, it takes: menus, shortcuts, order of the buttons, font, light or dark mode, and the colours — accent, background, text.
 
-![Main window, light theme](screenshots/ecran-principal-clair.png)
-
-> The screenshots illustrate the system on a sample task management application ("Ordo"). The rules apply whatever the business content. §14 describes how they apply to this project.
+> The examples of this guide come from a sample task management application. The rules apply whatever the business content; §14 describes how they apply to this project.
 
 ---
 
 ## 1. Principles
 
-1. **Native first.** Title bar, menus, shortcuts, order of the dialog buttons, font and light/dark theme come from the operating system. We do not redraw them.
-2. **Calm.** A single accent colour, used sparingly: primary action, selection, focus. Everything else is neutral. If two elements compete for attention, one of them is wrong.
+1. **Native first.** Title bar, menus, shortcuts, order of the dialog buttons, font, light/dark theme and colours (accent, background, text) come from the operating system. We do not redraw them, and the application has no colour of its own for what the system already gives.
+2. **Calm.** A single accent colour, the one of the system, used sparingly: primary action, selection, focus. Everything else is neutral. If two elements compete for attention, one of them is wrong.
 3. **Content before frame.** Separations are made with space and thin borders, not with stacked shadowed cards. No decorative gradients, no glass effects.
 4. **Dense but readable.** It is a working tool: rows of 44 px, text of 13 px, a clear hierarchy. One must see a lot without squinting.
 5. **Everything from the keyboard.** Every action reachable with the mouse is reachable with the keyboard too, and the focus is always visible.
@@ -28,8 +26,9 @@ This document is the reference for every visual or interaction decision. When in
 | Shortcuts | Ctrl on Windows/Linux, ⌘ on macOS | Always `KeyCombination.valueOf("Shortcut+N")`, never a hard-coded `Ctrl+` |
 | Mnemonics | Underlined letters (`_File`) on Windows/Linux | `mnemonicParsing` enabled on menus and buttons |
 | Dialog buttons | Order of each OS (OK at the right on macOS, etc.) | Use `ButtonBar` / `Dialog` with `ButtonData`, never order by hand |
-| Theme | Follow the light/dark mode of the system, with a manual option | `Platform.getPreferences().colorSchemeProperty()` (JavaFX 22+) |
-| Accent | Accent of the application by default; option "Use the colour of the system" | `Platform.getPreferences().getAccentColor()` |
+| Theme | Follow the light/dark mode of the system | `Platform.getPreferences().colorSchemeProperty()` (JavaFX 22+) |
+| Accent | Accent of the system, always; followed when the user changes it | `Platform.getPreferences().accentColorProperty()` |
+| Background and text | Those of the system, the neutral shades derived from them (§3); followed when they change | `backgroundColorProperty()`, `foregroundColorProperty()` |
 | Font | System font | `-fx-font-family: "System"` |
 | Text size | Respect the scale factor of the OS | Sizes in `em` in the CSS, never fixed pixels on `.root` |
 | Preferences | "Preferences…" item in the application menu on macOS, "Options" in Edit/Tools elsewhere | Build the menu according to `System.getProperty("os.name")` |
@@ -41,55 +40,43 @@ Minimum size of the main window: **960 × 600**. Default size at the first start
 
 ## 3. Colours
 
-All the colours are *looked-up colors* defined on `.root`. No hexadecimal code anywhere else in the CSS or in the Java code.
+All the colours are *looked-up colors* (tokens `-c-…`) defined on `.root`. Most of them come from the **operating system**: its accent, its background and its text, read by JavaFX (`Platform.getPreferences()`, §2) and followed when the user changes them; the neutral shades and the tints of the accent are derived from them. Only the colours the system does not give (errors, warnings, success, shadow) are chosen by the application, in the style sheets of the tokens. No hexadecimal code anywhere else in the CSS or in the Java code.
 
-### Light theme
+### Tokens from the system
 
-| Token | Value | Use |
+Each derived token mixes a colour of the system into its background, in the sRGB space, at a fixed share: the same rule gives the light and the dark shades, whatever the system and its theme.
+
+| Token | Source | Use |
 |---|---|---|
-| `-c-bg` | `#F6F7F9` | Background of the window, detail panel |
-| `-c-surface` | `#FFFFFF` | Main content area, fields, toolbars |
-| `-c-sidebar` | `#EEF0F3` | Side navigation bar |
-| `-c-border` | `#DADDE3` | Separators, light borders |
-| `-c-border-strong` | `#C4C9D1` | Borders of fields and buttons |
-| `-c-text` | `#1D2128` | Main text |
-| `-c-text-2` | `#5B6270` | Secondary text, labels |
-| `-c-text-3` | `#8A909C` | Tertiary text, placeholders, counters |
-| `-c-accent` | `#2D6A57` | Primary button, checked boxes, focus |
-| `-c-accent-subtle` | `#E3EFEA` | Focus halo |
-| `-c-selection` | `#DCE9E3` | Selected row or element |
-| `-c-on-accent` | `#FFFFFF` | Text on an accent background |
-| `-c-danger` | `#B4363A` | Errors, delays, destructive actions |
-| `-c-warning` | `#A86A12` | Warnings |
-| `-c-success` | `#2E7D4F` | Something done, e.g. the tick of a result entered |
+| `-c-surface` | Background of the system | Main content area, fields, toolbars |
+| `-c-bg` | Background + 4 % of the text | Background of the window, detail panel |
+| `-c-sidebar` | Background + 7 % of the text | Side navigation bar |
+| `-c-border` | Background + 14 % of the text | Separators, light borders |
+| `-c-border-strong` | Background + 24 % of the text | Borders of fields and buttons |
+| `-c-text` | Text of the system | Main text |
+| `-c-text-2` | Background + 65 % of the text | Secondary text, labels |
+| `-c-text-3` | Background + 50 % of the text | Tertiary text, placeholders, counters |
+| `-c-accent` | Accent of the system | Primary button, checked boxes, focus |
+| `-c-accent-subtle` | Background + 12 % of the accent | Focus halo |
+| `-c-selection` | Background + 20 % of the accent | Selected row or element |
+| `-c-on-accent` | The lighter of the background and the text, the darker one if the lighter is below 3:1 on the accent | Text on an accent background |
 
-### Dark theme
+For example, with the default colours of macOS in light mode (accent `#007AFF`, background `#FFFFFF`, text `#000000`): `-c-bg` `#F5F5F5`, `-c-border` `#DBDBDB`, `-c-text-2` `#595959`, `-c-selection` `#CCE4FF`, `-c-on-accent` `#FFFFFF`.
 
-| Token | Value |
-|---|---|
-| `-c-bg` | `#1B1D21` |
-| `-c-surface` | `#23262B` |
-| `-c-sidebar` | `#1F2125` |
-| `-c-border` | `#34383F` |
-| `-c-border-strong` | `#454A52` |
-| `-c-text` | `#E6E8EB` |
-| `-c-text-2` | `#A3A9B3` |
-| `-c-text-3` | `#757C87` |
-| `-c-accent` | `#5FB39A` |
-| `-c-accent-subtle` | `#20352F` |
-| `-c-selection` | `#24413A` |
-| `-c-on-accent` | `#0F1A16` |
-| `-c-danger` | `#E0787B` |
-| `-c-warning` | `#D9A24F` |
-| `-c-success` | `#6CC08B` |
+### Tokens of the application
 
-![Main window, dark theme](screenshots/ecran-principal-sombre.png)
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `-c-danger` | `#B4363A` | `#E0787B` | Errors, delays, destructive actions |
+| `-c-warning` | `#A86A12` | `#D9A24F` | Warnings |
+| `-c-success` | `#2E7D4F` | `#6CC08B` | Something done, e.g. the tick of a result entered |
+| `-c-shadow` | `rgba(0, 0, 0, 0.16)` | `rgba(0, 0, 0, 0.40)` | The single shadow (§5) |
 
 ### Rules of use
 
-- The fir green accent was chosen for its calm: it signals without shouting, and it lives well with the blue accents the user may have chosen in the OS.
+- The accent is the one the user chose for the system: the application looks like the other applications of the desktop. It is never replaced by a colour of the application.
 - Red is used only for what requires an action (delay, error, deletion). Never as a decoration.
-- Minimum contrast: 4.5:1 for the text (`-c-text-2` included), 3:1 for the borders of the controls. `-c-text-3` is reserved for non-essential information.
+- Minimum contrast: 4.5:1 for the text (`-c-text-2` included, which its share guarantees on the backgrounds of the systems), 3:1 for the borders of the controls. `-c-text-3` is reserved for non-essential information. The text on the accent follows the systems, which put white on their accent even below 4.5:1 (4.0:1 on the blue of macOS); a light accent (yellow…) gets the dark text.
 - Colour never carries an information alone: an overdue task has a date in red **and** appears in the "Overdue" section.
 - Project colours (dots): `#2D6A57`, `#5A6FB0`, `#A86A12`, `#8A5A9E`, `#4F7F95`, `#9A5B4A`. They only appear as dots of 8 px, never as a background.
 
@@ -299,34 +286,41 @@ Accessibility:
 
 ```
 src/main/resources/css/
-  tokens-light.css    # colour tokens of the light theme
-  tokens-dark.css     # tokens of the dark theme
+  tokens-light.css    # colour tokens of the light theme that do not come from the system
+  tokens-dark.css     # the same, for the dark theme
   base.css            # typography, spacing, controls
   components.css      # navigation, lists, detail, status bar
 ```
 
-We start from Modena (the default theme of JavaFX) and override it through its own variables, to keep the native behaviour of the controls.
+We start from Modena (the default theme of JavaFX) and override it through its own variables, to keep the native behaviour of the controls. The tokens from the system are not in a file: they are computed from the colours of the system and applied as a style sheet built in memory (`data:text/css;base64,…`), before the others.
 
 ### Tokens and connection to Modena
 
 ```css
+/* Built in memory from the colours of the system (here the default ones of macOS, light mode). */
+.root {
+    -c-bg: #F5F5F5;
+    -c-surface: #FFFFFF;
+    -c-sidebar: #EDEDED;
+    -c-border: #DBDBDB;
+    -c-border-strong: #C2C2C2;
+    -c-text: #000000;
+    -c-text-2: #595959;
+    -c-text-3: #808080;
+    -c-accent: #007AFF;
+    -c-accent-subtle: #E0EFFF;
+    -c-selection: #CCE4FF;
+    -c-on-accent: #FFFFFF;
+}
+```
+
+```css
 /* tokens-light.css */
 .root {
-    -c-bg: #F6F7F9;
-    -c-surface: #FFFFFF;
-    -c-sidebar: #EEF0F3;
-    -c-border: #DADDE3;
-    -c-border-strong: #C4C9D1;
-    -c-text: #1D2128;
-    -c-text-2: #5B6270;
-    -c-text-3: #8A909C;
-    -c-accent: #2D6A57;
-    -c-accent-subtle: #E3EFEA;
-    -c-selection: #DCE9E3;
-    -c-on-accent: #FFFFFF;
     -c-danger: #B4363A;
     -c-warning: #A86A12;
     -c-success: #2E7D4F;
+    -c-shadow: rgba(0, 0, 0, 0.16);
 }
 ```
 
@@ -384,39 +378,34 @@ We start from Modena (the default theme of JavaFX) and override it through its o
 .caption      { -fx-font-size: 0.85em; -fx-text-fill: -c-text-3; }
 ```
 
-### Following the theme of the system
+### Following the theme and the colours of the system
 
 ```java
 public final class ThemeManager {
 
-    public enum Mode { SYSTEM, LIGHT, DARK }
-
     private final Scene scene;
-    private Mode mode = Mode.SYSTEM;
+    private final Platform.Preferences system = Platform.getPreferences();
 
     public ThemeManager(Scene scene) {
         this.scene = scene;
-        Platform.getPreferences().colorSchemeProperty()
-                .addListener((obs, old, scheme) -> apply());
-        apply();
-    }
-
-    public void setMode(Mode mode) {
-        this.mode = mode;
+        for (ObservableValue<?> value : List.of(system.colorSchemeProperty(), system.accentColorProperty(),
+                system.backgroundColorProperty(), system.foregroundColorProperty())) {
+            value.addListener((obs, old, now) -> apply());
+        }
         apply();
     }
 
     private void apply() {
-        boolean dark = switch (mode) {
-            case LIGHT -> false;
-            case DARK -> true;
-            case SYSTEM -> Platform.getPreferences().getColorScheme() == ColorScheme.DARK;
-        };
+        boolean dark = system.getColorScheme() == ColorScheme.DARK;
         scene.getStylesheets().setAll(
+                systemTokens(system.getAccentColor(), system.getBackgroundColor(), system.getForegroundColor()),
                 css(dark ? "tokens-dark.css" : "tokens-light.css"),
                 css("base.css"),
                 css("components.css"));
     }
+
+    /** The tokens of §3 mixed from the colours of the system, as a data: style sheet. */
+    private static String systemTokens(Color accent, Color background, Color text) { … }
 
     private static String css(String name) {
         return ThemeManager.class.getResource("/css/" + name).toExternalForm();
@@ -451,7 +440,7 @@ stage.setMinHeight(600);
 Before merging a screen:
 
 - [ ] No hard-coded colour outside the `tokens-*.css` files.
-- [ ] Tested in light, in dark, and with the accent of the system enabled.
+- [ ] Tested in light, in dark, and with several accents of the system, a light one (yellow) included.
 - [ ] Tested on Windows and macOS (at least), at 100 % and 150 % scale.
 - [ ] A single primary action per zone.
 - [ ] Everything reachable from the keyboard, focus visible everywhere.
@@ -469,14 +458,14 @@ rewritten as decisions.
 
 | Topic | In this project |
 |---|---|
-| Style sheets | `ui/src/main/resources/ch/varani/boxone/ui/` (`tokens-light.css`, `tokens-dark.css`, `base.css`, `components.css`), in the package of the application so that the named module finds them; applied by `Theme`. The tokens are defined on `.root` **and** `.dialog-pane`, so that the message boxes get them. One token is added: `-c-shadow` (the colour of the single shadow). |
+| Style sheets | `ui/src/main/resources/ch/varani/boxone/ui/` (`tokens-light.css`, `tokens-dark.css`, `base.css`, `components.css`), in the package of the application so that the named module finds them; applied by `Theme`, after the tokens taken from the colours of the system (`SystemColors`, `Palette`: a style sheet built in memory). The tokens are defined on `.root` **and** `.dialog-pane`, so that the message boxes get them. The page of the map gets the values of all of them. |
 | Structure of the window | Applied (phase 1): the **map** is the content of the centre (§6), the list of §6 is replaced by it. The status bar holds the state of the work (what to do next: open a map, place the start, place the finish; the failures, saying how to correct them). The distance and the duration of the route, the result of the view, are in a card at the top right of the map (`-c-surface`, border `-c-border`, radius 8 px, the single shadow), which lets the clicks through to the map: in the status bar, they were missed. _Proposed_: side navigation: Route, Roadbook, Training. Detail panel: the roadbook strip of the route (the boxes one under the other, the selected box highlighted on the map), then the editor of the selected box (phase 5). The primary action of the toolbar is the action of the view ("Generate the route", "Start the session"…). Status bar: seed of the detour (phase 3, selectable to be copied). |
 | Map | Applied (phase 1): Leaflet in a `WebView`, bundled (`map/`). While the graph is loaded or imported, a veil (`-c-bg`, dimmed) covers the map, which cannot be clicked, with a card in the middle: a progress indicator, what is happening and, for an import, how long it takes. The page (`map.css`, `map.js`) holds **no colour value**: `Theme` hands it the values of the tokens at load and when the theme changes; the style sheet of Leaflet, bundled unchanged, keeps its own. The attribution of the tile provider and "© OpenStreetMap contributors" stay visible in a corner of the map, in `-c-text-2` on `-c-surface`, as text (no link, which would open in the map). The fastest route is a dashed line `-c-text-3`; start and finish are discs `-c-accent` with a letter (`D` / `A` in French, `S` / `F` in English) and a tooltip, never a colour alone. Zoom with the mouse wheel and the buttons + / −, the keys + / − and the arrows when the map has the focus; the focus of the map is a ring `-c-accent`. _Proposed_: the generated route a solid line `-c-accent` (phase 3); zoom by Shortcut++ / Shortcut+− from the window. |
 | Roadbook boxes | _Proposed_ (phases 2 and 4): a roadbook is a printed object, and training means reading the real thing: the boxes are drawn **as on paper** — dark ink on a light background in both themes, with two tokens of the same value in both files (`-c-paper`, `-c-ink`). One box = one row: total distance and partial distance (right-aligned, two decimals), the tulip, the notes and the heading. The distances follow the `Locale` of the application. |
 | Symbols | _Proposed_ (phase 4): the catalogues hold SVG paths without colour; the rendering strokes them in `-c-ink` with the line rules of §8 adapted to the catalogue (its own thickness when the rulebook sets one). A symbol always has its meaning as accessible text (`setAccessibleText`) and as tooltip. The OpenRally export renders the tulips and the notes as PNG, black on white (Terra Pirata does not show SVG). |
 | Training | _Proposed_ (phase 7): one question per screen, the answers as buttons also reachable with the keys 1 to 4; a right answer in `-c-success` **and** the word "Right", a wrong answer in `-c-danger` **and** the right answer shown (colour never alone, §3). Blind mode: the map is hidden by an empty state that says so, not only greyed. The progress uses the components of §7 (tables, captions), no gamified decoration. |
-| Preferences | Applied (phase 1): a dialog of settings (`SettingsDialog`, §7) in two sections ("Background map", "Navigation on the map"), each field at the right of its label (right-aligned, `-c-text-2`), its caption under it: the provider of the background map (national maps of swisstopo, MapTiler) and the key of MapTiler in a password field, with a caption saying where to get it and where it is kept; the field is disabled for swisstopo and "Save" is disabled while MapTiler has no key; the sensitivity of the zoom to the mouse wheel and to the trackpad (low, medium — the default —, high, very high: one level every 60, 30, 15 or 8 pixels of scroll). JavaFX cannot add an item to the application menu of macOS: "Settings…" (Shortcut+,) in the File menu on macOS, "Options…" in a Tools menu elsewhere. _Proposed_: theme, accent of the system, reduced animations, map extracts. |
+| Preferences | Applied (phase 1): a dialog of settings (`SettingsDialog`, §7) in two sections ("Background map", "Navigation on the map"), each field at the right of its label (right-aligned, `-c-text-2`), its caption under it: the provider of the background map (national maps of swisstopo, MapTiler) and the key of MapTiler in a password field, with a caption saying where to get it and where it is kept; the field is disabled for swisstopo and "Save" is disabled while MapTiler has no key; the sensitivity of the zoom to the mouse wheel and to the trackpad (low, medium — the default —, high, very high: one level every 60, 30, 15 or 8 pixels of scroll). JavaFX cannot add an item to the application menu of macOS: "Settings…" (Shortcut+,) in the File menu on macOS, "Options…" in a Tools menu elsewhere. _Proposed_: theme, reduced animations, map extracts; a manual theme opposite to the mode of the system has no colours of the system to take (JavaFX gives only those of the current mode), to be decided with its phase. |
 | Persistence | Applied (phase 1): the settings in `settings.properties` of the data folder of the user (`DataFolder`) rather than `java.util.prefs`, so that the tests never touch the preferences of the user. _Proposed_: the state of the window in the same folder. |
 | Menus | File menu: "Open a map…" (Shortcut+O); then "Settings…" on macOS, where the application menu quits, or Quit (Shortcut+Q) elsewhere, with a Tools menu holding "Options…". |
 | Icons | Home-made line icons (`SVGPath`), no Ikonli dependency, as soon as the first icon is needed. |
-| Not applied yet | Everything except the frame of the main window (menus, map, status bar, theme of the system) and the settings of the background map: toolbar, side navigation, detail panel, other settings (manual theme, accent of the system), restoration of the window, icons, motion, mnemonics of the buttons, About; tabular figures (not available in the CSS of JavaFX). |
+| Not applied yet | Everything except the frame of the main window (menus, map, status bar, theme of the system) and the settings of the background map: toolbar, side navigation, detail panel, other settings (manual theme), restoration of the window, icons, motion, mnemonics of the buttons, About; tabular figures (not available in the CSS of JavaFX); the contrast of 3:1 of the borders of the controls (§3: `-c-border-strong` is below it, about 1.8:1 on a white surface, as discreet as the borders of the systems and as the former palette). |
