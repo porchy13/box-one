@@ -44,6 +44,28 @@
     -fx-text-fill: -c-text-2;
 }
 
+/* The seed of the detour shown, at the right of the status bar (DESIGN.md §14): a field that can be selected and
+   copied, read-only, drawn as the text of the bar until it has the focus. */
+.status-bar .seed-box {
+    -fx-spacing: 4;
+    -fx-alignment: center-right;
+}
+
+.status-bar .seed {
+    -fx-background-color: transparent;
+    -fx-padding: 0 4 0 4;
+    -fx-min-height: 20;
+    -fx-pref-height: 20;
+    -fx-font-size: 0.85em;
+    -fx-text-fill: -c-text;
+}
+
+.status-bar .seed:focused {
+    -fx-background-color: -c-accent-subtle, -c-accent, -c-surface;
+    -fx-background-insets: -2, 0, 1;
+    -fx-background-radius: 6, 4, 3;
+}
+
 /* The card of the route at the top right of the map (DESIGN.md §14): its distance and its duration, the result of
    the view. It lets the clicks through to the map. */
 .route-card {

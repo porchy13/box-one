@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of {@link MapView} (DESIGN.md §14): the state set before the page has loaded is drawn once it has, the later
@@ -41,6 +42,12 @@ final class MapViewTest {
   /** The route of the tests, from the station to the castle. */
   private static final Route ROUTE = new Route(List.of(SmokeTest.STATION, SmokeTest.CASTLE), List.of(), 400,
                                                Duration.ofMinutes(1));
+  /** A waypoint of the detour of the tests, east of the centre of Yverdon-les-Bains. */
+  private static final GeoPoint WAYPOINT = new GeoPoint(46.7790, 6.6560);
+  /** The length of the detour of the tests, in metres. */
+  private static final double DETOUR_LENGTH = 900;
+  /** The duration of the detour of the tests. */
+  private static final Duration DETOUR_DURATION = Duration.ofMinutes(3);
   /** A full turn of longitude, in degrees: the page wraps the longitudes beyond the antimeridian. */
   private static final double TURN = 360;
   /** The precision of the coordinates of a click, in degrees. */
@@ -104,6 +111,38 @@ final class MapViewTest {
         () -> assertEquals("© Tests | " + MapView.OSM_ATTRIBUTION, MapPages.script(robot, view, ATTRIBUTION)),
         () -> assertEquals("#2D6A57", MapPages.script(robot, view,
             "document.documentElement.style.getPropertyValue('--c-accent').trim()")));
+  }
+
+  /**
+   * A detour is drawn over the fastest route, both shown whole; the fastest route alone then removes it.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 3: the detour is drawn over the fastest route")
+  void detourTest(final FxRobot robot) throws TimeoutException {
+    final MapView map = show(robot, new ArrayList<>(), new ArrayList<>());
+    final WebView view = map.getNode();
+    MapPages.waitLoaded(view);
+    final Route detour = new Route(List.of(SmokeTest.STATION, WAYPOINT, SmokeTest.CASTLE), List.of(), DETOUR_LENGTH,
+                                   DETOUR_DURATION);
+    robot.interact(() -> map.setDetour(ROUTE, detour));
+    final int fastest = MapPages.count(robot, view, ".route-fastest");
+    final int detours = MapPages.count(robot, view, ".route-detour");
+    final Object last = MapPages.script(robot, view,
+        "Array.from(document.querySelectorAll('path')).pop().getAttribute('class')");
+    final boolean east = (Boolean) MapPages.script(robot, view,
+        "boxOne.map.getBounds().contains(L.latLng(" + WAYPOINT.latitude() + ", " + WAYPOINT.longitude() + "))");
+    robot.interact(() -> map.setRoute(ROUTE));
+    assertAll(
+        () -> assertEquals(1, fastest),
+        () -> assertEquals(1, detours),
+        () -> assertTrue(String.valueOf(last).contains(MapView.DETOUR_LINE)),
+        () -> assertTrue(east),
+        () -> assertEquals(1, MapPages.count(robot, view, ".route-fastest")),
+        () -> assertEquals(0, MapPages.count(robot, view, ".route-detour")));
   }
 
   /**

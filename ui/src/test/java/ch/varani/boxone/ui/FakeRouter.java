@@ -8,8 +8,8 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * A router of the tests: it returns a fixed route from the start to the finish asked, or throws a fixed exception,
- * and counts its closings.
+ * A router of the tests: it returns a fixed route from the start to the finish asked, longer by
+ * {@link #WAYPOINT_COST} per waypoint, or throws a fixed exception, and counts its closings.
  *
  * <p>Not thread-safe: used from the JavaFX Application Thread only.</p>
  */
@@ -19,6 +19,8 @@ final class FakeRouter implements Router {
   static final double DISTANCE = 12_345;
   /** The duration of the routes. */
   static final Duration DURATION = Duration.ofMinutes(75);
+  /** The time a waypoint adds to the routes: three waypoints stay within the shorter budget of a detour. */
+  static final Duration WAYPOINT_COST = Duration.ofMinutes(1);
 
   /** The exception thrown by the routing, or {@code null} to return a route. */
   private final RuntimeException failure;
@@ -42,19 +44,18 @@ final class FakeRouter implements Router {
   }
 
   /**
-   * Returns the straight route from the start to the finish, or throws the exception of the router.
+   * Returns the straight route through the points, or throws the exception of the router.
    *
-   * @param start the start.
-   * @param finish the finish.
+   * @param points the start, the waypoints and the finish.
    *
-   * @return the route, of {@link #DISTANCE} metres in {@link #DURATION}.
+   * @return the route, of {@link #DISTANCE} metres in {@link #DURATION}, plus {@link #WAYPOINT_COST} per waypoint.
    */
   @Override
-  public Route route(final GeoPoint start, final GeoPoint finish) {
+  public Route route(final List<GeoPoint> points) {
     if (failure != null) {
       throw failure;
     }
-    return new Route(List.of(start, finish), List.of(), DISTANCE, DURATION);
+    return new Route(points, List.of(), DISTANCE, DURATION.plus(WAYPOINT_COST.multipliedBy(points.size() - 2L)));
   }
 
   /**

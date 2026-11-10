@@ -25,7 +25,7 @@
   map.attributionControl.setPrefix(false);
   var tiles = null;
   var shown = L.layerGroup().addTo(map);
-  var route = null;
+  var routes = [];
 
   /** An element holding a text. */
   function text(value) {
@@ -69,10 +69,10 @@
       return wheel.pixels;
     },
 
-    /** Removes the markers and the route. */
+    /** Removes the markers and the routes. */
     clear: function () {
       shown.clearLayers();
-      route = null;
+      routes = [];
     },
 
     /** Shows the marker of the start or of the finish. */
@@ -80,15 +80,23 @@
       shown.addLayer(marker(latitude, longitude, letter, meaning));
     },
 
-    /** Shows the fastest route: its points, as a JSON array of [latitude, longitude]. */
-    addRoute: function (points) {
-      route = L.polyline(JSON.parse(points), {className: 'route-fastest'});
+    /**
+     * Shows a route: its points, as a JSON array of [latitude, longitude], and the style class of its line
+     * (route-fastest, route-detour), drawn over the routes shown before.
+     */
+    addRoute: function (points, className) {
+      var route = L.polyline(JSON.parse(points), {className: className});
+      routes.push(route);
       shown.addLayer(route);
     },
 
-    /** Shows the whole route. */
+    /** Shows the whole routes. */
     fit: function () {
-      map.fitBounds(route.getBounds(), {padding: [MARGIN, MARGIN]});
+      var bounds = L.latLngBounds([]);
+      routes.forEach(function (route) {
+        bounds.extend(route.getBounds());
+      });
+      map.fitBounds(bounds, {padding: [MARGIN, MARGIN]});
     }
   };
 

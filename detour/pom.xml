@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- The detours (AGENTS.md, 3): a route from the start to the finish through random waypoints, longer than the
+         fastest route by a budget of time at most (development plan, phase 3). Pure Java: it routes through the
+         interface Router of the module routing, never through GraphHopper itself. No JavaFX. -->
+    <parent>
+        <groupId>ch.varani.boxone</groupId>
+        <artifactId>box-one</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>box-one-detour</artifactId>
+    <name>Box One detour</name>
+
+    <properties>
+        <root.dir>${project.basedir}/..</root.dir>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-routing</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <testResources>
+            <!-- The small extract of OpenStreetMap of the tests of the routing, shared rather than copied: the detours
+                 are generated on it by GraphHopper (AGENTS.md, 6). -->
+            <testResource>
+                <directory>${root.dir}/routing/src/test/resources</directory>
+            </testResource>
+        </testResources>
+    </build>
+
+</project>

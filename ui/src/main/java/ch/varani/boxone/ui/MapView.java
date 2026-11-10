@@ -16,15 +16,16 @@ import java.util.stream.Collectors;
 
 /**
  * The map (DESIGN.md §14): the page {@value #PAGE} of Leaflet, bundled, in a {@link WebView}, with the background
- * tiles, the start, the finish and the fastest route.
+ * tiles, the start, the finish, the fastest route and the detour.
  *
  * <p><b>Algorithm</b>: the view keeps the state of the map (tiles, colours of the theme, sensitivity of the zoom,
- * start, finish, route); each
- * change redraws the page from this state through the functions of its object {@code boxOne}, and the state is drawn
- * again when the page has loaded, so that the changes made before are not lost. The strings (key of the tiles, texts
- * of the markers) are handed as arguments of the functions, never written into a script; the route as a JSON array of
- * numbers. The clicks on the map come back through a {@link MapBridge}. The attribution of OpenStreetMap
- * ({@value #OSM_ATTRIBUTION}), the source of the routes, follows the one of the provider of the tiles.</p>
+ * start, finish, fastest route, detour); each change redraws the page from this state through the functions of its
+ * object {@code boxOne}, and the state is drawn again when the page has loaded, so that the changes made before are
+ * not lost. The strings (key of the tiles, texts of the markers) are handed as arguments of the functions, never
+ * written into a script; the routes as JSON arrays of numbers, with the style class of their line:
+ * {@value #FASTEST_LINE} (dashed) or {@value #DETOUR_LINE} (solid, over the fastest route; DESIGN.md §14). The clicks
+ * on the map come back through a {@link MapBridge}. The attribution of OpenStreetMap ({@value #OSM_ATTRIBUTION}),
+ * the source of the routes, follows the one of the provider of the tiles.</p>
  *
  * <p>Confined to the JavaFX Application Thread.</p>
  */
@@ -48,6 +49,10 @@ final class MapView {
   static final String FINISH_NAME = "map.finish";
   /** The key of the letter of the finish. */
   static final String FINISH_LETTER = "map.finishLetter";
+  /** The style class of the line of the fastest route (map.css). */
+  static final String FASTEST_LINE = "route-fastest";
+  /** The style class of the line of the detour (map.css). */
+  static final String DETOUR_LINE = "route-detour";
   /** The name of the object of the page driven by the view. */
   private static final String PAGE_OBJECT = "boxOne";
   /** The name of the bridge in the page. */
@@ -75,6 +80,8 @@ final class MapView {
   private GeoPoint finish;
   /** The fastest route, or {@code null}. */
   private Route route;
+  /** The detour, or {@code null}. */
+  private Route detour;
   /** Called once the page has loaded and its state drawn. */
   private Runnable onLoaded = () -> { };
 
@@ -177,6 +184,7 @@ final class MapView {
     start = newStart;
     finish = newFinish;
     route = null;
+    detour = null;
     drawPlaces();
   }
 
@@ -187,6 +195,19 @@ final class MapView {
    */
   void setRoute(final Route fastest) {
     route = fastest;
+    detour = null;
+    drawPlaces();
+  }
+
+  /**
+   * Shows a detour over the fastest route, both whole.
+   *
+   * @param fastest the fastest route.
+   * @param generated the detour.
+   */
+  void setDetour(final Route fastest, final Route generated) {
+    route = fastest;
+    detour = generated;
     drawPlaces();
   }
 
@@ -238,7 +259,8 @@ final class MapView {
   }
 
   /**
-   * Draws the start, the finish and the route on the page, if it has loaded; the map then shows the whole route.
+   * Draws the start, the finish, the fastest route and the detour on the page, if it has loaded; the map then shows
+   * the whole routes.
    */
   private void drawPlaces() {
     final JSObject page = page();
@@ -249,7 +271,10 @@ final class MapView {
     marker(page, start, START_LETTER, START_NAME);
     marker(page, finish, FINISH_LETTER, FINISH_NAME);
     if (route != null) {
-      page.call("addRoute", json(route));
+      page.call("addRoute", json(route), FASTEST_LINE);
+      if (detour != null) {
+        page.call("addRoute", json(detour), DETOUR_LINE);
+      }
       page.call("fit");
     }
   }

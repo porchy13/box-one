@@ -20,3 +20,8 @@ All notable changes of the project are documented in this file.
   file (GPX 1.1, extensions of OpenRally v1.0.3), to import into RDS for Terra Pirata: a box at the start, at each
   instruction of the route and at the finish, with its total distance and its heading (CAP), the track of the route
   and the attribution of OpenStreetMap; no tulip yet.
+- **Detours**: Route › Generate a detour… generates a detour from the start to the finish, through waypoints drawn
+  at random in an ellipse around them, longer than the fastest route by a budget of 15 or 30 minutes at most, without
+  driving a road twice nor turning back, nor the roads for residents or private and the tracks elsewhere than around
+  the start and the finish; it is drawn over the fastest route, and its seed, shown in the status bar,
+  generates it again. The roadbook exported is the one of the route shown.

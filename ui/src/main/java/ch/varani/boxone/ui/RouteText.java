@@ -8,8 +8,8 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 /**
- * The summary of a route in the status bar (DESIGN.md §14): its distance and its duration, in the formats of the
- * language of the application, e.g. "12,4 km · 1 h 05" in French.
+ * The summary of a route in its card (DESIGN.md §14): its distance and its duration, in the formats of the language of
+ * the application, e.g. "12,4 km · 1 h 05" in French; the durations of the detours too.
  *
  * <p><b>Algorithm</b>: the distance in kilometres with one decimal; the duration rounded to the minute, in minutes
  * below one hour ({@value #MINUTES_PATTERN}), in hours and minutes from one hour on ({@value #HOURS_PATTERN}).</p>
@@ -62,11 +62,23 @@ final class RouteText {
    */
   static String summary(final Route route, final ResourceBundle texts, final Locale locale) {
     final String distance = format(texts, DISTANCE_PATTERN, locale, route.distance() / METRES_PER_KILOMETRE);
-    final long minutes = route.duration().plus(HALF_MINUTE).toMinutes();
-    final String duration = minutes < MINUTES_PER_HOUR
+    return format(texts, SUMMARY_PATTERN, locale, distance, duration(route.duration(), texts, locale));
+  }
+
+  /**
+   * Writes a duration, rounded to the minute: of a route, or of the budget of a detour.
+   *
+   * @param duration the duration, non-negative.
+   * @param texts the texts of the user interface.
+   * @param locale the locale of the application, which gives the formats.
+   *
+   * @return the duration, in minutes below one hour, in hours and minutes from one hour on.
+   */
+  static String duration(final Duration duration, final ResourceBundle texts, final Locale locale) {
+    final long minutes = duration.plus(HALF_MINUTE).toMinutes();
+    return minutes < MINUTES_PER_HOUR
         ? format(texts, MINUTES_PATTERN, locale, minutes)
         : format(texts, HOURS_PATTERN, locale, minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR);
-    return format(texts, SUMMARY_PATTERN, locale, distance, duration);
   }
 
   /**

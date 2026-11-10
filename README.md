@@ -9,9 +9,10 @@ a road route with a random detour bounded in time, turns it into a roadbook draw
 (FIM, FIA…), exports it for Terra Pirata (OpenRally GPX), as a PDF strip and as a plain GPX, and offers a training
 mode. The name refers to the very first box of a roadbook.
 
-The project is at its beginning: the application shows a map, computes the fastest route between two places and
-exports its roadbook for Terra Pirata, without drawings yet; the detours, the tulips, the editor, the other exports
-and the training mode come in the next versions (see [`changelog.md`](changelog.md)).
+The project is at its beginning: the application shows a map, computes the fastest route between two places,
+generates detours within a budget of time, and exports the roadbook of the route for Terra Pirata, without drawings
+yet; the tulips, the editor, the other exports and the training mode come in the next versions (see
+[`changelog.md`](changelog.md)).
 
 Licensed under the [Apache License, Version 2.0](LICENSE) (see also [`NOTICE`](NOTICE)). Routing data © OpenStreetMap
 contributors (ODbL); background maps © swisstopo or © MapTiler.
@@ -56,11 +57,19 @@ theme, accent and colours following the system.
 - **Fastest route**: click on the map to place the start, click again to place the finish; the fastest route by car
   is drawn as a dashed line, with its distance and its duration in a card at the top right of the map. A third click
   begins a new route.
-- **Roadbook for Terra Pirata**: File › Export the roadbook… (Shortcut+E) writes the roadbook of the route shown as a
-  GPX file with the extensions of OpenRally, the format read by Terra Pirata: one box at the start, one at each
-  instruction of the route (turn, roundabout, road of another name…) and one at the finish, each with its total
-  distance and its heading (CAP) (OpenRally carries no partial distance: the reader computes it), and the track of
-  the route. Import the file into RDS to read it in the application Terra Pirata. The tulips are not drawn yet.
+- **Detour**: once the fastest route is shown, Route › Generate a detour… (Shortcut+D) asks for a budget, 15 or
+  30 minutes, and a seed, a new one proposed each time. The detour passes through waypoints drawn at random around
+  the start and the finish, takes longer than the fastest route by the budget at most, drives no road twice nor
+  turns back, and drives the roads for residents or private and the tracks (forest roads) only around the start
+  and the finish; no waypoint lies on them nor on a service road (driveway, parking aisle). It is drawn as a solid line over the fastest route, with its distance
+  and duration in the card, and its seed at the right of the status bar, where it can be selected and copied: the
+  same seed, with the same start, finish and map, gives the same detour again. The roadbook exported is then the one of the detour.
+- **Roadbook for Terra Pirata**: File › Export the roadbook… (Shortcut+E) writes the roadbook of the route shown (the
+  fastest route or the detour) as a GPX file with the extensions of OpenRally, the format read by Terra Pirata: one
+  box at the start, one at each instruction of the route (turn, roundabout, road of another name…) and one at the
+  finish, each with its total distance and its heading (CAP) (OpenRally carries no partial distance: the reader
+  computes it), and the track of the route. Import the file into RDS to read it in the application Terra Pirata. The
+  tulips are not drawn yet.
 
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.
@@ -87,13 +96,13 @@ page of the map) with:
 |--------|------|
 | `core` | Domain model (geographic points, routes and their maneuvers, roadbooks and their boxes; then the waypoints and the speed zones). No dependency outside the JDK. |
 | `graphhopper` | GraphHopper as one JPMS module (`graphhopper-core`, `graphhopper-web-api` and `osm-legal-default-speeds-jvm` regrouped, as they cannot go on the module path apart). No code of its own. |
-| `routing` | The fastest route by car between two points, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers. |
+| `routing` | The fastest route by car between two points, possibly through waypoints, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers. |
+| `detour` | Detours: routes through random waypoints drawn in an ellipse around the start and the finish, within a budget of time, reproducible from their seed. |
 | `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading. |
 | `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3); later the PDF strip and the plain GPX. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |
 
-The detour generator, the catalogues of symbols and the training mode become modules of their own as they are
-developed.
+The catalogues of symbols and the training mode become modules of their own as they are developed.
 
 ## Dependencies
 

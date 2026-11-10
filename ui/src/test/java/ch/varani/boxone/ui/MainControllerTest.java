@@ -1,5 +1,8 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Route;
+import ch.varani.boxone.detour.DetourError;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingError;
 import ch.varani.boxone.routing.RoutingException;
@@ -17,6 +20,7 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
@@ -252,7 +256,7 @@ final class MainControllerTest {
         () -> assertEquals(MainController.WIDTH, window.stage().getScene().getWidth()),
         () -> assertEquals(MainController.HEIGHT, window.stage().getScene().getHeight()),
         () -> assertTrue(menuBar.isUseSystemMenuBar()),
-        () -> assertEquals(List.of("fileMenu", "toolsMenu"), menus.stream().map(Menu::getId).toList()),
+        () -> assertEquals(List.of("fileMenu", "routeMenu", "toolsMenu"), menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "exportItem", "quitSeparator", "quitItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()),
         () -> assertEquals(1, exits.get()),
@@ -281,7 +285,7 @@ final class MainControllerTest {
                                             owner -> Optional.empty()), colors);
     final List<Menu> menus = menuBar(robot, window).getMenus();
     assertAll(
-        () -> assertEquals(List.of("fileMenu"), menus.stream().map(Menu::getId).toList()),
+        () -> assertEquals(List.of("fileMenu", "routeMenu"), menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "exportItem", "settingsSeparator", "settingsItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()));
   }
@@ -370,6 +374,130 @@ final class MainControllerTest {
                            exported),
         () -> assertTrue(Files.readString(file).contains("<name>yverdon</name>")),
         () -> assertTrue(item.isDisable()));
+  }
+
+  /**
+   * Route › Generate a detour… is disabled until a route is shown; cancelled, nothing happens; asked with a budget and
+   * the seed proposed, the detour is generated in the background, drawn over the fastest route, its distance and
+   * duration in the card, its budget and the fastest duration in the status bar, its seed at the right of it; a new
+   * click on the map begins a new itinerary, without detour.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 3: Route › Generate a detour… shows a detour within the budget, with its seed")
+  void detourTest(final FxRobot robot) throws TimeoutException {
+    final Shown window = show(robot, new FakeRouter());
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    final MenuItem item = menuBar(robot, window).getMenus().get(1).getItems().getFirst();
+    final boolean disabledBefore = item.isDisable();
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    final boolean enabled = !item.isDisable();
+    fire(robot, window, "detourItem");
+    robot.interact(() -> button(robot, ButtonBar.ButtonData.CANCEL_CLOSE).fire());
+    final int waitingAfterCancel = background.size();
+    fire(robot, window, "detourItem");
+    final AtomicReference<String> seed = new AtomicReference<>();
+    robot.interact(() -> {
+      seed.set(robot.lookup("#" + DetourDialog.SEED_ID).queryAs(TextField.class).getText());
+      robot.lookup("#" + DetourDialog.BUDGET_ID).queryAs(ComboBox.class).getSelectionModel().select(1);
+      button(robot, ButtonBar.ButtonData.OK_DONE).fire();
+    });
+    WaitForAsyncUtils.waitForFxEvents();
+    final String detouring = text(robot, window, "status");
+    robot.interact(background::runAll);
+    final String detoured = text(robot, window, "status");
+    final String title = text(robot, window, "routeTitle");
+    final String summary = text(robot, window, "summary");
+    final TextField seedField = robot.from(window.stage().getScene().getRoot()).lookup("#seed")
+                                     .queryAs(TextField.class);
+    final String shownSeed = seedField.getText();
+    final boolean seedVisible = seedField.getParent().isVisible();
+    final int fastest = MapPages.count(robot, view, ".route-fastest");
+    final int detours = MapPages.count(robot, view, ".route-detour");
+    MapPages.click(robot, view, CASTLE_LATITUDE, STATION_LONGITUDE);
+    assertAll(
+        () -> assertTrue(disabledBefore),
+        () -> assertTrue(enabled),
+        () -> assertEquals(0, waitingAfterCancel),
+        () -> assertTrue(DetourDialog.isValid(seed.get())),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_DETOURING), detouring),
+        () -> assertTrue(detoured.startsWith("Détour d’au plus 30 min de plus que l’itinéraire le plus rapide "
+                                             + "(1 h 15)."), detoured),
+        () -> assertEquals(TEXTS.getString(MainController.DETOUR_TITLE), title),
+        () -> assertTrue(summary.endsWith("1 h 16") || summary.endsWith("1 h 17") || summary.endsWith("1 h 18"),
+                         summary),
+        () -> assertEquals(seed.get(), shownSeed),
+        () -> assertTrue(seedVisible),
+        () -> assertEquals(1, fastest),
+        () -> assertEquals(1, detours),
+        () -> assertEquals("", seedField.getText()),
+        () -> assertFalse(seedField.getParent().isVisible()),
+        () -> assertEquals(TEXTS.getString(MainController.ROUTE_TITLE), text(robot, window, "routeTitle")),
+        () -> assertEquals(0, MapPages.count(robot, view, ".route-detour")),
+        () -> assertTrue(item.isDisable()));
+  }
+
+  /**
+   * A detour that cannot be generated says why in the status bar, the fastest route staying shown; a click while a
+   * detour is generated cancels it.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 3: a detour that cannot be generated says why in the status bar")
+  void detourFailureTest(final FxRobot robot) throws TimeoutException {
+    final FakeRouter fake = new FakeRouter();
+    final Shown window = show(robot, new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points) {
+        if (points.size() > 2) {
+          throw new RoutingException(RoutingError.POINT_NOT_FOUND);
+        }
+        return fake.route(points);
+      }
+
+      @Override
+      public void close() {
+        fake.close();
+      }
+    });
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    final String summary = text(robot, window, "summary");
+    generate(robot, window);
+    robot.interact(background::runAll);
+    final String failed = text(robot, window, "status");
+    final String kept = text(robot, window, "summary");
+    generate(robot, window);
+    MapPages.click(robot, view, STATION_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertEquals(TEXTS.getString(MainController.DETOUR_ERROR + DetourError.NO_DETOUR.name()), failed),
+        () -> assertEquals(summary, kept),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), text(robot, window, "status")));
+  }
+
+  /**
+   * Asks for a detour with the budget and the seed proposed.
+   *
+   * @param robot the TestFX robot.
+   * @param window the window.
+   */
+  private static void generate(final FxRobot robot, final Shown window) {
+    fire(robot, window, "detourItem");
+    robot.interact(() -> button(robot, ButtonBar.ButtonData.OK_DONE).fire());
+    WaitForAsyncUtils.waitForFxEvents();
   }
 
   /**
