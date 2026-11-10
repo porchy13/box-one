@@ -3,6 +3,7 @@ package ch.varani.boxone.ui;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.detour.DetourError;
+import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingError;
 import ch.varani.boxone.routing.RoutingException;
@@ -12,6 +13,7 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.DialogPane;
@@ -38,6 +40,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -446,6 +449,48 @@ final class MainControllerTest {
   }
 
   /**
+   * The kinds of road forbidden in the dialog of the detour are forbidden to every routing of the detour, kept in the
+   * settings of the user, and proposed again for the next detour.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Issue #11: the kinds of road forbidden to a detour are kept in the settings for the next ones")
+  void avoidedTest(final FxRobot robot) throws TimeoutException {
+    final FakeRouter fake = new FakeRouter();
+    final Shown window = show(robot, fake);
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    final int before = fake.getAvoided().size();
+    fire(robot, window, "detourItem");
+    robot.interact(() -> {
+      robot.lookup("#" + DetourDialog.AVOID_ID + RoadKind.MOTORWAY.name()).queryAs(CheckBox.class).setSelected(true);
+      button(robot, ButtonBar.ButtonData.OK_DONE).fire();
+    });
+    WaitForAsyncUtils.waitForFxEvents();
+    robot.interact(background::runAll);
+    final List<Set<RoadKind>> detour = List.copyOf(fake.getAvoided().subList(before, fake.getAvoided().size()));
+    fire(robot, window, "detourItem");
+    final AtomicReference<Boolean> proposed = new AtomicReference<>();
+    robot.interact(() -> {
+      proposed.set(robot.lookup("#" + DetourDialog.AVOID_ID + RoadKind.MOTORWAY.name()).queryAs(CheckBox.class)
+                        .isSelected());
+      button(robot, ButtonBar.ButtonData.CANCEL_CLOSE).fire();
+    });
+    assertAll(
+        () -> assertFalse(detour.isEmpty()),
+        () -> assertTrue(detour.stream().allMatch(Set.of(RoadKind.MOTORWAY)::equals), detour::toString),
+        () -> assertEquals(Set.of(RoadKind.MOTORWAY),
+                           new SettingsStore(data.resolve(DataFolder.SETTINGS)).load().avoided()),
+        () -> assertTrue(proposed.get()));
+  }
+
+  /**
    * A detour that cannot be generated says why in the status bar, the fastest route staying shown; a click while a
    * detour is generated cancels it.
    *
@@ -459,11 +504,11 @@ final class MainControllerTest {
     final FakeRouter fake = new FakeRouter();
     final Shown window = show(robot, new Router() {
       @Override
-      public Route route(final List<GeoPoint> points) {
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
         if (points.size() > 2) {
           throw new RoutingException(RoutingError.POINT_NOT_FOUND);
         }
-        return fake.route(points);
+        return fake.route(points, avoided);
       }
 
       @Override
@@ -722,7 +767,7 @@ final class MainControllerTest {
     final Settings saved = new SettingsStore(data.resolve(DataFolder.SETTINGS)).load();
     assertAll(
         () -> assertFalse(savedAfterCancel),
-        () -> assertEquals(new Settings(TileProvider.MAPTILER, "my-key", ZoomSensitivity.HIGH), saved),
+        () -> assertEquals(new Settings(TileProvider.MAPTILER, "my-key", ZoomSensitivity.HIGH, Set.of()), saved),
         () -> assertEquals(ZoomSensitivity.HIGH.getPixelsPerLevel(), ((Number) MapPages.script(robot, view,
                            "boxOne.getWheel()")).intValue()),
         () -> assertTrue(String.valueOf(MapPages.script(robot, view,

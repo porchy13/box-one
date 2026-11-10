@@ -119,6 +119,10 @@
     -fx-spacing: 8;
 }
 
+.form .field-column {
+    -fx-spacing: 4;
+}
+
 /* The veil over the map while it is loaded or imported (§7, status feedback): the map stays visible, dimmed, and
    cannot be clicked; a card in the middle tells what is happening. */
 .busy-veil {

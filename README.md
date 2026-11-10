@@ -59,13 +59,17 @@ theme, accent and colours following the system.
   begins a new route.
 - **Detour**: once the fastest route is shown, Route › Generate a detour… (Shortcut+D) asks for a budget, in minutes
   (0 to 60, by steps of 5) or in percent of the duration of the fastest route (5 to 100 %, by steps of 5, the time it
-  gives shown under the choice), and a seed, a new one proposed each time. The detour passes through waypoints drawn
+  gives shown under the choice), the kinds of road to avoid (motorways, expressways, ferries, toll roads — the
+  motorways of the vignette, as in Switzerland, are toll roads in OpenStreetMap; all allowed by default, the choice
+  kept in the settings for the next detours), and a seed, a new one proposed each time. The detour, and the fastest
+  route it is compared with, never drive the kinds avoided; avoiding the toll roads needs a map imported by this
+  version (File › Open a map…). The detour passes through waypoints drawn
   at random around the start and the finish, drives other roads than the fastest route and takes longer by the budget
   at most (with 0 minutes, the same duration by other roads, seldom found), drives no road twice nor
   turns back, and drives the roads for residents or private and the tracks (forest roads) only around the start
   and the finish; no waypoint lies on them nor on a service road (driveway, parking aisle). It is drawn as a solid line over the fastest route, with its distance
   and duration in the card, and its seed at the right of the status bar, where it can be selected and copied: the
-  same seed, with the same start, finish and map, gives the same detour again. The roadbook exported is then the one of the detour.
+  same seed, with the same start, finish, budget, kinds avoided and map, gives the same detour again. The roadbook exported is then the one of the detour.
 - **Roadbook for Terra Pirata**: File › Export the roadbook… (Shortcut+E) writes the roadbook of the route shown (the
   fastest route or the detour) as a GPX file with the extensions of OpenRally, the format read by Terra Pirata: one
   box at the start, one at each instruction of the route (turn, roundabout, road of another name…) and one at the

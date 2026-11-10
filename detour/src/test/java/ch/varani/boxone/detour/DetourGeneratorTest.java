@@ -2,6 +2,7 @@ package ch.varani.boxone.detour;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingError;
 import ch.varani.boxone.routing.RoutingException;
@@ -68,7 +69,7 @@ final class DetourGeneratorTest {
     final DetourGenerator generator = new DetourGenerator(new LineRouter());
     final Set<Route> routes = new HashSet<>();
     for (final long seed : SEEDS) {
-      final Detour detour = generator.generate(START, FINISH, budget, seed);
+      final Detour detour = generator.generate(START, FINISH, budget, Set.of(), seed);
       final Duration fastest = detour.fastest().duration();
       final Ellipse ellipse = Ellipse.of(START, FINISH, fastest, budget.of(fastest));
       final List<Double> along = detour.waypoints().stream().map(ellipse::along).toList();
@@ -108,7 +109,7 @@ final class DetourGeneratorTest {
     final Route fastest = LineRouter.line(List.of(START, FINISH));
     final LineRouter router = new LineRouter(points -> new Route(points, List.of(), fastest.distance() + OTHER_ROADS,
                                                                  fastest.duration()));
-    final Detour detour = new DetourGenerator(router).generate(START, FINISH, zero, SEED);
+    final Detour detour = new DetourGenerator(router).generate(START, FINISH, zero, Set.of(), SEED);
     assertAll(
         () -> assertEquals(fastest.duration(), detour.route().duration()),
         () -> assertEquals(zero, detour.budget()));
@@ -146,14 +147,29 @@ final class DetourGeneratorTest {
   }
 
   /**
+   * The kinds of road forbidden are forbidden to every routing, the fastest route included, and kept in the detour.
+   */
+  @Test
+  @DisplayName("Issue #11: the fastest route and every attempt of a detour avoid the kinds of road forbidden")
+  void avoidedTest() {
+    final Set<RoadKind> avoided = Set.of(RoadKind.MOTORWAY, RoadKind.TOLL);
+    final LineRouter router = new LineRouter();
+    final Detour detour = new DetourGenerator(router).generate(START, FINISH, THIRTY_MINUTES, avoided, SEED);
+    assertAll(
+        () -> assertEquals(avoided, detour.avoided()),
+        () -> assertFalse(router.getAvoided().isEmpty()),
+        () -> assertTrue(router.getAvoided().stream().allMatch(avoided::equals)));
+  }
+
+  /**
    * The same seed and the same inputs give the same detour.
    */
   @Test
   @DisplayName("Phase 3: the same seed gives the same detour")
   void seedTest() {
     final DetourGenerator generator = new DetourGenerator(new LineRouter());
-    assertEquals(generator.generate(START, FINISH, THIRTY_MINUTES, SEED),
-                 generator.generate(START, FINISH, THIRTY_MINUTES, SEED));
+    assertEquals(generator.generate(START, FINISH, THIRTY_MINUTES, Set.of(), SEED),
+                 generator.generate(START, FINISH, THIRTY_MINUTES, Set.of(), SEED));
   }
 
   /**
@@ -168,7 +184,7 @@ final class DetourGeneratorTest {
     });
     final DetourGenerator generator = new DetourGenerator(router);
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, SEED));
+        () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, Set.of(), SEED));
     assertAll(
         () -> assertEquals(DetourError.NO_DETOUR, failure.getError()),
         () -> assertEquals(1 + DetourGenerator.MAX_ATTEMPTS, router.getRoutings()));
@@ -186,7 +202,7 @@ final class DetourGeneratorTest {
       final Route line = LineRouter.line(points);
       return new Route(line.points(), List.of(), line.distance(), limit);
     });
-    assertEquals(limit, new DetourGenerator(router).generate(START, FINISH, FIFTEEN_MINUTES, SEED).route()
+    assertEquals(limit, new DetourGenerator(router).generate(START, FINISH, FIFTEEN_MINUTES, Set.of(), SEED).route()
         .duration());
   }
 
@@ -199,7 +215,7 @@ final class DetourGeneratorTest {
     final LineRouter router = new LineRouter(points -> LineRouter.line(List.of(START, FINISH)));
     final DetourGenerator generator = new DetourGenerator(router);
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, FINISH, THIRTY_MINUTES, SEED));
+        () -> generator.generate(START, FINISH, THIRTY_MINUTES, Set.of(), SEED));
     assertEquals(DetourError.NO_DETOUR, failure.getError());
   }
 
@@ -212,7 +228,7 @@ final class DetourGeneratorTest {
     final LineRouter router = new LineRouter(points -> LineRouter.line(List.of(START, MIDDLE, START, FINISH)));
     final DetourGenerator generator = new DetourGenerator(router);
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, FINISH, THIRTY_MINUTES, SEED));
+        () -> generator.generate(START, FINISH, THIRTY_MINUTES, Set.of(), SEED));
     assertEquals(DetourError.NO_DETOUR, failure.getError());
   }
 
@@ -230,7 +246,7 @@ final class DetourGeneratorTest {
       }
       return LineRouter.line(points);
     });
-    final Detour detour = new DetourGenerator(router).generate(START, FINISH, FIFTEEN_MINUTES, SEED);
+    final Detour detour = new DetourGenerator(router).generate(START, FINISH, FIFTEEN_MINUTES, Set.of(), SEED);
     assertAll(
         () -> assertTrue(calls.size() > 1),
         () -> assertEquals(calls.getLast(), detour.waypoints().size() + 2));
@@ -245,7 +261,7 @@ final class DetourGeneratorTest {
     final RoutingException failure = new RoutingException(RoutingError.NO_ROUTE);
     final DetourGenerator generator = new DetourGenerator(new FailingRouter(failure));
     assertSame(failure, assertThrows(RoutingException.class,
-                                     () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, SEED)));
+                                     () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, Set.of(), SEED)));
   }
 
   /**
@@ -256,7 +272,7 @@ final class DetourGeneratorTest {
   void samePlaceTest() {
     final DetourGenerator generator = new DetourGenerator(new LineRouter());
     final DetourException failure = assertThrows(DetourException.class,
-        () -> generator.generate(START, START, FIFTEEN_MINUTES, SEED));
+        () -> generator.generate(START, START, FIFTEEN_MINUTES, Set.of(), SEED));
     assertEquals(DetourError.NO_DETOUR, failure.getError());
   }
 
@@ -270,7 +286,7 @@ final class DetourGeneratorTest {
     Thread.currentThread().interrupt();
     try {
       assertThrows(CancellationException.class,
-                   () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, SEED));
+                   () -> generator.generate(START, FINISH, FIFTEEN_MINUTES, Set.of(), SEED));
     } finally {
       assertTrue(Thread.interrupted());
     }
@@ -325,11 +341,12 @@ final class DetourGeneratorTest {
      * Throws the exception of the router.
      *
      * @param points the points.
+     * @param avoided the kinds of road forbidden.
      *
      * @return never.
      */
     @Override
-    public Route route(final List<GeoPoint> points) {
+    public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
       throw failure;
     }
 

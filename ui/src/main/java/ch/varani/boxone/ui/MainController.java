@@ -458,8 +458,10 @@ final class MainController {
    */
   @FXML
   private void generateDetour() {
-    final Dialog<DetourDialog.Request> dialog = new DetourDialog(stage, texts, locale, budget, fastest,
-        DetourGenerator.newSeed(RandomGenerator.getDefault()), stage.getScene().getStylesheets()).getDialog();
+    final long newSeed = DetourGenerator.newSeed(RandomGenerator.getDefault());
+    final DetourDialog.Request proposed = new DetourDialog.Request(budget, settings.avoided(), newSeed);
+    final Dialog<DetourDialog.Request> dialog = new DetourDialog(stage, texts, locale, proposed, fastest,
+                                                                 stage.getScene().getStylesheets()).getDialog();
     dialog.setOnHidden(event -> {
       if (dialog.getResult() != null) {
         detour(dialog.getResult());
@@ -469,19 +471,23 @@ final class MainController {
   }
 
   /**
-   * Generates, in the background, a detour from the start to the finish shown, a detour being generated cancelled.
+   * Generates, in the background, a detour from the start to the finish shown, a detour being generated cancelled; the
+   * kinds of road forbidden, when they change, are kept in the settings for the next detours (issue #11 of GitLab).
    *
-   * @param request the budget and the seed of the detour.
+   * @param request the budget, the kinds of road forbidden and the seed of the detour.
    */
   private void detour(final DetourDialog.Request request) {
     cancelRouting();
     budget = request.budget();
+    if (!request.avoided().equals(settings.avoided())) {
+      save(settings.withAvoided(request.avoided()));
+    }
     final DetourGenerator generator = new DetourGenerator(router);
     final GeoPoint start = itinerary.getStart().orElseThrow();
     final GeoPoint finish = itinerary.getFinish().orElseThrow();
     setStatus(STATUS_DETOURING);
-    routing = run(() -> generator.generate(start, finish, request.budget(), request.seed()), this::detoured,
-                  this::failed);
+    routing = run(() -> generator.generate(start, finish, request.budget(), request.avoided(), request.seed()),
+                  this::detoured, this::failed);
   }
 
   /**
@@ -505,15 +511,28 @@ final class MainController {
    * @param saved the new settings.
    */
   private void apply(final Settings saved) {
+    if (save(saved)) {
+      map.setTiles(saved.source());
+      map.setZoom(saved.zoom());
+    }
+  }
+
+  /**
+   * Saves new settings, and keeps them once saved; a failure is told in the status bar.
+   *
+   * @param chosen the new settings.
+   *
+   * @return {@code true} if they are saved, {@code false} if the file cannot be written: the former settings are kept.
+   */
+  private boolean save(final Settings chosen) {
     try {
-      store.save(saved);
+      store.save(chosen);
     } catch (UncheckedIOException _) {
       setStatus(SETTINGS_ERROR);
-      return;
+      return false;
     }
-    settings = saved;
-    map.setTiles(saved.source());
-    map.setZoom(saved.zoom());
+    settings = chosen;
+    return true;
   }
 
   /**

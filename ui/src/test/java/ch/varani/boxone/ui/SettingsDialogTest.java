@@ -17,6 +17,7 @@ import org.testfx.framework.junit5.ApplicationExtension;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -71,7 +72,8 @@ final class SettingsDialogTest {
     assertAll(
         () -> assertEquals(List.of(true, false), keyDisabled),
         () -> assertEquals(List.of(false, true, false), saveDisabled),
-        () -> assertEquals(new Settings(TileProvider.MAPTILER, "my-key", ZoomSensitivity.LOW), result.get()));
+        () -> assertEquals(new Settings(TileProvider.MAPTILER, "my-key", ZoomSensitivity.LOW, Set.of()),
+                           result.get()));
   }
 
   /**
@@ -88,7 +90,7 @@ final class SettingsDialogTest {
       owner.setScene(new Scene(new StackPane()));
       owner.show();
       shown.set(new SettingsDialog(owner, Languages.bundle(Languages.FRENCH),
-                                   new Settings(TileProvider.MAPTILER, "kept", ZoomSensitivity.VERY_HIGH),
+                                   new Settings(TileProvider.MAPTILER, "kept", ZoomSensitivity.VERY_HIGH, Set.of()),
                                    List.of()).getDialog());
     });
     final Dialog<Settings> dialog = shown.get();

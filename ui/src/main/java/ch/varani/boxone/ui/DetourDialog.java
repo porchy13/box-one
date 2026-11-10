@@ -1,12 +1,15 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.detour.Budget;
+import ch.varani.boxone.routing.RoadKind;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.geometry.HPos;
+import javafx.geometry.VPos;
 import javafx.scene.Node;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Control;
 import javafx.scene.control.Dialog;
@@ -18,23 +21,31 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.stage.Window;
 
 import java.text.MessageFormat;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The choice of a detour (development plan, phase 3; DESIGN.md §7, §14): its budget, and its seed, a new one drawn for
- * each detour, which the user may replace by the seed of an earlier detour to generate it again.
+ * The choice of a detour (development plan, phase 3; DESIGN.md §7, §14): its budget, the kinds of road it must not
+ * drive, and its seed, a new one drawn for each detour, which the user may replace by the seed of an earlier detour to
+ * generate it again.
  *
  * <p><b>Budget</b> (issues #9 and #10 of GitLab): its unit, minutes or percent of the fastest route, then its amount,
  * from the budgets of the unit ({@link Budget.Unit#budgets()}); a change of the unit selects the budget of the new unit
  * nearest to the time of the former one. The caption under it says, for a budget in percent, the time it gives on the
  * fastest route shown.</p>
+ *
+ * <p><b>Kinds of road forbidden</b> (issue #11 of GitLab): a box for each {@link RoadKind}, checked if the kind is
+ * forbidden; those of the last detour are proposed, the caller keeping them in the settings of the user.</p>
  *
  * <p><b>Rules</b>: the seed is a number of 1 to {@value #SEED_DIGITS} digits, the seeds drawn for the user
  * ({@link ch.varani.boxone.detour.DetourGenerator#newSeed}); while it is not, the field is marked, its caption says
@@ -73,6 +84,14 @@ final class DetourDialog {
   static final String BUDGET_ID = "budgetChoice";
   /** The identifier of the choice of the unit of the budget. */
   static final String UNIT_ID = "unitChoice";
+  /** The key of the label of the kinds of road forbidden. */
+  static final String AVOID_LABEL = "detour.avoid";
+  /** The key of the caption under the kinds of road forbidden. */
+  static final String AVOID_HINT = "detour.avoidHint";
+  /** The beginning of the keys of the kinds of road ({@code detour.avoid.<kind>}). */
+  static final String AVOID_KEYS = "detour.avoid.";
+  /** The beginning of the identifiers of the boxes of the kinds of road ({@code avoid-<kind>}). */
+  static final String AVOID_ID = "avoid-";
   /** The identifier of the field of the seed. */
   static final String SEED_ID = "seedField";
   /**
@@ -86,6 +105,12 @@ final class DetourDialog {
   private static final String INVALID = "invalid";
   /** The style class of a caption telling an error (base.css). */
   private static final String ERROR = "error";
+  /** The row of the form of the budget; its caption takes the next one. */
+  private static final int BUDGET_ROW = 0;
+  /** The row of the form of the kinds of road forbidden; their caption takes the next one. */
+  private static final int AVOID_ROW = 2;
+  /** The row of the form of the seed; its caption takes the next one. */
+  private static final int SEED_ROW = 4;
   /**
    * The smallest width of the fields, in pixels; the column of the fields is wider when the amount and the unit of the
    * budget need it, the amount never narrower than its text.
@@ -114,6 +139,8 @@ final class DetourDialog {
   private final Duration fastest;
   /** The seed. */
   private final TextField seed = new TextField();
+  /** The boxes of the kinds of road forbidden, in the order of {@link RoadKind}. */
+  private final List<CheckBox> kinds = new ArrayList<>();
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -125,13 +152,14 @@ final class DetourDialog {
    * @param owner the main window.
    * @param texts the texts of the user interface.
    * @param locale the locale of the application, for the durations.
-   * @param current the budget selected first: the one of the last detour.
+   * @param proposed the detour proposed: the budget and the kinds of road forbidden of the last detour, and a new
+   *                 seed.
    * @param fastest the duration of the fastest route shown, of which a budget in percent is a share.
-   * @param newSeed the seed proposed, a new one.
    * @param stylesheets the style sheets of the theme of the main window.
    */
-  DetourDialog(final Window owner, final ResourceBundle texts, final Locale locale, final Budget current,
-               final Duration fastest, final long newSeed, final List<String> stylesheets) {
+  DetourDialog(final Window owner, final ResourceBundle texts, final Locale locale, final Request proposed,
+               final Duration fastest, final List<String> stylesheets) {
+    final Budget current = proposed.budget();
     this.texts = texts;
     this.locale = locale;
     this.fastest = fastest;
@@ -156,7 +184,13 @@ final class DetourDialog {
       }
     });
     describe();
-    seed.setText(String.valueOf(newSeed));
+    for (final RoadKind kind : RoadKind.values()) {
+      final CheckBox box = new CheckBox(texts.getString(AVOID_KEYS + kind.name()));
+      box.setId(AVOID_ID + kind.name());
+      box.setSelected(proposed.avoided().contains(kind));
+      kinds.add(box);
+    }
+    seed.setText(String.valueOf(proposed.seed()));
     final BooleanBinding invalid = Bindings.createBooleanBinding(() -> !isValid(seed.getText()), seed.textProperty());
     final Label seedHint = new Label();
     seedHint.textProperty().bind(Bindings.when(invalid).then(texts.getString(SEED_ERROR))
@@ -165,7 +199,7 @@ final class DetourDialog {
     pane.setContent(form(texts, seedHint));
     pane.lookupButton(generate).disableProperty().bind(invalid);
     dialog.setResultConverter(button -> button == generate
-        ? new Request(selected(), Long.parseLong(seed.getText().strip())) : null);
+        ? new Request(selected(), avoided(), Long.parseLong(seed.getText().strip())) : null);
   }
 
   // *******************************************************************************************************************
@@ -205,6 +239,21 @@ final class DetourDialog {
   private Budget selected() {
     return units.get(unit.getSelectionModel().getSelectedIndex()).budgets()
                 .get(budget.getSelectionModel().getSelectedIndex());
+  }
+
+  /**
+   * Returns the kinds of road forbidden.
+   *
+   * @return the kinds whose box is checked.
+   */
+  private Set<RoadKind> avoided() {
+    final Set<RoadKind> avoided = EnumSet.noneOf(RoadKind.class);
+    for (final RoadKind kind : RoadKind.values()) {
+      if (kinds.get(kind.ordinal()).isSelected()) {
+        avoided.add(kind);
+      }
+    }
+    return avoided;
   }
 
   /**
@@ -287,13 +336,19 @@ final class DetourDialog {
     HBox.setHgrow(unit, Priority.ALWAYS);
     budget.setMinWidth(Region.USE_PREF_SIZE);
     unit.setMaxWidth(Double.MAX_VALUE);
-    field(form, 0, texts.getString(BUDGET_LABEL), budget, choice, budgetHint);
-    field(form, 2, texts.getString(SEED_LABEL), seed, seed, seedHint);
+    field(form, BUDGET_ROW, texts.getString(BUDGET_LABEL), budget, choice, budgetHint);
+    final VBox boxes = new VBox();
+    boxes.getChildren().setAll(kinds);
+    boxes.getStyleClass().add("field-column");
+    field(form, AVOID_ROW, texts.getString(AVOID_LABEL), kinds.getFirst(), boxes,
+          new Label(texts.getString(AVOID_HINT)));
+    field(form, SEED_ROW, texts.getString(SEED_LABEL), seed, seed, seedHint);
     return form;
   }
 
   /**
-   * Adds a field to the form: its label at the left, the field at the right, and its caption under the field.
+   * Adds a field to the form: its label at the left, on the baseline of the field (of its first line, for a group of
+   * boxes), the field at the right, and its caption under the field.
    *
    * @param form the form.
    * @param row the row of the field; its caption takes the next one.
@@ -309,6 +364,8 @@ final class DetourDialog {
     label.getStyleClass().add("field-label");
     form.add(label, 0, row);
     form.add(node, 1, row);
+    GridPane.setValignment(label, VPos.BASELINE);
+    GridPane.setValignment(node, VPos.BASELINE);
     hint.getStyleClass().add("caption");
     hint.setWrapText(true);
     form.add(hint, 1, row + 1);
@@ -324,9 +381,22 @@ final class DetourDialog {
    * <p>Immutable, safe for concurrent use.</p>
    *
    * @param budget the budget of the detour.
+   * @param avoided the kinds of road the detour must not drive; unmodifiable.
    * @param seed the seed of the detour.
    */
-  record Request(Budget budget, long seed) {
+  record Request(Budget budget, Set<RoadKind> avoided, long seed) {
+
+    /**
+     * Creates a detour asked.
+     *
+     * @param budget the budget of the detour.
+     * @param avoided the kinds of road the detour must not drive, none {@code null}; copied.
+     * @param seed the seed of the detour.
+     */
+    Request {
+      avoided = Set.copyOf(avoided);
+    }
+
   }
 
 }

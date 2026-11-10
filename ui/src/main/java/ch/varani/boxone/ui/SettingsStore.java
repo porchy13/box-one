@@ -1,5 +1,7 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.routing.RoadKind;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
@@ -8,17 +10,22 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.EnumSet;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Reads and writes the settings of the user ({@link Settings}) in a file of the data folder, rather than with
  * {@code java.util.prefs}, so that the tests never touch the preferences of the user (DESIGN.md §14).
  *
  * <p><b>Format</b>: a properties file in UTF-8 with its {@value #FORMAT_VERSION_KEY} (AGENTS.md §5), the provider of
- * the tiles ({@value #TILES_KEY}), the key of MapTiler ({@value #MAPTILER_KEY}) and the sensitivity of the zoom
- * ({@value #ZOOM_KEY}). A missing file gives the default settings; a file that cannot be read, or of a newer version,
- * gives the default settings too (the user sets them again), and a provider or a sensitivity unknown or missing gives
- * the default one. The file is written atomically: a temporary file of the
+ * the tiles ({@value #TILES_KEY}), the key of MapTiler ({@value #MAPTILER_KEY}), the sensitivity of the zoom
+ * ({@value #ZOOM_KEY}) and the kinds of road forbidden to the detours ({@value #AVOIDED_KEY}: their names, separated
+ * by commas; an unknown name is ignored, a missing key forbids none). A missing file gives the default settings; a
+ * file that cannot be read, or of a newer version, gives the default settings too (the user sets them again), and a
+ * provider or a sensitivity unknown or missing gives the default one. The file is written atomically: a temporary
+ * file of the
  * folder, readable by the user only on the systems that support it, then moved onto the settings file.</p>
  *
  * <p>The key of MapTiler is never logged (AGENTS.md §5).</p>
@@ -41,6 +48,10 @@ final class SettingsStore {
   static final String MAPTILER_KEY = "mapTilerKey";
   /** The key of the sensitivity of the zoom. */
   static final String ZOOM_KEY = "zoom";
+  /** The key of the kinds of road forbidden to the detours (issue #11 of GitLab). */
+  static final String AVOIDED_KEY = "detour.avoided";
+  /** The separator of the kinds of road forbidden. */
+  private static final String SEPARATOR = ",";
   /** The beginning of the name of the temporary file written before the settings file. */
   private static final String TEMPORARY_PREFIX = "settings";
   /** The end of the name of the temporary file written before the settings file. */
@@ -95,7 +106,8 @@ final class SettingsStore {
     }
     return new Settings(named(TileProvider.class, properties.getProperty(TILES_KEY), Settings.DEFAULT.tiles()),
                         properties.getProperty(MAPTILER_KEY, ""),
-                        named(ZoomSensitivity.class, properties.getProperty(ZOOM_KEY), Settings.DEFAULT.zoom()));
+                        named(ZoomSensitivity.class, properties.getProperty(ZOOM_KEY), Settings.DEFAULT.zoom()),
+                        kinds(properties.getProperty(AVOIDED_KEY, "")));
   }
 
   /**
@@ -111,6 +123,8 @@ final class SettingsStore {
     properties.setProperty(TILES_KEY, settings.tiles().name());
     properties.setProperty(MAPTILER_KEY, settings.mapTilerKey());
     properties.setProperty(ZOOM_KEY, settings.zoom().name());
+    properties.setProperty(AVOIDED_KEY, settings.avoided().stream().sorted().map(RoadKind::name)
+                                                .collect(Collectors.joining(SEPARATOR)));
     try {
       final Path folder = file.toAbsolutePath().getParent();
       Files.createDirectories(folder);
@@ -129,12 +143,30 @@ final class SettingsStore {
   }
 
   /**
+   * Reads the kinds of road forbidden to the detours.
+   *
+   * @param names the names of the kinds, separated by commas; possibly empty.
+   *
+   * @return the kinds named, the unknown names ignored.
+   */
+  private static Set<RoadKind> kinds(final String names) {
+    final Set<RoadKind> kinds = EnumSet.noneOf(RoadKind.class);
+    for (final String name : names.split(SEPARATOR)) {
+      final RoadKind kind = named(RoadKind.class, name.strip(), null);
+      if (kind != null) {
+        kinds.add(kind);
+      }
+    }
+    return kinds;
+  }
+
+  /**
    * Returns the constant of an enumeration that has a name.
    *
    * @param <E> the type of the enumeration.
    * @param type the class of the enumeration.
    * @param name the name of the constant, or {@code null}.
-   * @param fallback the constant returned if the name is unknown.
+   * @param fallback the constant returned if the name is unknown, or {@code null}.
    *
    * @return the constant of the name, or the fallback if the name is unknown or missing.
    */

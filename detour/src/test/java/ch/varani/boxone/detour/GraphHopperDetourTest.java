@@ -69,7 +69,7 @@ final class GraphHopperDetourTest {
     final DetourGenerator generator = new DetourGenerator(router);
     final Set<Route> routes = new HashSet<>();
     for (int seed = 0; seed < GENERATIONS; seed++) {
-      final Detour detour = generator.generate(STATION, CASTLE, Budget.DEFAULT, seed);
+      final Detour detour = generator.generate(STATION, CASTLE, Budget.DEFAULT, Set.of(), seed);
       final Duration fastest = detour.fastest().duration();
       assertAll(
           () -> assertTrue(detour.route().duration().compareTo(fastest.plus(Budget.DEFAULT.of(fastest))) <= 0),
@@ -79,8 +79,8 @@ final class GraphHopperDetourTest {
     }
     assertAll(
         () -> assertEquals(GENERATIONS, routes.size()),
-        () -> assertEquals(generator.generate(STATION, CASTLE, Budget.DEFAULT, 1),
-                           generator.generate(STATION, CASTLE, Budget.DEFAULT, 1)));
+        () -> assertEquals(generator.generate(STATION, CASTLE, Budget.DEFAULT, Set.of(), 1),
+                           generator.generate(STATION, CASTLE, Budget.DEFAULT, Set.of(), 1)));
   }
 
 }

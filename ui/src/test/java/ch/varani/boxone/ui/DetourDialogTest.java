@@ -2,9 +2,11 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.DetourGenerator;
+import ch.varani.boxone.routing.RoadKind;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonBar;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
@@ -23,6 +25,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -66,13 +69,24 @@ final class DetourDialogTest {
    * @return the dialog.
    */
   private static Dialog<DetourDialog.Request> show(final FxRobot robot, final Budget current) {
+    return show(robot, new DetourDialog.Request(current, Set.of(), SEED));
+  }
+
+  /**
+   * Creates the dialog, shown in a window.
+   *
+   * @param robot the TestFX robot.
+   * @param proposed the detour proposed.
+   *
+   * @return the dialog.
+   */
+  private static Dialog<DetourDialog.Request> show(final FxRobot robot, final DetourDialog.Request proposed) {
     final AtomicReference<Dialog<DetourDialog.Request>> shown = new AtomicReference<>();
     robot.interact(() -> {
       final Stage owner = new Stage();
       owner.setScene(new Scene(new StackPane()));
       owner.show();
-      final Dialog<DetourDialog.Request> dialog = new DetourDialog(owner, TEXTS, Languages.FRENCH, current, FASTEST,
-                                                                   SEED,
+      final Dialog<DetourDialog.Request> dialog = new DetourDialog(owner, TEXTS, Languages.FRENCH, proposed, FASTEST,
                                                                    List.of()).getDialog();
       dialog.show();
       shown.set(dialog);
@@ -141,7 +155,7 @@ final class DetourDialogTest {
         () -> assertEquals(List.of(true, true, true, false), marked),
         () -> assertEquals(TEXTS.getString(DetourDialog.SEED_ERROR), hints.getFirst()),
         () -> assertEquals(TEXTS.getString(DetourDialog.SEED_HINT), hints.getLast()),
-        () -> assertEquals(new DetourDialog.Request(Budget.DEFAULT, TYPED), result.get()));
+        () -> assertEquals(new DetourDialog.Request(Budget.DEFAULT, Set.of(), TYPED), result.get()));
   }
 
   /**
@@ -182,7 +196,7 @@ final class DetourDialogTest {
         () -> assertEquals("Soit 29 min de plus, au plus, sur l’itinéraire le plus rapide (45 min).",
                            percentHint.get()),
         () -> assertEquals("Soit 9 min de plus, au plus, sur l’itinéraire le plus rapide (45 min).", twentyHint.get()),
-        () -> assertEquals(new DetourDialog.Request(TWENTY_PERCENT, SEED), result.get()),
+        () -> assertEquals(new DetourDialog.Request(TWENTY_PERCENT, Set.of(), SEED), result.get()),
         () -> assertEquals("10 min", minutesAgain.get()));
   }
 
@@ -218,6 +232,37 @@ final class DetourDialogTest {
         () -> assertTrue(widths.get(0) >= needed.get(0), widths + " " + needed),
         () -> assertTrue(widths.get(1) >= needed.get(1), widths + " " + needed),
         () -> assertEquals(List.of("35\u202f%", "15 min"), shown));
+  }
+
+  /**
+   * The dialog proposes the kinds of road forbidden to the last detour, checked; the boxes checked are the kinds
+   * forbidden to the detour asked.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Issue #11: the detour proposes to avoid the motorways, the expressways, the ferries and the tolls")
+  void avoidedTest(final FxRobot robot) {
+    final Dialog<DetourDialog.Request> dialog = show(robot, new DetourDialog.Request(Budget.DEFAULT,
+                                                                                     Set.of(RoadKind.FERRY), SEED));
+    final List<String> labels = new ArrayList<>();
+    final List<Boolean> checked = new ArrayList<>();
+    final AtomicReference<DetourDialog.Request> result = new AtomicReference<>();
+    robot.interact(() -> {
+      for (final RoadKind kind : RoadKind.values()) {
+        final CheckBox box = (CheckBox) dialog.getDialogPane().lookup("#" + DetourDialog.AVOID_ID + kind.name());
+        labels.add(box.getText());
+        checked.add(box.isSelected());
+        box.setSelected(kind == RoadKind.MOTORWAY || kind == RoadKind.TOLL);
+      }
+      result.set(dialog.getResultConverter().call(dialog.getDialogPane().getButtonTypes().getFirst()));
+      dialog.close();
+    });
+    assertAll(
+        () -> assertEquals(List.of("Autoroutes", "Semi-autoroutes", "Ferries", "Routes à péage"), labels),
+        () -> assertEquals(List.of(false, false, true, false), checked),
+        () -> assertEquals(new DetourDialog.Request(Budget.DEFAULT, Set.of(RoadKind.MOTORWAY, RoadKind.TOLL), SEED),
+                           result.get()));
   }
 
   /**

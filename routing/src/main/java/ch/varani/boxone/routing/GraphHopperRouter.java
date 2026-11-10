@@ -10,8 +10,11 @@ import com.graphhopper.config.CHProfile;
 import com.graphhopper.config.Profile;
 import com.graphhopper.routing.ev.EnumEncodedValue;
 import com.graphhopper.routing.ev.RoadAccess;
+import com.graphhopper.json.Statement;
 import com.graphhopper.routing.ev.RoadClass;
+import com.graphhopper.routing.ev.RoadEnvironment;
 import com.graphhopper.routing.ev.Subnetwork;
+import com.graphhopper.routing.ev.Toll;
 import com.graphhopper.routing.util.DefaultSnapFilter;
 import com.graphhopper.routing.util.EdgeFilter;
 import com.graphhopper.storage.index.Snap;
@@ -34,6 +37,7 @@ import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * The {@link Router} of GraphHopper: the fastest route by car on a graph imported from an extract of OpenStreetMap
@@ -45,6 +49,11 @@ import java.util.function.Predicate;
  * with the hierarchy, in milliseconds, through the waypoints of a detour if any (phase 3), with the instructions of
  * the engine: the point where each instruction begins, except the start, the finish and the waypoints, is a maneuver
  * of the route (development plan, phase 2).</p>
+ *
+ * <p><b>Kinds of road forbidden</b> (issue #11 of GitLab): a route that must not drive some kinds of road
+ * ({@link RoadKind}) is computed with a custom model of the request, which multiplies the priority of these roads by 0,
+ * without the hierarchy, which allows no model of the request: the search runs on the whole graph, in tens of
+ * milliseconds over the distances of a detour (about 20 ms on Switzerland, against 4 ms with the hierarchy).</p>
  *
  * <p><b>Profile</b>: the custom models {@code car.json} and {@code car_avoid_private_etc.json} of GraphHopper (the
  * speeds of the roads for a car, the roads closed to cars and the private roads avoided), with the turn restrictions
@@ -63,9 +72,11 @@ public final class GraphHopperRouter implements Router {
   /**
    * The values stored on the edges of the graph, needed by the custom models of the profile. GraphHopper adds the
    * class of the road ({@code road_class}, for its instructions) to every graph, the graphs of phases 1 and 2
-   * included: it tells the service roads, where no waypoint is placed (phase 3).
+   * included: it tells the service roads, where no waypoint is placed (phase 3), and the motorways and the
+   * expressways; it adds the environment of the road ({@code road_environment}) too, which tells the ferries. The
+   * toll ({@code toll}) tells the toll roads (issue #11 of GitLab): the graphs imported before it do not know it.
    */
-  static final String ENCODED_VALUES = "car_access, car_average_speed, road_access";
+  static final String ENCODED_VALUES = "car_access, car_average_speed, road_access, toll";
   /**
    * The access of the roads open to everyone: the others (residents, customers, delivery, private, agricultural,
    * forestry) are driven through by a route with waypoints only around its start and its finish.
@@ -112,6 +123,8 @@ public final class GraphHopperRouter implements Router {
   private final EnumEncodedValue<RoadAccess> access;
   /** The class of the roads, stored on the edges. */
   private final EnumEncodedValue<RoadClass> roadClass;
+  /** Whether the graph knows the toll roads: not those imported before issue #11 of GitLab. */
+  private final boolean tolls;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -122,12 +135,13 @@ public final class GraphHopperRouter implements Router {
    *
    * @param hopper the engine, with its graph loaded.
    */
-  private GraphHopperRouter(final GraphHopper hopper) {
+  GraphHopperRouter(final GraphHopper hopper) {
     this.hopper = hopper;
     this.roads = new DefaultSnapFilter(hopper.createWeighting(hopper.getProfile(PROFILE), new PMap()),
                                        hopper.getEncodingManager().getBooleanEncodedValue(Subnetwork.key(PROFILE)));
     this.access = hopper.getEncodingManager().getEnumEncodedValue(RoadAccess.KEY, RoadAccess.class);
     this.roadClass = hopper.getEncodingManager().getEnumEncodedValue(RoadClass.KEY, RoadClass.class);
+    this.tolls = hopper.getEncodingManager().hasEncodedValue(Toll.KEY);
   }
 
   /**
@@ -212,15 +226,20 @@ public final class GraphHopperRouter implements Router {
    * restricted access and the tracks only around its start and its finish
    * ({@link #checkStretches(List, Predicate, int)}), where the user may well have placed them; otherwise there is no
    * route. Its maneuvers are the points where the instructions of the engine begin, the first one (the start)
-   * excepted, and those of the waypoints excepted ({@link #maneuvers(List, int)}).</p>
+   * excepted, and those of the waypoints excepted ({@link #maneuvers(List, int)}). The kinds of road forbidden are
+   * avoided by a custom model of the request, without the hierarchy ({@link #avoiding(Set)}).</p>
    */
   @Override
-  public Route route(final List<GeoPoint> points) {
+  public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
     checkWaypoints(points);
     final List<GHPoint> places = points.stream().map(point -> new GHPoint(point.latitude(), point.longitude()))
         .toList();
     final GHRequest request = new GHRequest(places).setProfile(PROFILE).setCurbsides(curbsides(places.size()))
         .setPathDetails(List.of(RoadAccess.KEY, RoadClass.KEY));
+    if (!avoided.isEmpty()) {
+      request.setCustomModel(avoiding(avoided));
+      request.putHint(Parameters.CH.DISABLE, true);
+    }
     final GHResponse response = hopper.route(request);
     if (response.hasErrors()) {
       throw new RoutingException(error(response.getErrors()));
@@ -261,6 +280,41 @@ public final class GraphHopperRouter implements Router {
       return RoutingError.POINT_NOT_FOUND;
     }
     return RoutingError.NO_ROUTE;
+  }
+
+  /**
+   * Builds the custom model of a request that never drives some kinds of road: their priority is multiplied by 0.
+   *
+   * @param avoided the kinds of road forbidden, at least one.
+   *
+   * @return the custom model, merged by the engine with the one of the profile.
+   *
+   * @throws RoutingException {@link RoutingError#OUTDATED_MAP} if the toll roads are forbidden and the graph, imported
+   *                          before them, does not know them.
+   */
+  private CustomModel avoiding(final Set<RoadKind> avoided) {
+    if (avoided.contains(RoadKind.TOLL) && !tolls) {
+      throw new RoutingException(RoutingError.OUTDATED_MAP);
+    }
+    final String condition = avoided.stream().sorted().map(GraphHopperRouter::condition)
+        .collect(Collectors.joining(" || "));
+    return new CustomModel().addToPriority(Statement.If(condition, Statement.Op.MULTIPLY, "0"));
+  }
+
+  /**
+   * Writes the condition of a custom model that matches the roads of a kind.
+   *
+   * @param kind the kind of road.
+   *
+   * @return the condition on the values stored on the edges: their class, their environment or their toll.
+   */
+  static String condition(final RoadKind kind) {
+    return switch (kind) {
+      case MOTORWAY -> RoadClass.KEY + " == " + RoadClass.MOTORWAY.name();
+      case TRUNK -> RoadClass.KEY + " == " + RoadClass.TRUNK.name();
+      case FERRY -> RoadEnvironment.KEY + " == " + RoadEnvironment.FERRY.name();
+      case TOLL -> Toll.KEY + " == " + Toll.ALL.name();
+    };
   }
 
   /**

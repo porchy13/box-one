@@ -3,6 +3,8 @@ package ch.varani.boxone.ui;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,7 +59,7 @@ final class TileProviderTest {
     assertAll(
         () -> assertEquals(TileProvider.SWISSTOPO.source(""), Settings.DEFAULT.source()),
         () -> assertEquals(TileProvider.MAPTILER.source(KEY),
-                           new Settings(TileProvider.MAPTILER, KEY, ZoomSensitivity.MEDIUM).source()));
+                           new Settings(TileProvider.MAPTILER, KEY, ZoomSensitivity.MEDIUM, Set.of()).source()));
   }
 
 }

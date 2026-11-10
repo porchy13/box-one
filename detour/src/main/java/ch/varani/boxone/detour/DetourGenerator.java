@@ -2,6 +2,7 @@ package ch.varani.boxone.detour;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingException;
 
@@ -21,11 +22,13 @@ import java.util.random.RandomGeneratorFactory;
  * the budget at most (development plan, phase 3).
  *
  * <p><b>Inputs</b>: the start, the finish, the {@link Budget} (0 to 60 minutes, or 5 to 100 percent of the fastest
- * route) and the seed of the random draws.</p>
+ * route), the kinds of road forbidden by the user (issue #11 of GitLab) and the seed of the random draws.</p>
  *
  * <p><b>Algorithm</b>:</p>
  * <ol>
- *   <li>the router computes the fastest route, of duration {@code T}; the budget {@code B} follows from it
+ *   <li>the router computes the fastest route, of duration {@code T}, without the kinds of road forbidden, as every
+ *       route of the detour: the budget measures the detour, not what the roads forbidden would save; the budget
+ *       {@code B} follows from it
  *       ({@link Budget#of(Duration)});</li>
  *   <li>the random generator {@value #ALGORITHM} is built from the seed: the same seed gives the same draws, on every
  *       Java runtime (AGENTS.md §2);</li>
@@ -129,18 +132,21 @@ public final class DetourGenerator {
    * @param start the start.
    * @param finish the finish.
    * @param budget the time the detour may add to the fastest route.
+   * @param avoided the kinds of road the fastest route and the detour never drive; empty for none.
    * @param seed the seed of the random draws; any value.
    *
    * @return the detour, another route than the fastest one, longer by the budget at most, without segment driven
    *         twice.
    *
-   * @throws RoutingException if the router finds no fastest route from the start to the finish.
+   * @throws RoutingException if the router finds no fastest route from the start to the finish, or does not know a
+   *                          kind of road forbidden ({@code OUTDATED_MAP}).
    * @throws DetourException {@link DetourError#NO_DETOUR} if no attempt gives a route within the budget, without
    *                         segment driven twice, or if the fastest route takes no time (the start is the finish).
    * @throws CancellationException if the thread is interrupted during the generation.
    */
-  public Detour generate(final GeoPoint start, final GeoPoint finish, final Budget budget, final long seed) {
-    final Route fastest = router.route(start, finish);
+  public Detour generate(final GeoPoint start, final GeoPoint finish, final Budget budget,
+                         final Set<RoadKind> avoided, final long seed) {
+    final Route fastest = router.route(List.of(start, finish), avoided);
     if (fastest.duration().isZero()) {
       throw new DetourException(DetourError.NO_DETOUR);
     }
@@ -153,9 +159,9 @@ public final class DetourGenerator {
         throw new CancellationException();
       }
       final List<GeoPoint> waypoints = waypoints(ellipse, random);
-      final Optional<Route> route = route(start, waypoints, finish);
+      final Optional<Route> route = route(start, waypoints, finish, avoided);
       if (route.isPresent() && accepted(route.get(), fastest, limit)) {
-        return new Detour(route.get(), fastest, waypoints, budget, seed);
+        return new Detour(route.get(), fastest, waypoints, budget, avoided, seed);
       }
     }
     throw new DetourException(DetourError.NO_DETOUR);
@@ -214,16 +220,18 @@ public final class DetourGenerator {
    * @param start the start.
    * @param waypoints the waypoints, in their order.
    * @param finish the finish.
+   * @param avoided the kinds of road the route never drives.
    *
    * @return the route, or nothing if a waypoint is far from every road or no road joins the points.
    */
-  private Optional<Route> route(final GeoPoint start, final List<GeoPoint> waypoints, final GeoPoint finish) {
+  private Optional<Route> route(final GeoPoint start, final List<GeoPoint> waypoints, final GeoPoint finish,
+                                final Set<RoadKind> avoided) {
     final List<GeoPoint> points = new ArrayList<>(waypoints.size() + 2);
     points.add(start);
     points.addAll(waypoints);
     points.add(finish);
     try {
-      return Optional.of(router.route(points));
+      return Optional.of(router.route(points, avoided));
     } catch (RoutingException _) {
       return Optional.empty();
     }

@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiPredicate;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -68,6 +69,36 @@ final class GraphHopperRouterTest {
   private static final int FIRST_LENGTH = 3;
   /** The number of points of the instruction of the roundabout of the test of the maneuvers. */
   private static final int ROUNDABOUT_LENGTH = 4;
+
+  /**
+   * The synthetic map of the kinds of road (issue #11 of GitLab), in the test resources: no real road. A grid of 25 ×
+   * 25 nodes 100 m apart, from {@link #GRID_LATITUDE} north and {@link #GRID_LONGITUDE} east; its columns and rows
+   * are streets ({@code highway=residential}, {@code maxspeed=20}), but the rows {@link #KIND_ROWS}: a single way
+   * from the first column to the last, joined to the grid at its ends only, which is a motorway, an expressway
+   * ({@code highway=trunk}), a ferry ({@code route=ferry}, {@code motor_vehicle=yes}, {@code duration=00:02}) and a
+   * toll road ({@code highway=primary}, {@code toll=yes}), the three roads with {@code maxspeed=100}. Large enough to
+   * be kept by the engine, which drops the networks of fewer than 200 edges.
+   */
+  private static final String KINDS_MAP = "kinds.osm.gz";
+  /** The latitude of the first row of the grid, in degrees. */
+  private static final double GRID_LATITUDE = 46.70;
+  /** The longitude of the first column of the grid, in degrees. */
+  private static final double GRID_LONGITUDE = 6.55;
+  /** The number of blocks of a row of the grid, between its first and its last column. */
+  private static final int GRID_BLOCKS = 24;
+  /** The latitude of a block of 100 m of the grid, in degrees. */
+  private static final double BLOCK_LATITUDE = 100 / 111_195.0;
+  /** The longitude of a block of 100 m of the grid, in degrees, at its latitude (cos 46.70° = 0.6858). */
+  private static final double BLOCK_LONGITUDE = 100 / (111_195.0 * 0.6858);
+  /** The rows of the kinds of road, in the order of {@link RoadKind}. */
+  private static final List<Integer> KIND_ROWS = List.of(2, 5, 8, 11);
+  /**
+   * The length of a row of the grid between the start and the finish of {@link #row(RoadKind)}, 2.3 km, with a margin:
+   * a route longer goes around the row by the streets.
+   */
+  private static final double ROW_LENGTH = 2_500;
+  /** The values stored on the edges by the graphs imported before the toll roads (phase 3). */
+  private static final String PHASE_3_VALUES = "car_access, car_average_speed, road_access";
 
   /** The folder of the graph imported for the class. */
   @TempDir
@@ -389,6 +420,78 @@ final class GraphHopperRouterTest {
         () -> assertEquals(RoutingError.POINT_NOT_FOUND, rejected.getError()),
         () -> assertEquals("POINT_NOT_FOUND", rejected.getMessage()),
         () -> assertNull(rejected.getCause()));
+  }
+
+  /**
+   * On the synthetic map of the kinds of road, the route along a row of a kind drives it, unless the kind is
+   * forbidden: then it goes around by the streets; forbidding one kind leaves the others.
+   *
+   * @param folder the folder of the graph of the map of the kinds of road.
+   *
+   * @throws URISyntaxException never: the map is a file of the test resources.
+   */
+  @Test
+  @DisplayName("Issue #11: a route never drives the motorways, the expressways, the ferries or the tolls forbidden")
+  void avoidedTest(@TempDir final Path folder) throws URISyntaxException {
+    try (GraphHopperRouter kinds = GraphHopperRouter.importMap(kindsMap(), folder)) {
+      for (final RoadKind kind : RoadKind.values()) {
+        final List<GeoPoint> row = row(kind);
+        final RoadKind other = kind == RoadKind.FERRY ? RoadKind.MOTORWAY : RoadKind.FERRY;
+        assertAll(
+            () -> assertTrue(kinds.route(row).distance() < ROW_LENGTH, kind::name),
+            () -> assertTrue(kinds.route(row, Set.of(kind)).distance() > ROW_LENGTH, kind::name),
+            () -> assertTrue(kinds.route(row, Set.of(other)).distance() < ROW_LENGTH, kind::name));
+      }
+    }
+  }
+
+  /**
+   * A graph imported before the toll roads cannot forbid them: the map must be imported again; the other kinds are
+   * still forbidden.
+   *
+   * @param folder the folder of the graph.
+   *
+   * @throws URISyntaxException never: the map is a file of the test resources.
+   */
+  @Test
+  @DisplayName("Issue #11: a map imported before the toll roads must be imported again to forbid them")
+  void outdatedTest(@TempDir final Path folder) throws URISyntaxException {
+    final GraphHopper hopper = GraphHopperRouter.engine(folder);
+    hopper.setEncodedValuesString(PHASE_3_VALUES);
+    hopper.setOSMFile(kindsMap().toString());
+    hopper.importOrLoad();
+    try (GraphHopperRouter outdated = new GraphHopperRouter(hopper)) {
+      final List<GeoPoint> toll = row(RoadKind.TOLL);
+      final Set<RoadKind> tolls = Set.of(RoadKind.TOLL);
+      assertAll(
+          () -> assertEquals(RoutingError.OUTDATED_MAP, assertThrows(RoutingException.class,
+              () -> outdated.route(toll, tolls)).getError()),
+          () -> assertTrue(outdated.route(row(RoadKind.MOTORWAY), Set.of(RoadKind.MOTORWAY)).distance() > ROW_LENGTH));
+    }
+  }
+
+  /**
+   * Returns the path of the synthetic map of the kinds of road.
+   *
+   * @return the path of the map.
+   *
+   * @throws URISyntaxException never: the map is a file of the test resources.
+   */
+  private static Path kindsMap() throws URISyntaxException {
+    return Path.of(GraphHopperRouterTest.class.getResource(KINDS_MAP).toURI());
+  }
+
+  /**
+   * Returns the start and the finish of the row of a kind of road, half a block inside its ends.
+   *
+   * @param kind the kind of road.
+   *
+   * @return the start, at the west, and the finish, at the east.
+   */
+  private static List<GeoPoint> row(final RoadKind kind) {
+    final double latitude = GRID_LATITUDE + KIND_ROWS.get(kind.ordinal()) * BLOCK_LATITUDE;
+    return List.of(new GeoPoint(latitude, GRID_LONGITUDE + BLOCK_LONGITUDE / 2),
+                   new GeoPoint(latitude, GRID_LONGITUDE + GRID_BLOCKS * BLOCK_LONGITUDE - BLOCK_LONGITUDE / 2));
   }
 
   /**

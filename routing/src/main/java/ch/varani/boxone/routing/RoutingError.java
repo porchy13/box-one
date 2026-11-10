@@ -17,6 +17,11 @@ public enum RoutingError {
   /** No road of the map is near the start or the finish. */
   POINT_NOT_FOUND,
   /** No road leads from the start to the finish. */
-  NO_ROUTE
+  NO_ROUTE,
+  /**
+   * The graph, imported by an earlier version, does not know a kind of road forbidden (the toll roads, issue #11 of
+   * GitLab): the map must be imported again.
+   */
+  OUTDATED_MAP
 
 }

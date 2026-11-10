@@ -2,11 +2,14 @@ package ch.varani.boxone.detour;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.routing.RoadKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,35 +27,44 @@ final class DetourTest {
   private static final GeoPoint WAYPOINT = new GeoPoint(46.7790, 6.6460);
 
   /**
-   * The waypoints are copied: a later change of the list given does not change the detour.
+   * The waypoints and the kinds of road forbidden are copied: a later change of the collections given does not change
+   * the detour.
    */
   @Test
   @DisplayName("Phase 3: a detour is immutable")
   void copyTest() {
     final List<GeoPoint> waypoints = new ArrayList<>(List.of(WAYPOINT));
-    final Detour detour = new Detour(ROUTE, ROUTE, waypoints, Budget.DEFAULT, 42);
+    final Set<RoadKind> avoided = EnumSet.of(RoadKind.MOTORWAY);
+    final Detour detour = new Detour(ROUTE, ROUTE, waypoints, Budget.DEFAULT, avoided, 42);
     waypoints.clear();
+    avoided.clear();
     final List<GeoPoint> kept = detour.waypoints();
+    final Set<RoadKind> forbidden = detour.avoided();
     assertAll(
         () -> assertEquals(List.of(WAYPOINT), kept),
-        () -> assertThrows(UnsupportedOperationException.class, kept::clear));
+        () -> assertThrows(UnsupportedOperationException.class, kept::clear),
+        () -> assertEquals(Set.of(RoadKind.MOTORWAY), forbidden),
+        () -> assertThrows(UnsupportedOperationException.class, forbidden::clear));
   }
 
   /**
-   * A detour needs its routes, its waypoints and its budget.
+   * A detour needs its routes, its waypoints, its budget and its kinds of road forbidden.
    */
   @Test
-  @DisplayName("Phase 3: a detour without its routes or its budget is rejected")
+  @DisplayName("Phase 3: a detour without its routes, its budget or its kinds of road forbidden is rejected")
   void nullTest() {
     final List<GeoPoint> waypoints = List.of(WAYPOINT);
     assertAll(
         () -> assertThrows(NullPointerException.class,
-                           () -> new Detour(null, ROUTE, waypoints, Budget.DEFAULT, 1)),
+                           () -> new Detour(null, ROUTE, waypoints, Budget.DEFAULT, Set.of(), 1)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Detour(ROUTE, null, waypoints, Budget.DEFAULT, 1)),
+                           () -> new Detour(ROUTE, null, waypoints, Budget.DEFAULT, Set.of(), 1)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Detour(ROUTE, ROUTE, null, Budget.DEFAULT, 1)),
-        () -> assertThrows(NullPointerException.class, () -> new Detour(ROUTE, ROUTE, waypoints, null, 1)));
+                           () -> new Detour(ROUTE, ROUTE, null, Budget.DEFAULT, Set.of(), 1)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new Detour(ROUTE, ROUTE, waypoints, null, Set.of(), 1)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new Detour(ROUTE, ROUTE, waypoints, Budget.DEFAULT, null, 1)));
   }
 
 }

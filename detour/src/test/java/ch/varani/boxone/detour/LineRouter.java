@@ -2,15 +2,19 @@ package ch.varani.boxone.detour;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
  * A router of the tests: by default, the route through the points asked is the straight line joining them, driven at
- * {@value #SPEED} m/s; a test can replace the routes through waypoints. It counts its routings.
+ * {@value #SPEED} m/s; a test can replace the routes through waypoints. It counts its routings, and keeps the kinds of
+ * road forbidden to each of them.
  *
  * <p>Not thread-safe: used by one test at a time.</p>
  */
@@ -23,8 +27,8 @@ final class LineRouter implements Router {
 
   /** Computes the routes through waypoints (more than two points). */
   private final Function<List<GeoPoint>, Route> detours;
-  /** The number of routings. */
-  private int routings;
+  /** The kinds of road forbidden to each routing, in their order. */
+  private final List<Set<RoadKind>> avoided = new ArrayList<>();
 
   /**
    * Creates a router whose routes are straight lines.
@@ -77,15 +81,17 @@ final class LineRouter implements Router {
   }
 
   /**
-   * Returns the straight line from the start to the finish, or the route of the function through waypoints.
+   * Returns the straight line from the start to the finish, or the route of the function through waypoints; the kinds
+   * of road forbidden are kept, and change nothing to the route.
    *
    * @param points the start, the waypoints and the finish.
+   * @param forbidden the kinds of road forbidden.
    *
    * @return the route.
    */
   @Override
-  public Route route(final List<GeoPoint> points) {
-    routings++;
+  public Route route(final List<GeoPoint> points, final Set<RoadKind> forbidden) {
+    avoided.add(forbidden);
     return points.size() == 2 ? line(points) : detours.apply(points);
   }
 
@@ -103,7 +109,16 @@ final class LineRouter implements Router {
    * @return the number of routings.
    */
   int getRoutings() {
-    return routings;
+    return avoided.size();
+  }
+
+  /**
+   * Returns the kinds of road forbidden to each routing.
+   *
+   * @return the kinds of road forbidden, one set per routing, in their order.
+   */
+  List<Set<RoadKind>> getAvoided() {
+    return avoided;
   }
 
 }

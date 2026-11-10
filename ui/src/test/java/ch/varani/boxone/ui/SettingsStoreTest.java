@@ -1,5 +1,6 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.routing.RoadKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,6 +10,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -44,7 +46,8 @@ final class SettingsStoreTest {
   @DisplayName("Phase 1: the settings saved are read again, and the file holds its format version")
   void roundTripTest() throws IOException {
     final SettingsStore store = new SettingsStore(file());
-    final Settings mapTiler = new Settings(TileProvider.MAPTILER, "my-key", ZoomSensitivity.LOW);
+    final Settings mapTiler = new Settings(TileProvider.MAPTILER, "my-key", ZoomSensitivity.LOW,
+                                           Set.of(RoadKind.MOTORWAY, RoadKind.TOLL));
     store.save(mapTiler);
     final Settings first = store.load();
     store.save(Settings.DEFAULT);
@@ -72,7 +75,7 @@ final class SettingsStoreTest {
 
   /**
    * A file that cannot be read, a malformed file or a file of another version give the default settings; a provider
-   * or a sensitivity unknown gives the default one, with the key of the file.
+   * or a sensitivity unknown gives the default one, with the key of the file; an unknown kind of road is ignored.
    *
    * @throws IOException if the files of the test cannot be written.
    */
@@ -82,13 +85,19 @@ final class SettingsStoreTest {
     final Path directory = Files.createDirectories(folder.resolve("directory.properties"));
     final Path malformed = Files.writeString(folder.resolve("malformed.properties"), "formatVersion=\\uZZZZ");
     final Path newer = Files.writeString(folder.resolve("newer.properties"), "formatVersion=2\ntiles=MAPTILER\n");
-    final Path unknown = Files.writeString(folder.resolve("unknown.properties"),
-                                           "formatVersion=1\ntiles=OTHER\nmapTilerKey=kept\nzoom=OTHER\n");
+    final Path unknown = Files.writeString(folder.resolve("unknown.properties"), """
+        formatVersion=1
+        tiles=OTHER
+        mapTilerKey=kept
+        zoom=OTHER
+        detour.avoided=FERRY, OTHER,,TRUNK
+        """);
     assertAll(
         () -> assertEquals(Settings.DEFAULT, new SettingsStore(directory).load()),
         () -> assertEquals(Settings.DEFAULT, new SettingsStore(malformed).load()),
         () -> assertEquals(Settings.DEFAULT, new SettingsStore(newer).load()),
-        () -> assertEquals(new Settings(TileProvider.SWISSTOPO, "kept", ZoomSensitivity.MEDIUM),
+        () -> assertEquals(new Settings(TileProvider.SWISSTOPO, "kept", ZoomSensitivity.MEDIUM,
+                                        Set.of(RoadKind.FERRY, RoadKind.TRUNK)),
                            new SettingsStore(unknown).load()));
   }
 

@@ -25,5 +25,6 @@ All notable changes of the project are documented in this file.
   60 minutes by steps of 5 (0 minutes: the same duration by other roads), or 5 to 100 % of the duration of the
   fastest route by steps of 5, the time it gives shown under the choice; without driving a road twice nor turning
   back, nor the roads for residents or private and the tracks elsewhere than around
-  the start and the finish; it is drawn over the fastest route, and its seed, shown in the status bar,
+  the start and the finish; the motorways, the expressways, the ferries and the toll roads (the motorways of the
+  vignette included) can be avoided, a choice kept for the next detours; it is drawn over the fastest route, and its seed, shown in the status bar,
   generates it again. The roadbook exported is the one of the route shown.

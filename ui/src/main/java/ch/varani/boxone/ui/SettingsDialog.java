@@ -122,7 +122,7 @@ final class SettingsDialog {
         () -> provider().isKeyRequired() && key.getText().isBlank(),
         tiles.getSelectionModel().selectedIndexProperty(), key.textProperty()));
     dialog.setResultConverter(button -> button == save ? new Settings(provider(), key.getText().strip(),
-        sensitivities.get(zoom.getSelectionModel().getSelectedIndex())) : null);
+        sensitivities.get(zoom.getSelectionModel().getSelectedIndex()), current.avoided()) : null);
   }
 
   // *******************************************************************************************************************
