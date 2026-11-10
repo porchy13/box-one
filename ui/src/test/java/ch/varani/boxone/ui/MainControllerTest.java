@@ -124,7 +124,25 @@ final class MainControllerTest {
   private Shown show(final FxRobot robot, final Function<Path, Optional<? extends Router>> loader,
                       final BiFunction<Path, Path, ? extends Router> importer,
                       final Function<javafx.stage.Window, Optional<Path>> chooser) {
-    return show(robot, false, () -> { }, new Services(data, background, loader, importer, chooser), colors);
+    return show(robot, false, () -> { }, new Services(data, background, loader, importer, chooser,
+                                                      owner -> Optional.empty()), colors);
+  }
+
+  /**
+   * Shows the main window, outside macOS, with a graph loaded from a router and the choice of the file of the
+   * roadbook.
+   *
+   * @param robot the TestFX robot.
+   * @param router the router of the graph.
+   * @param saver chooses the file of the roadbook.
+   *
+   * @return the window.
+   */
+  private Shown show(final FxRobot robot, final Router router,
+                      final Function<javafx.stage.Window, Optional<Path>> saver) {
+    return show(robot, false, () -> { }, new Services(data, background, folder -> Optional.of(router),
+                                                      (map, graph) -> router, owner -> Optional.empty(), saver),
+                colors);
   }
 
   /**
@@ -216,7 +234,8 @@ final class MainControllerTest {
     final AtomicInteger exits = new AtomicInteger();
     final Shown window = show(robot, false, exits::incrementAndGet,
                                new Services(data, background, folder -> Optional.empty(),
-                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), colors);
+                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
+                                            owner -> Optional.empty()), colors);
     final String loading = text(robot, window, "status");
     final boolean veiled = busy(window).isVisible();
     final String veil = text(robot, window, "busyText");
@@ -234,7 +253,7 @@ final class MainControllerTest {
         () -> assertEquals(MainController.HEIGHT, window.stage().getScene().getHeight()),
         () -> assertTrue(menuBar.isUseSystemMenuBar()),
         () -> assertEquals(List.of("fileMenu", "toolsMenu"), menus.stream().map(Menu::getId).toList()),
-        () -> assertEquals(List.of("openMapItem", "quitSeparator", "quitItem"),
+        () -> assertEquals(List.of("openMapItem", "exportItem", "quitSeparator", "quitItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()),
         () -> assertEquals(1, exits.get()),
         () -> assertTrue(window.stage().getScene().lookup(".web-view") instanceof WebView),
@@ -258,11 +277,12 @@ final class MainControllerTest {
   void macTest(final FxRobot robot) {
     final Shown window = show(robot, true, () -> { },
                                new Services(data, background, folder -> Optional.empty(),
-                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), colors);
+                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
+                                            owner -> Optional.empty()), colors);
     final List<Menu> menus = menuBar(robot, window).getMenus();
     assertAll(
         () -> assertEquals(List.of("fileMenu"), menus.stream().map(Menu::getId).toList()),
-        () -> assertEquals(List.of("openMapItem", "settingsSeparator", "settingsItem"),
+        () -> assertEquals(List.of("openMapItem", "exportItem", "settingsSeparator", "settingsItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()));
   }
 
@@ -308,6 +328,72 @@ final class MainControllerTest {
         () -> assertEquals("", text(robot, window, "summary")),
         () -> assertEquals(1, MapPages.count(robot, view, ".marker")),
         () -> assertEquals(0, MapPages.count(robot, view, ".route-fastest")));
+  }
+
+  /**
+   * File › Export the roadbook… is disabled until a route is shown; it then writes the roadbook of the route into the
+   * file chosen, in the background, and gives its number of boxes; nothing happens when no file is chosen; a new
+   * click disables it again.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 2: File › Export the roadbook… writes the roadbook of the route shown for Terra Pirata")
+  void exportTest(final FxRobot robot) throws TimeoutException {
+    final Path file = data.resolve("yverdon.gpx");
+    final AtomicInteger choices = new AtomicInteger();
+    final Shown window = show(robot, new FakeRouter(),
+                               owner -> choices.getAndIncrement() == 0 ? Optional.empty() : Optional.of(file));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    final MenuItem item = menuBar(robot, window).getMenus().getFirst().getItems().get(1);
+    final boolean disabledBefore = item.isDisable();
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    final boolean enabled = !item.isDisable();
+    fire(robot, window, "exportItem");
+    final int waitingAfterCancel = background.size();
+    fire(robot, window, "exportItem");
+    final String exporting = text(robot, window, "status");
+    robot.interact(background::runAll);
+    final String exported = text(robot, window, "status");
+    MapPages.click(robot, view, CASTLE_LATITUDE, STATION_LONGITUDE);
+    assertAll(
+        () -> assertTrue(disabledBefore),
+        () -> assertTrue(enabled),
+        () -> assertEquals(0, waitingAfterCancel),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_EXPORTING), exporting),
+        () -> assertEquals("Roadbook exporté, 2 cases. Importez le fichier dans RDS pour le lire dans Terra Pirata.",
+                           exported),
+        () -> assertTrue(Files.readString(file).contains("<name>yverdon</name>")),
+        () -> assertTrue(item.isDisable()));
+  }
+
+  /**
+   * A roadbook that cannot be written is shown in the status bar.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 2: a roadbook that cannot be written says so in the status bar")
+  void exportFailureTest(final FxRobot robot) throws TimeoutException {
+    final Path missing = data.resolve("missing").resolve("yverdon.gpx");
+    final Shown window = show(robot, new FakeRouter(), owner -> Optional.of(missing));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    fire(robot, window, "exportItem");
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertEquals(TEXTS.getString(MainController.EXPORT_ERROR), text(robot, window, "status")),
+        () -> assertFalse(Files.exists(missing)));
   }
 
   /**
@@ -526,7 +612,8 @@ final class MainControllerTest {
     final Path blocked = Files.writeString(data.resolve("file"), "not a folder");
     final Shown window = show(robot, false, () -> { },
                                new Services(blocked, background, folder -> Optional.empty(),
-                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty()), colors);
+                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
+                                            owner -> Optional.empty()), colors);
     fire(robot, window, "optionsItem");
     robot.interact(() -> button(robot, ButtonBar.ButtonData.OK_DONE).fire());
     WaitForAsyncUtils.waitForFxEvents();

@@ -4,7 +4,8 @@ import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
 
 /**
- * Computes the fastest route by car between two points of the map of the router (development plan, phase 1).
+ * Computes the fastest route by car between two points of the map of the router (development plan, phase 1), with
+ * its maneuvers, the places of the boxes of the roadbook (phase 2).
  *
  * <p>The interface hides the routing engine (AGENTS.md §3). A router holds the graph of its map until it is closed.
  * </p>
@@ -19,7 +20,8 @@ public interface Router extends AutoCloseable {
    * @param start the start.
    * @param finish the finish.
    *
-   * @return the route, from the road nearest to the start to the road nearest to the finish.
+   * @return the route, from the road nearest to the start to the road nearest to the finish, with its maneuvers: the
+   *         points where the driver is given an instruction.
    *
    * @throws RoutingException {@link RoutingError#POINT_NOT_FOUND} if no road of the map is near the start or the
    *                          finish, {@link RoutingError#NO_ROUTE} if no road leads from the start to the finish.

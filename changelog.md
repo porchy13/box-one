@@ -16,3 +16,7 @@ All notable changes of the project are documented in this file.
   wheel and to the trackpad, set in the settings.
 - **Fastest route**: an extract of OpenStreetMap (e.g. of Geofabrik) is imported with File › Open a map…; the start
   and the finish clicked on the map give the fastest route by car, drawn on the map with its distance and duration.
+- **Roadbook for Terra Pirata**: File › Export the roadbook… writes the roadbook of the route as an OpenRally GPX
+  file (GPX 1.1, extensions of OpenRally v1.0.3), to import into RDS for Terra Pirata: a box at the start, at each
+  instruction of the route and at the finish, with its total distance and its heading (CAP), the track of the route
+  and the attribution of OpenStreetMap; no tulip yet.

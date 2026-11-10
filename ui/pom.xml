@@ -36,6 +36,16 @@
         </dependency>
 
         <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-roadbook</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-export</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
         </dependency>

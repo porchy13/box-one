@@ -10,6 +10,7 @@ import com.graphhopper.config.CHProfile;
 import com.graphhopper.config.Profile;
 import com.graphhopper.util.CustomModel;
 import com.graphhopper.util.GHUtility;
+import com.graphhopper.util.Instruction;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.TurnCostsConfig;
 import com.graphhopper.util.exceptions.PointNotFoundException;
@@ -27,7 +28,8 @@ import java.util.Optional;
  * <p><b>Sequence</b>: {@link #importMap(Path, Path)} deletes the graph of the folder, reads the extract and writes the
  * graph of the profile {@value #PROFILE} with its contraction hierarchy (the import of a country takes minutes);
  * {@link #load(Path)} loads the graph of an earlier import; {@link #route(GeoPoint, GeoPoint)} then computes the
- * fastest route with the hierarchy, in milliseconds.</p>
+ * fastest route with the hierarchy, in milliseconds, with the instructions of the engine: the point where each
+ * instruction begins, except the start and the finish, is a maneuver of the route (development plan, phase 2).</p>
  *
  * <p><b>Profile</b>: the custom models {@code car.json} and {@code car_avoid_private_etc.json} of GraphHopper (the
  * speeds of the roads for a car, the roads closed to cars and the private roads avoided), with the turn restrictions
@@ -143,7 +145,8 @@ public final class GraphHopperRouter implements Router {
   /**
    * {@inheritDoc}
    *
-   * <p>The engine places the start and the finish on the nearest roads; the route runs between these two places.</p>
+   * <p>The engine places the start and the finish on the nearest roads; the route runs between these two places. Its
+   * maneuvers are the points where the instructions of the engine begin, the first one (the start) excepted.</p>
    */
   @Override
   public Route route(final GeoPoint start, final GeoPoint finish) {
@@ -153,7 +156,9 @@ public final class GraphHopperRouter implements Router {
       throw new RoutingException(error(response.getErrors()));
     }
     final ResponsePath path = response.getBest();
-    return new Route(points(path.getPoints()), path.getDistance(), Duration.ofMillis(path.getTime()));
+    final PointList line = path.getPoints();
+    return new Route(points(line), maneuvers(path.getInstructions(), line.size()), path.getDistance(),
+                     Duration.ofMillis(path.getTime()));
   }
 
   /**
@@ -182,6 +187,28 @@ public final class GraphHopperRouter implements Router {
       return RoutingError.POINT_NOT_FOUND;
     }
     return RoutingError.NO_ROUTE;
+  }
+
+  /**
+   * Finds the maneuvers of a route: the points of its line where the instructions of the engine begin, between the
+   * start and the finish. Each instruction covers the points from its beginning to the beginning of the next one; the
+   * last one, the finish, covers the last point.
+   *
+   * @param instructions the instructions of the engine, in their order along the line.
+   * @param size the number of points of the line.
+   *
+   * @return the indices, in the line, of the points of the maneuvers, in increasing order.
+   */
+  static List<Integer> maneuvers(final List<Instruction> instructions, final int size) {
+    final List<Integer> maneuvers = new ArrayList<>(instructions.size());
+    int index = 0;
+    for (final Instruction instruction : instructions) {
+      if (index > 0 && index < size - 1) {
+        maneuvers.add(index);
+      }
+      index += instruction.getLength();
+    }
+    return maneuvers;
   }
 
   /**

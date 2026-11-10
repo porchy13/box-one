@@ -33,25 +33,4 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <!-- The tests validate the reference OpenRally files with the XML validator of the JDK; the
-                             module itself does not read java.xml. -->
-                        <id>default-testCompile</id>
-                        <configuration>
-                            <compilerArgs>
-                                <arg>--add-modules=java.xml</arg>
-                                <arg>--add-reads=ch.varani.boxone.core=java.xml</arg>
-                            </compilerArgs>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
 </project>

@@ -1,7 +1,10 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.export.OpenRallyWriter;
+import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingException;
 import javafx.concurrent.Task;
@@ -21,6 +24,7 @@ import javafx.stage.Stage;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -44,6 +48,11 @@ import java.util.function.Consumer;
  * File › Open a map… imports an extract of OpenStreetMap in the background, replacing the graph; the import of
  * GraphHopper cannot be interrupted, so the item is disabled until it ends. The long work runs one task after the
  * other on the executor of the {@link Services}; the results come back on the JavaFX Application Thread.</p>
+ *
+ * <p><b>Roadbook</b> (development plan, phase 2): once a route is shown, File › Export the roadbook… asks for a GPX
+ * file ({@link RoadbookFiles}), then, in the background, generates the boxes of the route ({@link RoadbookGenerator})
+ * and writes them for Terra Pirata ({@link OpenRallyWriter}); the status bar gives the number of boxes, or says why
+ * the file could not be written. The item is disabled while no route is shown.</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -95,6 +104,12 @@ final class MainController {
   static final double CARD_MARGIN = 12;
   /** The key of the failure to save the settings. */
   static final String SETTINGS_ERROR = "error.settings";
+  /** The key of the status while the roadbook is exported. */
+  static final String STATUS_EXPORTING = "status.exporting";
+  /** The key of the status once the roadbook is exported, with its number of boxes. */
+  static final String STATUS_EXPORTED = "status.exported";
+  /** The key of the failure to export the roadbook. */
+  static final String EXPORT_ERROR = "error.export";
 
   // *******************************************************************************************************************
   // Attributes
@@ -128,6 +143,8 @@ final class MainController {
   private boolean busy;
   /** The route being computed, or {@code null}. */
   private Task<Route> routing;
+  /** The route shown, or {@code null} while there is none. */
+  private Route route;
   /** The pane of the map, under the veil, injected by the view. */
   @FXML
   private StackPane mapPane;
@@ -152,6 +169,9 @@ final class MainController {
   /** The item Open a map…, injected by the view. */
   @FXML
   private MenuItem openMapItem;
+  /** The item Export the roadbook…, injected by the view. */
+  @FXML
+  private MenuItem exportItem;
   /** The separator before Settings… (macOS), injected by the view. */
   @FXML
   private SeparatorMenuItem settingsSeparator;
@@ -255,7 +275,7 @@ final class MainController {
     busy = true;
     showBusy(BUSY_LOADING, null);
     setStatus(STATUS_LOADING);
-    run(() -> services.loader().apply(graph()), loaded -> ready(loaded.orElse(null)));
+    run(() -> services.loader().apply(graph()), loaded -> ready(loaded.orElse(null)), this::failed);
   }
 
   /**
@@ -266,7 +286,7 @@ final class MainController {
   private void clicked(final GeoPoint place) {
     cancelRouting();
     itinerary.place(place);
-    summary.setText("");
+    showRoute(null);
     map.setPlaces(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null));
     next();
   }
@@ -289,7 +309,7 @@ final class MainController {
     final GeoPoint start = itinerary.getStart().orElseThrow();
     final GeoPoint finish = itinerary.getFinish().orElseThrow();
     setStatus(STATUS_ROUTING);
-    routing = run(() -> current.route(start, finish), this::routed);
+    routing = run(() -> current.route(start, finish), this::routed, this::failed);
   }
 
   /**
@@ -300,8 +320,19 @@ final class MainController {
   private void routed(final Route route) {
     routing = null;
     map.setRoute(route);
-    summary.setText(RouteText.summary(route, texts, locale));
+    showRoute(route);
     setStatus(STATUS_ROUTED);
+  }
+
+  /**
+   * Keeps the route shown, writes its distance and its duration in its card, and enables its export.
+   *
+   * @param shown the route shown, or {@code null} for none: the card is hidden and the export disabled.
+   */
+  private void showRoute(final Route shown) {
+    route = shown;
+    summary.setText(shown == null ? "" : RouteText.summary(shown, texts, locale));
+    exportItem.setDisable(shown == null);
   }
 
   /**
@@ -332,7 +363,28 @@ final class MainController {
     replaceRouter(null);
     showBusy(BUSY_IMPORTING, BUSY_IMPORT_HINT);
     setStatus(STATUS_IMPORTING);
-    run(() -> services.importer().apply(file.get(), graph()), this::ready);
+    run(() -> services.importer().apply(file.get(), graph()), this::ready, this::failed);
+  }
+
+  /**
+   * Exports the roadbook of the route shown, for Terra Pirata, into the file chosen by the user: the item File ›
+   * Export the roadbook….
+   */
+  @FXML
+  private void exportRoadbook() {
+    final Optional<Path> file = services.saver().apply(stage);
+    if (file.isEmpty()) {
+      return;
+    }
+    final Route exported = route;
+    setStatus(STATUS_EXPORTING);
+    run(() -> {
+      final Roadbook roadbook = RoadbookGenerator.generate(exported);
+      OpenRallyWriter.save(roadbook, RoadbookFiles.name(file.get()), file.get());
+      return roadbook;
+    }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_EXPORTED), locale)
+                                      .format(new Object[] {roadbook.boxes().size()})),
+        _ -> setStatus(EXPORT_ERROR));
   }
 
   /**
@@ -400,15 +452,16 @@ final class MainController {
 
   /**
    * Runs a long work on the thread of the long work; its result, or its failure, comes back on the JavaFX
-   * Application Thread. A failure, or a failed load or import, is shown in the status bar.
+   * Application Thread.
    *
    * @param <T> the type of the result.
    * @param work the work.
    * @param done receives the result, on the JavaFX Application Thread.
+   * @param failed receives the exception of a failed work, on the JavaFX Application Thread.
    *
    * @return the task of the work, which can be cancelled.
    */
-  private <T> Task<T> run(final Callable<T> work, final Consumer<T> done) {
+  private <T> Task<T> run(final Callable<T> work, final Consumer<T> done, final Consumer<Throwable> failed) {
     final Task<T> task = new Task<>() {
       @Override
       protected T call() throws Exception {
@@ -416,13 +469,14 @@ final class MainController {
       }
     };
     task.setOnSucceeded(event -> done.accept(task.getValue()));
-    task.setOnFailed(event -> failed(task.getException()));
+    task.setOnFailed(event -> failed.accept(task.getException()));
     services.background().execute(task);
     return task;
   }
 
   /**
-   * Shows the failure of a long work in the status bar; after a failed load or import, there is no graph.
+   * Shows the failure of a load, an import or a routing in the status bar; after a failed load or import, there is no
+   * graph.
    *
    * @param failure the exception of the work.
    */

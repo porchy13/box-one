@@ -14,14 +14,16 @@
   The main window (MainController, DESIGN.md §6, §14): the menu bar (global on macOS), the map in the centre, put
   under the card of the route and the veil by the controller, and the status bar, with the state of the work. The
   card of the route, at the top right of the map, shows its distance and duration once computed; the veil covers the
-  map while it is loaded or imported. The controller keeps the items of the system: Settings… on macOS, Options… and
-  Quit elsewhere.
+  map while it is loaded or imported. Export the roadbook… is enabled once a route is shown. The controller keeps the
+  items of the system: Settings… on macOS, Options… and Quit elsewhere.
 -->
 <BorderPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml">
   <top>
     <MenuBar fx:id="menuBar">
       <Menu fx:id="fileMenu" text="%menu.file">
         <MenuItem fx:id="openMapItem" text="%menu.openMap" onAction="#openMap" accelerator="Shortcut+O"/>
+        <MenuItem fx:id="exportItem" text="%menu.export" onAction="#exportRoadbook" accelerator="Shortcut+E"
+                  disable="true"/>
         <SeparatorMenuItem fx:id="settingsSeparator"/>
         <MenuItem fx:id="settingsItem" text="%menu.settings" onAction="#settings" accelerator="Shortcut+Comma"/>
         <SeparatorMenuItem fx:id="quitSeparator"/>

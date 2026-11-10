@@ -19,6 +19,14 @@ public enum ValidationError {
   /** A distance that is not a finite, non-negative number of metres. */
   INVALID_DISTANCE,
   /** A negative duration. */
-  INVALID_DURATION
+  INVALID_DURATION,
+  /** A maneuver of a route that is not a point between its start and its finish, or not after the previous one. */
+  INVALID_MANEUVER,
+  /** A box of a roadbook whose number is not its rank, counted from 1. */
+  INVALID_BOX_NUMBER,
+  /** A heading that is not a whole number of degrees between 0 and 359. */
+  INVALID_HEADING,
+  /** A roadbook with fewer than two boxes: it needs at least the box of the start and the box of the finish. */
+  TOO_FEW_BOXES
 
 }

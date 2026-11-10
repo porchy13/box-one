@@ -38,6 +38,8 @@
         <module>core</module>
         <module>graphhopper</module>
         <module>routing</module>
+        <module>roadbook</module>
+        <module>export</module>
         <module>ui</module>
     </modules>
 
@@ -90,6 +92,18 @@
             <dependency>
                 <groupId>ch.varani.boxone</groupId>
                 <artifactId>box-one-routing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>ch.varani.boxone</groupId>
+                <artifactId>box-one-roadbook</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>ch.varani.boxone</groupId>
+                <artifactId>box-one-export</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

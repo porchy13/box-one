@@ -34,7 +34,7 @@ final class RouteTextTest {
    * @return the summary.
    */
   private static String summary(final Duration duration, final boolean french) {
-    final Route route = new Route(List.of(SmokeTest.STATION, SmokeTest.CASTLE), DISTANCE, duration);
+    final Route route = new Route(List.of(SmokeTest.STATION, SmokeTest.CASTLE), List.of(), DISTANCE, duration);
     return french ? RouteText.summary(route, Languages.bundle(Languages.FRENCH), Languages.FRENCH)
                   : RouteText.summary(route, Languages.bundle(Languages.ENGLISH), Languages.ENGLISH);
   }

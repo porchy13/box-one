@@ -1,17 +1,19 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.export.OpenRallyWriter;
+import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.GraphHopperRouter;
 import javafx.application.Platform;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -24,7 +26,8 @@ import java.util.stream.Stream;
  * <p><b>Steps</b>: the texts of the interface are loaded in every language (the bundles are in the package); the
  * routing works: the small extract of OpenStreetMap {@value #EXTRACT} (the centre of Yverdon-les-Bains, © OpenStreetMap
  * contributors, ODbL) is imported by GraphHopper into a temporary folder (the regrouped module of GraphHopper, its
- * libraries, the compilation of its custom models), and a route joins the station and the castle; the JavaFX toolkit
+ * libraries, the compilation of its custom models), and a route joins the station and the castle; its roadbook is
+ * generated and written for Terra Pirata (the XML of the JDK, linked into the runtime); the JavaFX toolkit
  * is started (its native libraries), the map ({@link MapView}) loads its page (the native library of WebKit, Leaflet)
  * and a click on it reaches the application (the bridge, called by WebKit across the modules), then the toolkit is
  * stopped. A failing step throws an exception, so that the launcher ends with an error;
@@ -96,11 +99,11 @@ final class SmokeTest {
   }
 
   /**
-   * Imports the extract of the smoke test into a temporary folder and computes a route on it; the folder is deleted
-   * afterwards. The folder is made in the data folder of the user ({@link DataFolder}), private to the user, rather
-   * than in the shared temporary folder of the system.
+   * Imports the extract of the smoke test into a temporary folder, computes a route on it and writes its roadbook
+   * into nowhere; the folder is deleted afterwards. The folder is made in the data folder of the user
+   * ({@link DataFolder}), private to the user, rather than in the shared temporary folder of the system.
    *
-   * @throws IOException if the extract cannot be copied into the temporary folder.
+   * @throws IOException if the extract cannot be copied into the temporary folder, or the roadbook written.
    * @throws ch.varani.boxone.routing.RoutingException if the extract cannot be imported or the route computed.
    */
   private static void route() throws IOException {
@@ -112,7 +115,8 @@ final class SmokeTest {
         Files.copy(input, extract);
       }
       try (GraphHopperRouter router = GraphHopperRouter.importMap(extract, folder.resolve(DataFolder.GRAPH))) {
-        Objects.requireNonNull(router.route(STATION, CASTLE));
+        OpenRallyWriter.write(RoadbookGenerator.generate(router.route(STATION, CASTLE)), SMOKE_FOLDER,
+                              OutputStream.nullOutputStream());
       }
     } finally {
       try (Stream<Path> files = Files.walk(folder)) {

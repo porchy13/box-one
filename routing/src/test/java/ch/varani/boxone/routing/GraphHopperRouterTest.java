@@ -2,6 +2,8 @@ package ch.varani.boxone.routing;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import com.graphhopper.util.Instruction;
+import com.graphhopper.util.PointList;
 import com.graphhopper.util.exceptions.ConnectionNotFoundException;
 import com.graphhopper.util.exceptions.PointNotFoundException;
 import org.junit.jupiter.api.AfterAll;
@@ -20,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,6 +48,11 @@ final class GraphHopperRouterTest {
   private static final double MIN_DISTANCE = 300;
   /** The largest length of the route from the station to the castle, in metres. */
   private static final double MAX_DISTANCE = 3000;
+
+  /** The number of points of the first instruction of the test of the maneuvers. */
+  private static final int FIRST_LENGTH = 3;
+  /** The number of points of the instruction of the roundabout of the test of the maneuvers. */
+  private static final int ROUNDABOUT_LENGTH = 4;
 
   /** The folder of the graph imported for the class. */
   @TempDir
@@ -83,7 +91,7 @@ final class GraphHopperRouterTest {
 
   /**
    * The fastest route from the station to the castle starts near the station, ends near the castle, and is longer
-   * than the straight line, with a positive duration.
+   * than the straight line, with a positive duration and maneuvers.
    */
   @Test
   @DisplayName("Phase 1: the fastest route joins the start and the finish, with its distance and duration")
@@ -93,7 +101,38 @@ final class GraphHopperRouterTest {
         () -> assertTrue(near(STATION, route.start())),
         () -> assertTrue(near(CASTLE, route.finish())),
         () -> assertTrue(route.distance() > MIN_DISTANCE && route.distance() < MAX_DISTANCE),
-        () -> assertTrue(route.duration().isPositive()));
+        () -> assertTrue(route.duration().isPositive()),
+        () -> assertFalse(route.maneuvers().isEmpty()));
+  }
+
+  /**
+   * The maneuvers are the points where the instructions begin, the start and the finish excepted.
+   */
+  @Test
+  @DisplayName("Phase 2: the maneuvers of a route are the points where the instructions of the engine begin")
+  void maneuversTest() {
+    final List<Instruction> instructions = List.of(instruction(Instruction.CONTINUE_ON_STREET, FIRST_LENGTH),
+                                                   instruction(Instruction.TURN_LEFT, 2),
+                                                   instruction(Instruction.USE_ROUNDABOUT, ROUNDABOUT_LENGTH),
+                                                   instruction(Instruction.FINISH, 1));
+    final int size = FIRST_LENGTH + 2 + ROUNDABOUT_LENGTH + 1;
+    assertEquals(List.of(FIRST_LENGTH, FIRST_LENGTH + 2), GraphHopperRouter.maneuvers(instructions, size));
+  }
+
+  /**
+   * Creates an instruction of the engine covering some points.
+   *
+   * @param sign the kind of instruction.
+   * @param length the number of points it covers.
+   *
+   * @return the instruction.
+   */
+  private static Instruction instruction(final int sign, final int length) {
+    final PointList points = new PointList(length, false);
+    for (int i = 0; i < length; i++) {
+      points.add(STATION.latitude(), STATION.longitude());
+    }
+    return new Instruction(sign, "", points);
   }
 
   /**

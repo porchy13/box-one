@@ -39,7 +39,7 @@ final class MapViewTest {
   private static final TileSource OTHER_TILES = new TileSource("other/{z}/{x}/{y}.png?key={key}", "© Other", 18,
                                                                 "key");
   /** The route of the tests, from the station to the castle. */
-  private static final Route ROUTE = new Route(List.of(SmokeTest.STATION, SmokeTest.CASTLE), 400,
+  private static final Route ROUTE = new Route(List.of(SmokeTest.STATION, SmokeTest.CASTLE), List.of(), 400,
                                                Duration.ofMinutes(1));
   /** A full turn of longitude, in degrees: the page wraps the longitudes beyond the antimeridian. */
   private static final double TURN = 360;

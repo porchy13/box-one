@@ -54,7 +54,7 @@ final class FakeRouter implements Router {
     if (failure != null) {
       throw failure;
     }
-    return new Route(List.of(start, finish), DISTANCE, DURATION);
+    return new Route(List.of(start, finish), List.of(), DISTANCE, DURATION);
   }
 
   /**
