@@ -67,7 +67,8 @@ theme, accent and colours following the system.
   at random around the start and the finish, drives other roads than the fastest route and takes longer by the budget
   at most (with 0 minutes, the same duration by other roads, seldom found), drives no road twice nor
   turns back, and drives the roads for residents or private and the tracks (forest roads) only around the start
-  and the finish; no waypoint lies on them nor on a service road (driveway, parking aisle). It is drawn as a solid line over the fastest route, with its distance
+  and the finish; of ten detours drawn from the seed, the one with the most boxes per kilometre is kept, so that
+  the roadbook has many tulips to read; no waypoint lies on them nor on a service road (driveway, parking aisle). It is drawn as a solid line over the fastest route, with its distance
   and duration in the card, and its seed at the right of the status bar, where it can be selected and copied: the
   same seed, with the same start, finish, budget, kinds avoided and map, gives the same detour again. The roadbook exported is then the one of the detour.
 - **Roadbook for Terra Pirata**: File › Export the roadbook… (Shortcut+E) writes the roadbook of the route shown (the

@@ -26,5 +26,6 @@ All notable changes of the project are documented in this file.
   fastest route by steps of 5, the time it gives shown under the choice; without driving a road twice nor turning
   back, nor the roads for residents or private and the tracks elsewhere than around
   the start and the finish; the motorways, the expressways, the ferries and the toll roads (the motorways of the
-  vignette included) can be avoided, a choice kept for the next detours; it is drawn over the fastest route, and its seed, shown in the status bar,
+  vignette included) can be avoided, a choice kept for the next detours; of ten detours drawn, the one with the most
+  boxes per kilometre is kept, for a roadbook with many tulips; it is drawn over the fastest route, and its seed, shown in the status bar,
   generates it again. The roadbook exported is the one of the route shown.

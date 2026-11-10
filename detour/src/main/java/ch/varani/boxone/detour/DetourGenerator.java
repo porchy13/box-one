@@ -45,12 +45,17 @@ import java.util.random.RandomGeneratorFactory;
  *       by other roads, the only detour of a budget of 0 minutes (issue #9 of GitLab), is another route;</li>
  *   <li>otherwise — the route is too long, drives a segment twice, or the router finds no route through a waypoint
  *       (far from every road, in a lake or beyond the edge of the map; on a junction or at the end of a dead end,
- *       where the route could turn back) — the next attempt draws again, up to {@value #MAX_ATTEMPTS} attempts.</li>
+ *       where the route could turn back) — the attempt is rejected;</li>
+ *   <li>the attempts go on until {@value #CANDIDATES} routes are accepted, or {@value #MAX_ATTEMPTS} attempts are
+ *       made; of the routes accepted, the detour is the one with the most boxes of the roadbook per kilometre — a box
+ *       at the start, at each maneuver and at the finish —, the first drawn among those as dense: the aim is to learn
+ *       to read a roadbook, so many tulips rather than one box telling to follow a road for kilometres (decision of
+ *       the maintainer, issue #12 of GitLab).</li>
  * </ol>
  *
  * <p><b>Postconditions</b>: the detour returned is another route than the fastest one, longer by the budget at most,
- * and drives no segment twice; with the same
- * inputs, the same seed and the same map, it is the same detour.</p>
+ * drives no segment twice, and has as many boxes per kilometre as every other route accepted; with the same inputs,
+ * the same seed and the same map, it is the same detour.</p>
  *
  * <p><b>Cancellation</b>: the generation stops between two attempts once its thread is interrupted (the cancellation
  * of a {@code Task} of JavaFX).</p>
@@ -79,6 +84,13 @@ public final class DetourGenerator {
    * generation takes a few seconds at most.
    */
   static final int MAX_ATTEMPTS = 200;
+  /**
+   * The number of routes accepted among which the detour is chosen, the one with the most boxes per kilometre (issue
+   * #12 of GitLab): enough to compare, few enough to keep the generation within a second on a country.
+   */
+  static final int CANDIDATES = 10;
+  /** The boxes of a roadbook beside those of the maneuvers: one at the start, one at the finish. */
+  private static final int END_BOXES = 2;
   /**
    * The upper bound, excluded, of the seeds drawn for the user ({@link #newSeed(RandomGenerator)}): six digits, short
    * enough to be noted down and typed again.
@@ -136,7 +148,7 @@ public final class DetourGenerator {
    * @param seed the seed of the random draws; any value.
    *
    * @return the detour, another route than the fastest one, longer by the budget at most, without segment driven
-   *         twice.
+   *         twice, the densest in boxes of the routes accepted.
    *
    * @throws RoutingException if the router finds no fastest route from the start to the finish, or does not know a
    *                          kind of road forbidden ({@code OUTDATED_MAP}).
@@ -154,17 +166,51 @@ public final class DetourGenerator {
     final Duration limit = fastest.duration().plus(extra);
     final Ellipse ellipse = Ellipse.of(start, finish, fastest.duration(), extra);
     final RandomGenerator random = RandomGeneratorFactory.of(ALGORITHM).create(seed);
-    for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    Detour best = null;
+    int candidates = 0;
+    for (int attempt = 0; attempt < MAX_ATTEMPTS && candidates < CANDIDATES; attempt++) {
       if (Thread.currentThread().isInterrupted()) {
         throw new CancellationException();
       }
       final List<GeoPoint> waypoints = waypoints(ellipse, random);
       final Optional<Route> route = route(start, waypoints, finish, avoided);
       if (route.isPresent() && accepted(route.get(), fastest, limit)) {
-        return new Detour(route.get(), fastest, waypoints, budget, avoided, seed);
+        candidates++;
+        if (best == null || isDenser(route.get(), best.route())) {
+          best = new Detour(route.get(), fastest, waypoints, budget, avoided, seed);
+        }
       }
     }
-    throw new DetourException(DetourError.NO_DETOUR);
+    if (best == null) {
+      throw new DetourException(DetourError.NO_DETOUR);
+    }
+    return best;
+  }
+
+  /**
+   * Tells whether a route has more boxes of the roadbook per kilometre than another one: a box at the start, at each
+   * maneuver and at the finish. The densities are compared by cross products, without division, so that a route of
+   * no length raises no error.
+   *
+   * @param route the route.
+   * @param other the other route.
+   *
+   * @return {@code true} if the route has strictly more boxes per kilometre than the other one.
+   */
+  static boolean isDenser(final Route route, final Route other) {
+    return boxes(route) * other.distance() > boxes(other) * route.distance();
+  }
+
+  /**
+   * Counts the boxes of the roadbook of a route, as the module roadbook places them: one at the start, one at each
+   * maneuver and one at the finish.
+   *
+   * @param route the route.
+   *
+   * @return the number of boxes, two at least.
+   */
+  private static int boxes(final Route route) {
+    return route.maneuvers().size() + END_BOXES;
   }
 
   /**

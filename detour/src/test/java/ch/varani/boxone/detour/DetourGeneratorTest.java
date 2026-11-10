@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.random.RandomGenerator;
 import java.util.random.RandomGeneratorFactory;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -49,6 +50,8 @@ final class DetourGeneratorTest {
   private static final long SEED = 123_456;
   /** The metres a route by other roads adds to the fastest route, in the tests of a budget of 0 minutes. */
   private static final double OTHER_ROADS = 100;
+  /** A kilometre, in metres. */
+  private static final double KILOMETRE = 1000;
   /** A budget of 15 minutes. */
   private static final Budget FIFTEEN_MINUTES = Budget.DEFAULT;
   /** A budget of 30 minutes. */
@@ -159,6 +162,72 @@ final class DetourGeneratorTest {
         () -> assertEquals(avoided, detour.avoided()),
         () -> assertFalse(router.getAvoided().isEmpty()),
         () -> assertTrue(router.getAvoided().stream().allMatch(avoided::equals)));
+  }
+
+  /**
+   * The generation compares {@value DetourGenerator#CANDIDATES} routes accepted, and keeps the one with the most boxes
+   * per kilometre, the first drawn among those as dense.
+   */
+  @Test
+  @DisplayName("Issue #12: of the routes accepted, the detour is the one with the most boxes per kilometre")
+  void densestTest() {
+    final Duration within = LineRouter.line(List.of(START, FINISH)).duration().plusMinutes(1);
+    final List<Route> drawn = new ArrayList<>();
+    final LineRouter router = new LineRouter(points -> {
+      final Route line = LineRouter.line(points);
+      final int maneuvers = drawn.size() % (points.size() - 1);
+      final Route route = new Route(line.points(), IntStream.rangeClosed(1, maneuvers).boxed().toList(),
+                                    line.distance(), within);
+      drawn.add(route);
+      return route;
+    });
+    final Route kept = new DetourGenerator(router).generate(START, FINISH, THIRTY_MINUTES, Set.of(), SEED).route();
+    final Route first = drawn.stream().filter(route -> !DetourGenerator.isDenser(kept, route)).findFirst()
+                             .orElseThrow();
+    assertAll(
+        () -> assertEquals(1 + DetourGenerator.CANDIDATES, router.getRoutings()),
+        () -> assertTrue(drawn.stream().noneMatch(route -> DetourGenerator.isDenser(route, kept))),
+        () -> assertTrue(drawn.stream().anyMatch(route -> DetourGenerator.isDenser(kept, route))),
+        () -> assertSame(first, kept));
+  }
+
+  /**
+   * When fewer routes than {@value DetourGenerator#CANDIDATES} are accepted, the detour is the densest of them, after
+   * the last attempt.
+   */
+  @Test
+  @DisplayName("Issue #12: a detour is kept when fewer routes than the candidates are accepted")
+  void fewTest() {
+    final Duration fastest = LineRouter.line(List.of(START, FINISH)).duration();
+    final List<Route> drawn = new ArrayList<>();
+    final LineRouter router = new LineRouter(points -> {
+      final Route line = LineRouter.line(points);
+      final Duration duration = fastest.plus(drawn.size() == 2 ? Duration.ofMinutes(1) : Duration.ofHours(1));
+      final Route route = new Route(line.points(), List.of(), line.distance(), duration);
+      drawn.add(route);
+      return route;
+    });
+    final Detour detour = new DetourGenerator(router).generate(START, FINISH, THIRTY_MINUTES, Set.of(), SEED);
+    assertAll(
+        () -> assertSame(drawn.get(2), detour.route()),
+        () -> assertEquals(1 + DetourGenerator.MAX_ATTEMPTS, router.getRoutings()));
+  }
+
+  /**
+   * The density of the boxes: the boxes of the start, of the maneuvers and of the finish, per kilometre.
+   */
+  @Test
+  @DisplayName("Issue #12: the boxes per kilometre count the start, the maneuvers and the finish")
+  void denserTest() {
+    final List<GeoPoint> line = List.of(START, MIDDLE, FINISH);
+    final Route threeInOne = new Route(line, List.of(1), KILOMETRE, Duration.ZERO);
+    final Route twoInOne = new Route(line, List.of(), KILOMETRE, Duration.ZERO);
+    final Route fourInTwo = new Route(line, List.of(1), 2 * KILOMETRE, Duration.ZERO);
+    assertAll(
+        () -> assertTrue(DetourGenerator.isDenser(threeInOne, twoInOne)),
+        () -> assertFalse(DetourGenerator.isDenser(twoInOne, threeInOne)),
+        () -> assertTrue(DetourGenerator.isDenser(twoInOne, fourInTwo)),
+        () -> assertFalse(DetourGenerator.isDenser(threeInOne, threeInOne)));
   }
 
   /**
