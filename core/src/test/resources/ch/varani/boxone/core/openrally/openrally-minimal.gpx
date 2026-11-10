@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Minimal test file: the distance of each box only, as the specification requires.
+  Box One, phase 0 (doc/box-one-plan-developpement.md): file written for the import test in Terra Pirata.
+  Format: GPX 1.1 with the OpenRally extensions v1.0.3 (cross-country/openrally.xsd of github.com/openrally/openrally).
+  Places: public streets of Yverdon-les-Bains, approximate positions. Distances (km) and headings (degrees) computed
+  as the crow flies between the points: the file tests the import, it is not a route to ride.
+-->
+<gpx xmlns="http://www.topografix.com/GPX/1/1" creator="Box One (phase 0, written by hand)" version="1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:openrally="http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd
+                      http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3 openrally.xsd">
+
+  <metadata>
+    <name>Box One - minimal test</name>
+    <copyright author="OpenStreetMap contributors">
+      <license>https://opendatacommons.org/licenses/odbl/</license>
+    </copyright>
+    <extensions>
+      <openrally:units>metric</openrally:units>
+      <openrally:distance>1.27</openrally:distance>
+    </extensions>
+  </metadata>
+
+  <wpt lat="46.77830" lon="6.64130">
+    <name>1</name>
+    <desc>Départ</desc>
+    <extensions>
+      <openrally:distance>0.00</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.78010" lon="6.64480">
+    <name>2</name>
+    <desc>Carrefour 1</desc>
+    <extensions>
+      <openrally:distance>0.33</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.78350" lon="6.64700">
+    <name>3</name>
+    <desc>Carrefour 2</desc>
+    <extensions>
+      <openrally:distance>0.75</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.78700" lon="6.65150">
+    <name>4</name>
+    <desc>Arrivée</desc>
+    <extensions>
+      <openrally:distance>1.27</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <trk>
+    <name>Box One - trace</name>
+    <trkseg>
+      <trkpt lat="46.77830" lon="6.64130"/>
+      <trkpt lat="46.78010" lon="6.64480"/>
+      <trkpt lat="46.78350" lon="6.64700"/>
+      <trkpt lat="46.78700" lon="6.65150"/>
+    </trkseg>
+  </trk>
+</gpx>

@@ -1,0 +1,36 @@
+Box One
+Copyright 2026 Jérôme Varani
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The test resources include, in core/src/test/resources/ch/varani/boxone/core/openrally/:
+- the OpenRally GPX extensions schema v1.0.3 (openrally.xsd) and its strict validation wrapper (gpx-strict.xsd,
+  openrally-strict.xsd), from https://github.com/openrally/openrally, licensed under the Creative Commons
+  Attribution 4.0 International licence;
+- the GPX 1.1 schema (gpx.xsd), from TopoGrafix (https://www.topografix.com/GPX/1/1/).
+
+The application bundles, in ui/src/main/resources/ch/varani/boxone/ui/map/leaflet/, Leaflet 1.9.4
+(https://leafletjs.com), Copyright (c) 2010-2023 Volodymyr Agafonkin, Copyright (c) 2010-2011 CloudMade, licensed
+under the BSD 2-Clause License (see the LICENSE file next to it).
+
+The module graphhopper regroups, unchanged, the classes of:
+- GraphHopper (graphhopper-core, graphhopper-web-api), https://www.graphhopper.com, licensed under the Apache
+  License, Version 2.0;
+- osm-legal-default-speeds-jvm, Copyright (c) Tobias Zwick, https://github.com/westnordost/osm-legal-default-speeds,
+  licensed under the BSD 3-Clause License.
+
+The application ships, as separate libraries: Jackson, jackson-datatype-jts, Woodstox, HPPC, XML Graphics Commons,
+Apache Commons Logging, the Kotlin standard library and the JetBrains annotations (Apache License 2.0); SLF4J's API
+and JDK14 provider (MIT License); JTS Topology Suite (Eclipse Public License 2.0 or Eclipse Distribution License
+1.0, the latter applying); Janino, Protocol Buffers (BSD 3-Clause License) and the Stax2 API (BSD 2-Clause License);
+osmosis-osm-binary (GNU Lesser General Public License 3.0, kept as a separate, replaceable library).
+
+Map data: the routes are computed on extracts of OpenStreetMap, © OpenStreetMap contributors, available under the
+Open Database License (https://www.openstreetmap.org/copyright). The extract of the smoke test
+(ui/src/main/resources/ch/varani/boxone/ui/smoke/yverdon-centre.osm.gz) and the extract of the routing tests
+(routing/src/test/resources/ch/varani/boxone/routing/yverdon.osm.gz) are extracts of OpenStreetMap, obtained through
+the Overpass API, under the same licence.
+
+Background maps: the national maps of swisstopo (Federal Office of Topography, © swisstopo,
+https://www.geo.admin.ch/en/general-terms-of-use-fsdi), or the maps of MapTiler (© MapTiler, © OpenStreetMap
+contributors, https://www.maptiler.com/copyright/), loaded by the application from their providers.

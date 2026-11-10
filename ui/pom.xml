@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- The JavaFX user interface (AGENTS.md, 3), the entry point of the application and its installers (AGENTS.md, 7).
+         It is the only module that depends on JavaFX. -->
+    <parent>
+        <groupId>ch.varani.boxone</groupId>
+        <artifactId>box-one</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>box-one-ui</artifactId>
+    <name>Box One user interface</name>
+
+    <properties>
+        <root.dir>${project.basedir}/..</root.dir>
+        <app.mainClass>ch.varani.boxone.ui.Launcher</app.mainClass>
+        <installer.jdk.modules>java.compiler,java.desktop,java.logging,java.net.http,java.scripting,jdk.unsupported</installer.jdk.modules>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-routing</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-fxml</artifactId>
+        </dependency>
+
+        <dependency>
+            <!-- The map: a page of Leaflet in a WebView (AGENTS.md, 3). -->
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-commons</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testfx</groupId>
+            <artifactId>testfx-junit5</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testfx</groupId>
+            <artifactId>openjfx-monocle</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- One JVM per test class: Application.launch() can only be called once per JVM. -->
+                    <reuseForks>false</reuseForks>
+                    <!-- @{argLine} carries the Jacoco agent; the JavaFX tests run headless with Monocle
+                         (AGENTS.md, 6). -->
+                    <!-- The map of the tests asks for its tiles: a proxy that refuses every connection keeps the tests
+                         off the network (AGENTS.md, 6). -->
+                    <systemPropertyVariables>
+                        <http.proxyHost>127.0.0.1</http.proxyHost>
+                        <http.proxyPort>9</http.proxyPort>
+                        <https.proxyHost>127.0.0.1</https.proxyHost>
+                        <https.proxyPort>9</https.proxyPort>
+                        <http.nonProxyHosts>none</http.nonProxyHosts>
+                    </systemPropertyVariables>
+                    <argLine>@{argLine} --enable-native-access=ALL-UNNAMED -Dtestfx.robot=glass -Dtestfx.headless=true
+                        -Dglass.platform=Monocle -Dmonocle.platform=Headless -Dprism.order=sw -Dprism.text=t2k
+                        -Djava.awt.headless=true</argLine>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <!-- Runs the application: mvn clean install -DskipTests once, then mvn -pl ui javafx:run (README). -->
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>ch.varani.boxone.ui/${app.mainClass}</mainClass>
+                    <options>
+                        <option>--enable-native-access=javafx.graphics,javafx.web</option>
+                    </options>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <!-- Installer of the application (AGENTS.md, 7): mvn -P installer clean verify, from the root.
+                 1. the jars of the modules of Box One and their automatic modules go to target/installer/mods,
+                    without JavaFX;
+                 2. the native libraries of JavaFX of the platform are unpacked, flat, into target/installer/native,
+                    shipped in the application and loaded through java.library.path (never extracted at run time);
+                 3. jlink links the runtime from the JDK and the JavaFX modular jars of the platform, without the
+                    JavaFX native libraries kept as resources;
+                 4. jpackage makes the application image, then the installer of the platform (installer.type) into
+                    target/installer/dist; the options are in src/packaging/*.args.
+                 jpackage cannot cross-compile: each installer is built on its own system. -->
+            <id>installer</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <!-- The version of the installer: major.minor.incremental, without qualifier. -->
+                                <id>parse-version</id>
+                                <goals>
+                                    <goal>parse-version</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <!-- jlink and jpackage refuse an existing output directory; not earlier than
+                                     prepare-package, as the Javadoc forks the lifecycle up to generate-sources. -->
+                                <id>clean-installer</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>${project.build.directory}/installer</directory>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/installer/mods</outputDirectory>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>installer-modules</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <includeScope>runtime</includeScope>
+                                    <excludeGroupIds>org.openjfx</excludeGroupIds>
+                                    <outputDirectory>${project.build.directory}/installer/mods</outputDirectory>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>installer-javafx</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <includeScope>runtime</includeScope>
+                                    <includeGroupIds>org.openjfx</includeGroupIds>
+                                    <classifier>${installer.javafx}</classifier>
+                                    <outputDirectory>${project.build.directory}/installer/javafx</outputDirectory>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>installer-native</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>unpack</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>org.openjfx</groupId>
+                                            <artifactId>javafx-graphics</artifactId>
+                                            <version>${javafx.version}</version>
+                                            <classifier>${installer.javafx}</classifier>
+                                            <includes>*.dylib,*.so,*.dll</includes>
+                                            <fileMappers>
+                                                <org.codehaus.plexus.components.io.filemappers.FlattenFileMapper />
+                                            </fileMappers>
+                                        </artifactItem>
+                                        <artifactItem>
+                                            <groupId>org.openjfx</groupId>
+                                            <artifactId>javafx-media</artifactId>
+                                            <version>${javafx.version}</version>
+                                            <classifier>${installer.javafx}</classifier>
+                                            <includes>*.dylib,*.so,*.dll</includes>
+                                            <fileMappers>
+                                                <org.codehaus.plexus.components.io.filemappers.FlattenFileMapper />
+                                            </fileMappers>
+                                        </artifactItem>
+                                        <artifactItem>
+                                            <groupId>org.openjfx</groupId>
+                                            <artifactId>javafx-web</artifactId>
+                                            <version>${javafx.version}</version>
+                                            <classifier>${installer.javafx}</classifier>
+                                            <includes>*.dylib,*.so,*.dll</includes>
+                                            <fileMappers>
+                                                <org.codehaus.plexus.components.io.filemappers.FlattenFileMapper />
+                                            </fileMappers>
+                                        </artifactItem>
+                                    </artifactItems>
+                                    <outputDirectory>${project.build.directory}/installer/native</outputDirectory>
+                                    <markersDirectory>${project.build.directory}/installer/markers</markersDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <configuration>
+                            <workingDirectory>${project.basedir}</workingDirectory>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>jlink</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${java.home}/bin/jlink${installer.exe}</executable>
+                                    <arguments>
+                                        <argument>--module-path</argument>
+                                        <argument>${project.build.directory}/installer/javafx</argument>
+                                        <argument>--add-modules</argument>
+                                        <!-- The JDK and JavaFX modules read by the modules of the application and
+                                             their libraries (given by jdeps, option print-module-deps, on target/installer/mods). -->
+                                        <argument>java.base,jdk.localedata,javafx.controls,javafx.fxml,javafx.web,${installer.jdk.modules}</argument>
+                                        <argument>--include-locales=fr,en</argument>
+                                        <argument>--exclude-resources=glob:/javafx.*/**.dylib,glob:/javafx.*/**.so,glob:/javafx.*/**.dll</argument>
+                                        <argument>--strip-debug</argument>
+                                        <argument>--no-header-files</argument>
+                                        <argument>--no-man-pages</argument>
+                                        <argument>--output</argument>
+                                        <argument>${project.build.directory}/installer/runtime</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>jpackage-image</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${java.home}/bin/jpackage${installer.exe}</executable>
+                                    <arguments>
+                                        <argument>--type</argument>
+                                        <argument>app-image</argument>
+                                        <argument>--app-version</argument>
+                                        <argument>${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}</argument>
+                                        <argument>@src/packaging/app-image.args</argument>
+                                        <argument>@src/packaging/${installer.os}-image.args</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>jpackage-installer</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${java.home}/bin/jpackage${installer.exe}</executable>
+                                    <arguments>
+                                        <argument>--type</argument>
+                                        <argument>${installer.type}</argument>
+                                        <argument>--app-version</argument>
+                                        <argument>${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}</argument>
+                                        <argument>@src/packaging/${installer.os}.args</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <!-- Platform of the installer (AGENTS.md, 7): JavaFX native artifacts, type of installer. -->
+            <id>installer-mac-aarch64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <installer.javafx>mac-aarch64</installer.javafx>
+                <installer.type>dmg</installer.type>
+                <installer.os>mac</installer.os>
+                <installer.exe />
+            </properties>
+        </profile>
+        <profile>
+            <!-- Platform of the installer (AGENTS.md, 7): JavaFX native artifacts, type of installer. -->
+            <id>installer-mac-x64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>x86_64</arch>
+                </os>
+            </activation>
+            <properties>
+                <installer.javafx>mac</installer.javafx>
+                <installer.type>dmg</installer.type>
+                <installer.os>mac</installer.os>
+                <installer.exe />
+            </properties>
+        </profile>
+        <profile>
+            <!-- Platform of the installer (AGENTS.md, 7): JavaFX native artifacts, type of installer. -->
+            <id>installer-linux-x64</id>
+            <activation>
+                <os>
+                    <name>Linux</name>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <installer.javafx>linux</installer.javafx>
+                <installer.type>deb</installer.type>
+                <installer.os>linux</installer.os>
+                <installer.exe />
+            </properties>
+        </profile>
+        <profile>
+            <!-- Platform of the installer (AGENTS.md, 7): JavaFX native artifacts, type of installer. -->
+            <id>installer-linux-aarch64</id>
+            <activation>
+                <os>
+                    <name>Linux</name>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <installer.javafx>linux-aarch64</installer.javafx>
+                <installer.type>deb</installer.type>
+                <installer.os>linux</installer.os>
+                <installer.exe />
+            </properties>
+        </profile>
+        <profile>
+            <!-- Platform of the installer (AGENTS.md, 7): JavaFX native artifacts, type of installer. -->
+            <id>installer-windows-x64</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <installer.javafx>win</installer.javafx>
+                <installer.type>msi</installer.type>
+                <installer.os>windows</installer.os>
+                <installer.exe>.exe</installer.exe>
+            </properties>
+        </profile>
+    </profiles>
+
+</project>

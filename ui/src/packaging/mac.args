@@ -1,0 +1,3 @@
+--name "Box One"
+--app-image "target/installer/image/Box One.app"
+--dest target/installer/dist

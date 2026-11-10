@@ -1,0 +1,77 @@
+<ruleset comparisonMethod="maven"
+         xmlns="http://mojo.codehaus.org/versions-maven-plugin/rule/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://mojo.codehaus.org/versions-maven-plugin/rule/2.0.0 http://mojo.codehaus.org/versions-maven-plugin/xsd/rule-2.0.0.xsd">
+    <rules>
+        <rule groupId="junit" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- Ignore Pre-Releases -->
+                <ignoreVersion type="regex">.*-beta.*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="org.postgresql" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- Ignore Pre-Releases -->
+                <ignoreVersion type="regex">.*.jre.*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="com.fasterxml.jackson.core" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- Ignore Pre-Releases -->
+                <ignoreVersion type="regex">.*-rc.*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="org.apache.maven.plugins" comparisonMethod="maven">
+            <ignoreVersions>
+                <ignoreVersion type="regex">.*-beta.*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="com.graphhopper" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- Ignore Pre-Releases -->
+                <ignoreVersion type="regex">.*-pre.*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="org.slf4j" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- Ignore Pre-Releases -->
+                <ignoreVersion type="regex">.*-(alpha|beta).*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="com.carrotsearch" artifactId="hppc" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- GraphHopper is compiled against hppc 0.8; the later versions changed its API. -->
+                <ignoreVersion type="regex">0\.(9|[1-9][0-9])\..*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="com.google.protobuf" artifactId="protobuf-java" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- osmosis-osm-binary holds code generated for protobuf 3.x; ignore 4.x and pre-releases. -->
+                <ignoreVersion type="regex">[4-9]\..*</ignoreVersion>
+                <ignoreVersion type="regex">.*-rc.*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="org.jetbrains.kotlin" comparisonMethod="maven">
+            <ignoreVersions>
+                <!-- Ignore Pre-Releases -->
+                <ignoreVersion type="regex">.*-(RC|Beta|M).*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <rule groupId="org.openjfx" comparisonMethod="maven">
+            <ignoreVersions>
+                <ignoreVersion type="regex">.*-ea.*</ignoreVersion>
+                <ignoreVersion type="regex">27.*</ignoreVersion>
+                <ignoreVersion type="regex">26.*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+    </rules>
+</ruleset>

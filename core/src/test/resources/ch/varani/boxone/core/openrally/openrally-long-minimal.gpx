@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Minimal test file: the distance of each box only, as the specification requires.
+  Box One, phase 0 (doc/box-one-plan-developpement.md): file written for the import test in Terra Pirata.
+  Format: GPX 1.1 with the OpenRally extensions v1.0.3 (cross-country/openrally.xsd of github.com/openrally/openrally).
+  Places: villages between Yverdon-les-Bains and Concise, approximate positions. Distances (km) and headings (degrees) computed
+  as the crow flies between the points: the file tests the import, it is not a route to ride.
+-->
+<gpx xmlns="http://www.topografix.com/GPX/1/1" creator="Box One (phase 0, written by hand)" version="1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:openrally="http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd
+                      http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3 openrally.xsd">
+
+  <metadata>
+    <name>Box One - long minimal test</name>
+    <copyright author="OpenStreetMap contributors">
+      <license>https://opendatacommons.org/licenses/odbl/</license>
+    </copyright>
+    <extensions>
+      <openrally:units>metric</openrally:units>
+      <openrally:distance>10.85</openrally:distance>
+    </extensions>
+  </metadata>
+
+  <wpt lat="46.77850" lon="6.64110">
+    <name>1</name>
+    <desc>Yverdon</desc>
+    <extensions>
+      <openrally:distance>0.00</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.78800" lon="6.64300">
+    <name>2</name>
+    <desc>Yverdon nord</desc>
+    <extensions>
+      <openrally:distance>1.07</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.80940" lon="6.64580">
+    <name>3</name>
+    <desc>Grandson</desc>
+    <extensions>
+      <openrally:distance>3.46</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.81600" lon="6.65600">
+    <name>4</name>
+    <desc>Grandson nord</desc>
+    <extensions>
+      <openrally:distance>4.52</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.83700" lon="6.68800">
+    <name>5</name>
+    <desc>Onnens</desc>
+    <extensions>
+      <openrally:distance>7.90</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.84800" lon="6.70600">
+    <name>6</name>
+    <desc>Corcelles</desc>
+    <extensions>
+      <openrally:distance>9.73</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.85100" lon="6.72000">
+    <name>7</name>
+    <desc>Concise</desc>
+    <extensions>
+      <openrally:distance>10.85</openrally:distance>
+    </extensions>
+  </wpt>
+
+  <trk>
+    <name>Box One - trace</name>
+    <trkseg>
+      <trkpt lat="46.77850" lon="6.64110"/>
+      <trkpt lat="46.78800" lon="6.64300"/>
+      <trkpt lat="46.80940" lon="6.64580"/>
+      <trkpt lat="46.81600" lon="6.65600"/>
+      <trkpt lat="46.83700" lon="6.68800"/>
+      <trkpt lat="46.84800" lon="6.70600"/>
+      <trkpt lat="46.85100" lon="6.72000"/>
+    </trkseg>
+  </trk>
+</gpx>

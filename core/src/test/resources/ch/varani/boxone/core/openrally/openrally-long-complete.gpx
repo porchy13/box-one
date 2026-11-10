@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Complete test file: distances, headings, start and finish of the stage, a WPM, a danger and drawn tulips.
+  Box One, phase 0 (doc/box-one-plan-developpement.md): file written for the import test in Terra Pirata.
+  Format: GPX 1.1 with the OpenRally extensions v1.0.3 (cross-country/openrally.xsd of github.com/openrally/openrally).
+  Places: villages between Yverdon-les-Bains and Concise, approximate positions. Distances (km) and headings (degrees) computed
+  as the crow flies between the points: the file tests the import, it is not a route to ride.
+-->
+<gpx xmlns="http://www.topografix.com/GPX/1/1" creator="Box One (phase 0, written by hand)" version="1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:openrally="http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd
+                      http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3 openrally.xsd">
+
+  <metadata>
+    <name>Box One - long complete test</name>
+    <copyright author="OpenStreetMap contributors">
+      <license>https://opendatacommons.org/licenses/odbl/</license>
+    </copyright>
+    <extensions>
+      <openrally:units>metric</openrally:units>
+      <openrally:distance>10.85</openrally:distance>
+    </extensions>
+  </metadata>
+
+  <wpt lat="46.77850" lon="6.64110">
+    <name>1</name>
+    <desc>Yverdon</desc>
+    <extensions>
+      <openrally:distance>0.00</openrally:distance>
+      <openrally:cap>8</openrally:cap>
+      <openrally:dss/>
+      <openrally:tulip><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M50 90 L50 50 L50.0 12.0"/><path d="M54.8 20.8 L50.0 12.0 L45.2 20.8"/></g><circle cx="50" cy="90" r="5" fill="black"/></svg>]]></openrally:tulip>
+      <openrally:notes><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="55" font-family="sans-serif" font-size="14" text-anchor="middle">Yverdon</text></svg>]]></openrally:notes>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.78800" lon="6.64300">
+    <name>2</name>
+    <desc>Yverdon nord</desc>
+    <extensions>
+      <openrally:distance>1.07</openrally:distance>
+      <openrally:cap>5</openrally:cap>
+      <openrally:danger>1</openrally:danger>
+      <openrally:tulip><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M50 90 L50 50 L48.0 12.1"/><path d="M53.3 20.6 L48.0 12.1 L43.7 21.1"/></g><circle cx="50" cy="90" r="5" fill="black"/></svg>]]></openrally:tulip>
+      <openrally:notes><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="55" font-family="sans-serif" font-size="14" text-anchor="middle">Yverdon nord</text></svg>]]></openrally:notes>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.80940" lon="6.64580">
+    <name>3</name>
+    <desc>Grandson</desc>
+    <extensions>
+      <openrally:distance>3.46</openrally:distance>
+      <openrally:cap>47</openrally:cap>
+      <openrally:tulip><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M50 90 L50 50 L75.4 21.8"/><path d="M73.1 31.5 L75.4 21.8 L66.0 25.1"/></g><circle cx="50" cy="90" r="5" fill="black"/></svg>]]></openrally:tulip>
+      <openrally:notes><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="55" font-family="sans-serif" font-size="14" text-anchor="middle">Grandson</text></svg>]]></openrally:notes>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.81600" lon="6.65600">
+    <name>4</name>
+    <desc>Grandson nord</desc>
+    <extensions>
+      <openrally:distance>4.52</openrally:distance>
+      <openrally:cap>46</openrally:cap>
+      <openrally:wpm open="800" clear="90" name="1"/>
+      <openrally:tulip><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M50 90 L50 50 L49.3 12.0"/><path d="M54.3 20.7 L49.3 12.0 L44.7 20.9"/></g><circle cx="50" cy="90" r="5" fill="black"/></svg>]]></openrally:tulip>
+      <openrally:notes><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="55" font-family="sans-serif" font-size="14" text-anchor="middle">Grandson nord</text></svg>]]></openrally:notes>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.83700" lon="6.68800">
+    <name>5</name>
+    <desc>Onnens</desc>
+    <extensions>
+      <openrally:distance>7.90</openrally:distance>
+      <openrally:cap>48</openrally:cap>
+      <openrally:tulip><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M50 90 L50 50 L51.3 12.0"/><path d="M55.8 21.0 L51.3 12.0 L46.2 20.6"/></g><circle cx="50" cy="90" r="5" fill="black"/></svg>]]></openrally:tulip>
+      <openrally:notes><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="55" font-family="sans-serif" font-size="14" text-anchor="middle">Onnens</text></svg>]]></openrally:notes>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.84800" lon="6.70600">
+    <name>6</name>
+    <desc>Corcelles</desc>
+    <extensions>
+      <openrally:distance>9.73</openrally:distance>
+      <openrally:cap>73</openrally:cap>
+      <openrally:tulip><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M50 90 L50 50 L66.1 15.6"/><path d="M66.7 25.5 L66.1 15.6 L58.0 21.5"/></g><circle cx="50" cy="90" r="5" fill="black"/></svg>]]></openrally:tulip>
+      <openrally:notes><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="55" font-family="sans-serif" font-size="14" text-anchor="middle">Corcelles</text></svg>]]></openrally:notes>
+    </extensions>
+  </wpt>
+
+  <wpt lat="46.85100" lon="6.72000">
+    <name>7</name>
+    <desc>Concise</desc>
+    <extensions>
+      <openrally:distance>10.85</openrally:distance>
+      <openrally:ass/>
+      <openrally:tulip><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M50 90 L50 50 L50.0 12.0"/><path d="M54.8 20.8 L50.0 12.0 L45.2 20.8"/></g><circle cx="50" cy="90" r="5" fill="black"/></svg>]]></openrally:tulip>
+      <openrally:notes><![CDATA[<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="55" font-family="sans-serif" font-size="14" text-anchor="middle">Concise</text></svg>]]></openrally:notes>
+    </extensions>
+  </wpt>
+
+  <trk>
+    <name>Box One - trace</name>
+    <trkseg>
+      <trkpt lat="46.77850" lon="6.64110"/>
+      <trkpt lat="46.78800" lon="6.64300"/>
+      <trkpt lat="46.80940" lon="6.64580"/>
+      <trkpt lat="46.81600" lon="6.65600"/>
+      <trkpt lat="46.83700" lon="6.68800"/>
+      <trkpt lat="46.84800" lon="6.70600"/>
+      <trkpt lat="46.85100" lon="6.72000"/>
+    </trkseg>
+  </trk>
+</gpx>

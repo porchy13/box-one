@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- GraphHopper as a JPMS module (AGENTS.md, 3). graphhopper-core and graphhopper-web-api share packages
+         (com.graphhopper, com.graphhopper.util…), and no module name can be derived from osm-legal-default-speeds-jvm:
+         none of them can go on the module path. This module regroups the three into one named module,
+         ch.varani.boxone.graphhopper: their classes are unpacked into target/classes before the compilation of its
+         module-info, so that it is an exploded module from the compile phase on (mvn compile works in the reactor),
+         then a jar. It has no code of its own, hence no test, no coverage and no Javadoc.
+
+         The three are "provided": they never reach the modules that depend on this one, where they would split the
+         packages again. Their dependencies are declared here instead, in compile scope; osmosis-osm-binary (LGPL-3.0)
+         stays a jar of its own, never regrouped, so that it can be replaced. -->
+    <parent>
+        <groupId>ch.varani.boxone</groupId>
+        <artifactId>box-one</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>box-one-graphhopper</artifactId>
+    <name>Box One GraphHopper</name>
+
+    <properties>
+        <root.dir>${project.basedir}/..</root.dir>
+        <!-- Third-party code only, documented and analysed by its own project. -->
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <sonar.skip>true</sonar.skip>
+    </properties>
+
+    <dependencies>
+        <!-- Regrouped into this module. -->
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-web-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>de.westnordost</groupId>
+            <artifactId>osm-legal-default-speeds-jvm</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- The dependencies of the three. -->
+        <dependency>
+            <groupId>com.carrotsearch</groupId>
+            <artifactId>hppc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>janino</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>commons-compiler</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.graphhopper.external</groupId>
+            <artifactId>jackson-datatype-jts</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.xmlgraphics</groupId>
+            <artifactId>xmlgraphics-commons</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openstreetmap.osmosis</groupId>
+            <artifactId>osmosis-osm-binary</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- Before the compilation of module-info.java, which exports their packages. -->
+                        <id>regroup</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeScope>provided</includeScope>
+                            <includeArtifactIds>graphhopper-core,graphhopper-web-api,osm-legal-default-speeds-jvm</includeArtifactIds>
+                            <excludes>META-INF/**,module-info.class</excludes>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                            <markersDirectory>${project.build.directory}/regroup-markers</markersDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs>
+                        <!-- The classes unpacked into target/classes belong to the module being compiled. -->
+                        <arg>--patch-module</arg>
+                        <arg>ch.varani.boxone.graphhopper=${project.build.outputDirectory}</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

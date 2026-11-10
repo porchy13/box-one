@@ -1,0 +1,8 @@
+--name "Box One"
+--app-image "target/installer/image/Box One"
+--dest target/installer/dist
+--license-file ../LICENSE
+--linux-package-name box-one
+--linux-menu-group Education
+--linux-app-category misc
+--linux-shortcut

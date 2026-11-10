@@ -1,0 +1,7 @@
+/.idea/
+target/
+*.iml
+.DS_Store
+# Map extracts and routing graphs: downloaded, never committed (AGENTS.md, 8.3)
+*.osm.pbf
+*-gh/

@@ -1,0 +1,13 @@
+--name "Box One"
+--vendor "Jérôme Varani"
+--description "Generates training roadbooks"
+--copyright "Copyright 2026 Jérôme Varani - Apache License 2.0"
+--dest target/installer/image
+--runtime-image target/installer/runtime
+--module-path target/installer/mods
+--module ch.varani.boxone.ui/ch.varani.boxone.ui.Launcher
+--app-content target/installer/native
+--java-options "--enable-native-access=javafx.graphics,javafx.web"
+--java-options "--add-modules=ALL-MODULE-PATH"
+--java-options "-Djava.library.path=$APPDIR/../native"
+--java-options "-XX:MaxRAMPercentage=50"

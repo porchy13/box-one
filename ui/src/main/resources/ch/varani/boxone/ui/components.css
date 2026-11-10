@@ -1,0 +1,118 @@
+/*
+ * Styles of the parts of the window (DESIGN.md §6, §7): menu bar, content, empty states and status bar. No colour
+ * value here: only the tokens.
+ */
+.menu-bar {
+    -fx-background-color: -c-surface;
+    -fx-border-color: transparent transparent -c-border transparent;
+}
+
+.content {
+    -fx-background-color: -c-surface;
+}
+
+/* Empty states (§7): a sentence telling what to do, and the matching button. */
+.empty-state {
+    -fx-spacing: 12;
+    -fx-alignment: center;
+    -fx-padding: 24;
+}
+
+.empty-state .label {
+    -fx-text-fill: -c-text-2;
+    -fx-wrap-text: true;
+    -fx-text-alignment: center;
+}
+
+.empty-state .title-view {
+    -fx-text-fill: -c-text;
+}
+
+/* Status bar: 24 px, state of the work at the left, notices at the right. */
+.status-bar {
+    -fx-min-height: 24;
+    -fx-pref-height: 24;
+    -fx-padding: 0 12 0 12;
+    -fx-spacing: 16;
+    -fx-alignment: center-left;
+    -fx-background-color: -c-bg;
+    -fx-border-color: -c-border transparent transparent transparent;
+}
+
+.status-bar .label {
+    -fx-font-size: 0.85em;
+    -fx-text-fill: -c-text-2;
+}
+
+/* The card of the route at the top right of the map (DESIGN.md §14): its distance and its duration, the result of
+   the view. It lets the clicks through to the map. */
+.route-card {
+    -fx-spacing: 2;
+    -fx-padding: 10 14 10 14;
+    -fx-background-color: -c-surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -c-border;
+    -fx-border-radius: 8;
+    -fx-effect: dropshadow(gaussian, -c-shadow, 12, 0, 0, 2);
+}
+
+.route-card .caption {
+    -fx-text-fill: -c-text-2;
+}
+
+.route-card .route-summary {
+    -fx-font-size: 1.3em;
+    -fx-font-weight: 600;
+    -fx-text-fill: -c-text;
+}
+
+/* Forms of the dialogs (§5, §7): sections, each field at the right of its label, its caption under it. */
+.form {
+    -fx-hgap: 12;
+    -fx-vgap: 8;
+    -fx-padding: 8 8 16 8;
+}
+
+.form .section-head-first,
+.form .section-head {
+    -fx-font-size: 1em;
+    -fx-font-weight: 600;
+    -fx-text-fill: -c-text;
+}
+
+.form .section-head {
+    -fx-padding: 16 0 0 0;
+}
+
+.form .field-label {
+    -fx-font-size: 1em;
+    -fx-text-fill: -c-text-2;
+}
+
+.form .caption {
+    -fx-max-width: 320;
+}
+
+/* The veil over the map while it is loaded or imported (§7, status feedback): the map stays visible, dimmed, and
+   cannot be clicked; a card in the middle tells what is happening. */
+.busy-veil {
+    -fx-background-color: -c-bg;
+    -fx-opacity: 0.8;
+}
+
+.busy-card {
+    -fx-alignment: center;
+    -fx-spacing: 12;
+    -fx-padding: 24 32 24 32;
+    -fx-background-color: -c-surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -c-border;
+    -fx-border-radius: 8;
+    -fx-effect: dropshadow(gaussian, -c-shadow, 16, 0, 0, 4);
+}
+
+.busy-card .caption {
+    -fx-max-width: 360;
+    -fx-wrap-text: true;
+    -fx-text-alignment: center;
+}

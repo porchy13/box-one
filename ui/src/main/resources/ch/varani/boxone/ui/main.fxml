@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.SeparatorMenuItem?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<!--
+  The main window (MainController, DESIGN.md §6, §14): the menu bar (global on macOS), the map in the centre, put
+  under the card of the route and the veil by the controller, and the status bar, with the state of the work. The
+  card of the route, at the top right of the map, shows its distance and duration once computed; the veil covers the
+  map while it is loaded or imported. The controller keeps the items of the system: Settings… on macOS, Options… and
+  Quit elsewhere.
+-->
+<BorderPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml">
+  <top>
+    <MenuBar fx:id="menuBar">
+      <Menu fx:id="fileMenu" text="%menu.file">
+        <MenuItem fx:id="openMapItem" text="%menu.openMap" onAction="#openMap" accelerator="Shortcut+O"/>
+        <SeparatorMenuItem fx:id="settingsSeparator"/>
+        <MenuItem fx:id="settingsItem" text="%menu.settings" onAction="#settings" accelerator="Shortcut+Comma"/>
+        <SeparatorMenuItem fx:id="quitSeparator"/>
+        <MenuItem fx:id="quitItem" text="%menu.quit" onAction="#quit" accelerator="Shortcut+Q"/>
+      </Menu>
+      <Menu fx:id="toolsMenu" text="%menu.tools">
+        <MenuItem fx:id="optionsItem" text="%menu.options" onAction="#settings" accelerator="Shortcut+Comma"/>
+      </Menu>
+    </MenuBar>
+  </top>
+  <center>
+    <StackPane fx:id="mapPane">
+      <VBox fx:id="routeCard" styleClass="route-card" StackPane.alignment="TOP_RIGHT" maxWidth="-Infinity"
+            maxHeight="-Infinity" mouseTransparent="true">
+        <Label styleClass="caption" text="%route.title"/>
+        <Label fx:id="summary" styleClass="route-summary"/>
+      </VBox>
+      <StackPane fx:id="busyPane" styleClass="busy" visible="false">
+        <Region styleClass="busy-veil"/>
+        <VBox styleClass="busy-card" maxWidth="-Infinity" maxHeight="-Infinity">
+          <ProgressIndicator fx:id="busyIndicator"/>
+          <Label fx:id="busyText" styleClass="title-panel"/>
+          <Label fx:id="busyHint" styleClass="caption"/>
+        </VBox>
+      </StackPane>
+    </StackPane>
+  </center>
+  <bottom>
+    <HBox styleClass="status-bar">
+      <Label fx:id="status"/>
+    </HBox>
+  </bottom>
+</BorderPane>

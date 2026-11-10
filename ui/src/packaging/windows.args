@@ -1,0 +1,9 @@
+--name "Box One"
+--app-image "target/installer/image/Box One"
+--dest target/installer/dist
+--license-file ../LICENSE
+--win-upgrade-uuid 7335fc91-807f-48d7-8b6b-f821851155d0
+--win-menu
+--win-menu-group "Box One"
+--win-shortcut
+--win-dir-chooser
