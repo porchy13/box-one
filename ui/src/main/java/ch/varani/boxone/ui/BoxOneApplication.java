@@ -13,7 +13,9 @@ import java.util.concurrent.Executors;
 /**
  * The JavaFX application of Box One: it opens the main window ({@link MainController}) in the language of the
  * system, with the theme of the system, the data folder of the user ({@link DataFolder}), the routing of GraphHopper
- * and one thread, a daemon, for the long work; when the application stops, the graph of the map is released.
+ * and one thread, a daemon, for the long work, then the warning that the routes are indicative
+ * ({@link StartupNotice}), which quits the application if it is refused; when the application stops, the graph of
+ * the map is released.
  *
  * <p>Confined to the JavaFX Application Thread.</p>
  */
@@ -51,7 +53,7 @@ public final class BoxOneApplication extends Application {
   // *******************************************************************************************************************
 
   /**
-   * Opens the main window.
+   * Opens the main window, then the warning that the routes are indicative over it.
    *
    * @param stage the primary stage, provided by the JavaFX runtime.
    */
@@ -69,6 +71,7 @@ public final class BoxOneApplication extends Application {
     controller = new MainController(stage, texts, locale, isMac(os),
                                     SystemColors.of(Platform.getPreferences()), Platform::exit, services);
     controller.show();
+    new StartupNotice(stage, texts, stage.getScene().getStylesheets(), Platform::exit).getDialog().show();
   }
 
   /**

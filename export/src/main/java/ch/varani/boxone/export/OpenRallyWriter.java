@@ -22,8 +22,10 @@ import java.util.Locale;
  *
  * <p><b>Content</b>, in the order of the GPX schema:</p>
  * <ol>
- *   <li>the metadata: the name of the roadbook, the attribution of OpenStreetMap under the ODbL (AGENTS.md §2: every
- *       export carries it), the units ({@value #UNITS}: kilometres) and the length of the roadbook;</li>
+ *   <li>the metadata: the name of the roadbook, its description — the reminder that the route is indicative, only the
+ *       signs, the rules of the road and the local laws are binding (issue #7 of GitLab), in the language of the
+ *       application —, the attribution of OpenStreetMap under the ODbL (AGENTS.md §2: every export carries it), the
+ *       units ({@value #UNITS}: kilometres) and the length of the roadbook;</li>
  *   <li>one waypoint ({@code wpt}) per box, at its place: its number as name, its total distance in kilometres with
  *       two decimals (OpenRally only carries the total distance, the reader computes the partial one), its heading
  *       ({@code cap}) when it has one; the box of the start opens the stage ({@code dss}), the box of the finish
@@ -35,8 +37,8 @@ import java.util.Locale;
  * found on the module path (Woodstox, brought by GraphHopper through Jackson, would be found first, and writes
  * differently).</p>
  *
- * <p><b>Saving</b>: {@link #save(Roadbook, String, Path)} writes a temporary file next to the file chosen, then moves
- * it in place, so that a failed export never leaves a damaged file (AGENTS.md §5).</p>
+ * <p><b>Saving</b>: {@link #save(Roadbook, String, String, Path)} writes a temporary file next to the file chosen,
+ * then moves it in place, so that a failed export never leaves a damaged file (AGENTS.md §5).</p>
  *
  * <p>Utility class without state, safe for concurrent use.</p>
  */
@@ -95,17 +97,19 @@ public final class OpenRallyWriter {
    *
    * @param roadbook the roadbook.
    * @param name the name of the roadbook, shown by the reader.
+   * @param description the description of the roadbook: the reminder that the route is indicative.
    * @param file the file.
    *
    * @throws IOException if the file cannot be written; it is then left as it was.
    */
-  public static void save(final Roadbook roadbook, final String name, final Path file) throws IOException {
+  public static void save(final Roadbook roadbook, final String name, final String description, final Path file)
+      throws IOException {
     final Path target = file.toAbsolutePath();
     final Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(),
                                                 TEMPORARY_SUFFIX);
     try {
       try (OutputStream output = Files.newOutputStream(temporary)) {
-        write(roadbook, name, output);
+        write(roadbook, name, description, output);
       }
       Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     } catch (final IOException e) {
@@ -119,11 +123,13 @@ public final class OpenRallyWriter {
    *
    * @param roadbook the roadbook.
    * @param name the name of the roadbook, shown by the reader.
+   * @param description the description of the roadbook: the reminder that the route is indicative.
    * @param output the stream.
    *
    * @throws IOException if the stream cannot be written.
    */
-  public static void write(final Roadbook roadbook, final String name, final OutputStream output) throws IOException {
+  public static void write(final Roadbook roadbook, final String name, final String description,
+                           final OutputStream output) throws IOException {
     try {
       final XMLStreamWriter stream = XMLOutputFactory.newDefaultFactory()
                                                      .createXMLStreamWriter(output, StandardCharsets.UTF_8.name());
@@ -136,7 +142,7 @@ public final class OpenRallyWriter {
       stream.writeNamespace(PREFIX, OPENRALLY);
       stream.writeAttribute("version", VERSION);
       stream.writeAttribute("creator", CREATOR);
-      metadata(xml, roadbook, name);
+      metadata(xml, roadbook, name, description);
       for (final Box box : roadbook.boxes()) {
         waypoint(xml, box, box.number() == roadbook.boxes().size());
       }
@@ -152,18 +158,21 @@ public final class OpenRallyWriter {
   }
 
   /**
-   * Writes the metadata: the name, the attribution of OpenStreetMap, the units and the length of the roadbook.
+   * Writes the metadata: the name, the description, the attribution of OpenStreetMap, the units and the length of the
+   * roadbook.
    *
    * @param xml the writer, inside the element {@code gpx}.
    * @param roadbook the roadbook.
    * @param name the name of the roadbook.
+   * @param description the description of the roadbook.
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void metadata(final Indented xml, final Roadbook roadbook, final String name)
-      throws XMLStreamException {
+  private static void metadata(final Indented xml, final Roadbook roadbook, final String name,
+                               final String description) throws XMLStreamException {
     xml.open(GPX, "metadata");
     xml.text(GPX, "name", name);
+    xml.text(GPX, "desc", description);
     xml.open(GPX, "copyright");
     xml.attribute("author", OSM_AUTHOR);
     xml.text(GPX, "license", ODBL);

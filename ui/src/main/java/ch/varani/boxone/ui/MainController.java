@@ -123,6 +123,8 @@ final class MainController {
   static final String STATUS_EXPORTING = "status.exporting";
   /** The key of the status once the roadbook is exported, with its number of boxes. */
   static final String STATUS_EXPORTED = "status.exported";
+  /** The key of the reminder written into the roadbook exported: the route is indicative (issue #7 of GitLab). */
+  static final String EXPORT_NOTICE = "export.notice";
   /** The key of the failure to export the roadbook. */
   static final String EXPORT_ERROR = "error.export";
   /** The key of the status while a detour is generated. */
@@ -443,10 +445,11 @@ final class MainController {
       return;
     }
     final Route exported = route;
+    final String notice = texts.getString(EXPORT_NOTICE);
     setStatus(STATUS_EXPORTING);
     run(() -> {
       final Roadbook roadbook = RoadbookGenerator.generate(exported);
-      OpenRallyWriter.save(roadbook, RoadbookFiles.name(file.get()), file.get());
+      OpenRallyWriter.save(roadbook, RoadbookFiles.name(file.get()), notice, file.get());
       return roadbook;
     }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_EXPORTED), locale)
                                       .format(new Object[] {roadbook.boxes().size()})),

@@ -23,7 +23,9 @@ import java.util.stream.Stream;
  * built: it checks that the parts that need modules, native code or resources of the package work, without showing a
  * window.
  *
- * <p><b>Steps</b>: the texts of the interface are loaded in every language (the bundles are in the package); the
+ * <p><b>Steps</b>: the texts of the interface are loaded in every language (the bundles are in the package), the
+ * terms of use of the start included, once the toolkit runs (the smoke test never shows them: it does not start the
+ * application); the
  * routing works: the small extract of OpenStreetMap {@value #EXTRACT} (the centre of Yverdon-les-Bains, © OpenStreetMap
  * contributors, ODbL) is imported by GraphHopper into a temporary folder (the regrouped module of GraphHopper, its
  * libraries, the compilation of its custom models), and a route joins the station and the castle; its roadbook is
@@ -88,6 +90,10 @@ final class SmokeTest {
     final CountDownLatch started = new CountDownLatch(1);
     Platform.startup(started::countDown);
     started.await();
+    // The terms of use are checked once the toolkit runs, as in the application: their class uses JavaFX controls.
+    for (final Locale locale : Languages.ALL) {
+      StartupNotice.PARAGRAPHS.forEach(Languages.bundle(locale)::getString);
+    }
     final CountDownLatch clicked = new CountDownLatch(1);
     Platform.runLater(() -> {
       final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), place -> clicked.countDown());
@@ -116,6 +122,7 @@ final class SmokeTest {
       }
       try (GraphHopperRouter router = GraphHopperRouter.importMap(extract, folder.resolve(DataFolder.GRAPH))) {
         OpenRallyWriter.write(RoadbookGenerator.generate(router.route(STATION, CASTLE)), SMOKE_FOLDER,
+                              Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE),
                               OutputStream.nullOutputStream());
       }
     } finally {

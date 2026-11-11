@@ -119,6 +119,19 @@
     -fx-spacing: 8;
 }
 
+/* The warning of the start (§14): a title, then short paragraphs, larger than the body and spaced, to be read. */
+.notice {
+    -fx-spacing: 16;
+    -fx-padding: 4 8 8 8;
+}
+
+/* A line height of 1.5 (§4): about 4 px added to the natural height of a line of 15 px. */
+.notice .notice-text {
+    -fx-font-size: 1.15em;
+    -fx-line-spacing: 0.3em;
+    -fx-text-fill: -c-text;
+}
+
 .form .field-column {
     -fx-spacing: 4;
 }

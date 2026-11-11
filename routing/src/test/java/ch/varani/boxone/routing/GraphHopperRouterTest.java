@@ -75,8 +75,10 @@ final class GraphHopperRouterTest {
    * 25 nodes 100 m apart, from {@link #GRID_LATITUDE} north and {@link #GRID_LONGITUDE} east; its columns and rows
    * are streets ({@code highway=residential}, {@code maxspeed=20}), but the rows {@link #KIND_ROWS}: a single way
    * from the first column to the last, joined to the grid at its ends only, which is a motorway, an expressway
-   * ({@code highway=trunk}), a ferry ({@code route=ferry}, {@code motor_vehicle=yes}, {@code duration=00:02}) and a
-   * toll road ({@code highway=primary}, {@code toll=yes}), the three roads with {@code maxspeed=100}. Large enough to
+   * ({@code highway=trunk}), a ferry ({@code route=ferry}, {@code motor_vehicle=yes}, {@code duration=00:02}), a
+   * toll road ({@code highway=primary}, {@code toll=yes}), the three roads with {@code maxspeed=100}, and, on the row
+   * {@link #SHUTTLE_ROW}, a car-carrying train ({@code route=shuttle_train}, {@code motor_vehicle=yes},
+   * {@code duration=00:02}). Large enough to
    * be kept by the engine, which drops the networks of fewer than 200 edges.
    */
   private static final String KINDS_MAP = "kinds.osm.gz";
@@ -92,6 +94,8 @@ final class GraphHopperRouterTest {
   private static final double BLOCK_LONGITUDE = 100 / (111_195.0 * 0.6858);
   /** The rows of the kinds of road, in the order of {@link RoadKind}. */
   private static final List<Integer> KIND_ROWS = List.of(2, 5, 8, 11);
+  /** The row of the car-carrying train, a ferry for the engine. */
+  private static final int SHUTTLE_ROW = 14;
   /**
    * The length of a row of the grid between the start and the finish of {@link #row(RoadKind)}, 2.3 km, with a margin:
    * a route longer goes around the row by the streets.
@@ -446,6 +450,24 @@ final class GraphHopperRouterTest {
   }
 
   /**
+   * A car-carrying train (Vereina, Lötschberg…) is a ferry for the engine: forbidding the ferries forbids it too.
+   *
+   * @param folder the folder of the graph of the map of the kinds of road.
+   *
+   * @throws URISyntaxException never: the map is a file of the test resources.
+   */
+  @Test
+  @DisplayName("Issue #11: forbidding the ferries forbids the car-carrying trains")
+  void shuttleTest(@TempDir final Path folder) throws URISyntaxException {
+    try (GraphHopperRouter kinds = GraphHopperRouter.importMap(kindsMap(), folder)) {
+      final List<GeoPoint> row = row(SHUTTLE_ROW);
+      assertAll(
+          () -> assertTrue(kinds.route(row).distance() < ROW_LENGTH),
+          () -> assertTrue(kinds.route(row, Set.of(RoadKind.FERRY)).distance() > ROW_LENGTH));
+    }
+  }
+
+  /**
    * A graph imported before the toll roads cannot forbid them: the map must be imported again; the other kinds are
    * still forbidden.
    *
@@ -489,7 +511,18 @@ final class GraphHopperRouterTest {
    * @return the start, at the west, and the finish, at the east.
    */
   private static List<GeoPoint> row(final RoadKind kind) {
-    final double latitude = GRID_LATITUDE + KIND_ROWS.get(kind.ordinal()) * BLOCK_LATITUDE;
+    return row(KIND_ROWS.get(kind.ordinal()));
+  }
+
+  /**
+   * Returns the start and the finish of a row of the grid, half a block inside its ends.
+   *
+   * @param index the index of the row, from the south.
+   *
+   * @return the start, at the west, and the finish, at the east.
+   */
+  private static List<GeoPoint> row(final int index) {
+    final double latitude = GRID_LATITUDE + index * BLOCK_LATITUDE;
     return List.of(new GeoPoint(latitude, GRID_LONGITUDE + BLOCK_LONGITUDE / 2),
                    new GeoPoint(latitude, GRID_LONGITUDE + GRID_BLOCKS * BLOCK_LONGITUDE - BLOCK_LONGITUDE / 2));
   }

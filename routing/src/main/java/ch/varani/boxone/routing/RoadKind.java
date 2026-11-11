@@ -15,7 +15,10 @@ public enum RoadKind {
   MOTORWAY,
   /** The expressways, the semi-motorways of Switzerland ({@code highway=trunk}, {@code trunk_link}). */
   TRUNK,
-  /** The ferries ({@code route=ferry}). */
+  /**
+   * The ferries ({@code route=ferry}) and the car-carrying trains ({@code route=shuttle_train}: Vereina, Lötschberg,
+   * Furka, Simplon…), which the engine counts as ferries.
+   */
   FERRY,
   /** The toll roads ({@code toll=yes}), the motorways of the vignette included. */
   TOLL

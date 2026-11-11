@@ -378,6 +378,8 @@ final class MainControllerTest {
         () -> assertEquals("Roadbook exporté, 2 cases. Importez le fichier dans RDS pour le lire dans Terra Pirata.",
                            exported),
         () -> assertTrue(Files.readString(file).contains("<name>yverdon</name>")),
+        () -> assertTrue(Files.readString(file).contains("<desc>" + TEXTS.getString(MainController.EXPORT_NOTICE)
+                                                         + "</desc>")),
         () -> assertTrue(item.isDisable()));
   }
 

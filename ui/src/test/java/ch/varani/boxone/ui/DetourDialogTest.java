@@ -259,7 +259,8 @@ final class DetourDialogTest {
       dialog.close();
     });
     assertAll(
-        () -> assertEquals(List.of("Autoroutes", "Semi-autoroutes", "Ferries", "Routes à péage"), labels),
+        () -> assertEquals(List.of("Autoroutes", "Semi-autoroutes", "Ferries et trains autos", "Routes à péage"),
+                           labels),
         () -> assertEquals(List.of(false, false, true, false), checked),
         () -> assertEquals(new DetourDialog.Request(Budget.DEFAULT, Set.of(RoadKind.MOTORWAY, RoadKind.TOLL), SEED),
                            result.get()));

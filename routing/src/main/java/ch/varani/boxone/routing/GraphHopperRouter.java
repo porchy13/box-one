@@ -306,7 +306,8 @@ public final class GraphHopperRouter implements Router {
    *
    * @param kind the kind of road.
    *
-   * @return the condition on the values stored on the edges: their class, their environment or their toll.
+   * @return the condition on the values stored on the edges: their class, their environment — a ferry, or a
+   *         car-carrying train, a ferry for the engine — or their toll.
    */
   static String condition(final RoadKind kind) {
     return switch (kind) {

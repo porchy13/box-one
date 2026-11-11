@@ -17,6 +17,18 @@ yet; the tulips, the editor, the other exports and the training mode come in the
 Licensed under the [Apache License, Version 2.0](LICENSE) (see also [`NOTICE`](NOTICE)). Routing data © OpenStreetMap
 contributors (ODbL); background maps © swisstopo or © MapTiler.
 
+## Disclaimer
+
+The routes are generated automatically from the data of OpenStreetMap, incomplete or wrong in places: they may take
+roads that are forbidden, closed or dangerous, and their durations are estimated without traffic. Always follow the
+signs, the rules of the road and the local laws: they alone are binding.
+
+**You alone are responsible for the use you make of the routes and of the roadbooks, including when you share them
+with other people. The development team of Box One can in no case be held liable for any misuse of the software,
+nor for the roadbooks generated, nor for the data used.** The software is provided "as is", without warranty of any
+kind (Apache License 2.0, sections 7 and 8). The application asks you to accept these terms at each start, and the
+roadbooks exported carry them in short.
+
 ## Requirements
 
 - JDK 25
@@ -45,6 +57,9 @@ theme, accent and colours following the system.
 
 ## Features
 
+- **Terms of use at each start**: the terms of the [disclaimer](#disclaimer), to accept ("I accept") or to refuse
+  ("Refuse and quit", or closing the dialog), which quits the application. The roadbooks exported carry them in
+  short, in their description.
 - **Map**: the national maps of swisstopo by default (free, no key), or the maps of MapTiler, drawn from
   OpenStreetMap, with a free personal key typed in the settings (File › Settings… on macOS, Tools › Options…
   elsewhere). To get a key, create a free account on [MapTiler Cloud](https://cloud.maptiler.com), then a new key
@@ -59,7 +74,7 @@ theme, accent and colours following the system.
   begins a new route.
 - **Detour**: once the fastest route is shown, Route › Generate a detour… (Shortcut+D) asks for a budget, in minutes
   (0 to 60, by steps of 5) or in percent of the duration of the fastest route (5 to 100 %, by steps of 5, the time it
-  gives shown under the choice), the kinds of road to avoid (motorways, expressways, ferries, toll roads — the
+  gives shown under the choice), the kinds of road to avoid (motorways, expressways, ferries and car-carrying trains, toll roads — the
   motorways of the vignette, as in Switzerland, are toll roads in OpenStreetMap; all allowed by default, the choice
   kept in the settings for the next detours), and a seed, a new one proposed each time. The detour, and the fastest
   route it is compared with, never drive the kinds avoided; avoiding the toll roads needs a map imported by this

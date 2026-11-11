@@ -66,6 +66,9 @@ final class OpenRallyWriterTest {
   private static final double THOUSAND_KILOMETRES = 1_234_567;
   /** The name of the roadbook, with characters that XML escapes. */
   private static final String NAME = "Yverdon <castle> & station";
+  /** The description of the roadbook: the reminder that the route is indicative, with an apostrophe. */
+  private static final String DESCRIPTION = "Parcours indicatif : seules la signalisation et les lois font foi, "
+                                            + "aujourd’hui comme demain.";
   /** The roadbook of the tests: three boxes on a line of four points. */
   private static final Roadbook ROADBOOK = new Roadbook(
       new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1), LENGTH, Duration.ofMinutes(3)),
@@ -82,7 +85,7 @@ final class OpenRallyWriterTest {
    */
   private static byte[] written() throws IOException {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(ROADBOOK, NAME, output);
+    OpenRallyWriter.write(ROADBOOK, NAME, DESCRIPTION, output);
     return output.toByteArray();
   }
 
@@ -151,12 +154,13 @@ final class OpenRallyWriterTest {
   }
 
   /**
-   * The metadata hold the name, the attribution of OpenStreetMap under the ODbL, the units and the length.
+   * The metadata hold the name, the reminder that the route is indicative, the attribution of OpenStreetMap under the
+   * ODbL, the units and the length.
    *
    * @throws Exception if the file cannot be written or read.
    */
   @Test
-  @DisplayName("Phase 2: the roadbook exported carries the attribution of OpenStreetMap, its units and its length")
+  @DisplayName("Issue #7: the roadbook exported says that the route is indicative, with the attribution of OSM")
   void metadataTest() throws Exception {
     final Document document = parse(written());
     final Element metadata = elements(document, "metadata").getFirst();
@@ -166,6 +170,7 @@ final class OpenRallyWriterTest {
         () -> assertEquals(OpenRallyWriter.CREATOR, root.getAttribute("creator")),
         () -> assertEquals(OpenRallyWriter.VERSION, root.getAttribute("version")),
         () -> assertEquals(NAME, texts(metadata, OpenRallyWriter.GPX, "name").getFirst()),
+        () -> assertEquals(List.of(DESCRIPTION), texts(metadata, OpenRallyWriter.GPX, "desc")),
         () -> assertEquals(OpenRallyWriter.OSM_AUTHOR, copyright.getAttribute("author")),
         () -> assertEquals(List.of(OpenRallyWriter.ODBL), texts(copyright, OpenRallyWriter.GPX, "license")),
         () -> assertEquals(List.of(OpenRallyWriter.UNITS), texts(metadata, OpenRallyWriter.OPENRALLY, "units")),
@@ -244,7 +249,7 @@ final class OpenRallyWriterTest {
         throw new IOException("full");
       }
     };
-    assertThrows(IOException.class, () -> OpenRallyWriter.write(ROADBOOK, NAME, broken));
+    assertThrows(IOException.class, () -> OpenRallyWriter.write(ROADBOOK, NAME, DESCRIPTION, broken));
   }
 
   /**
@@ -258,7 +263,7 @@ final class OpenRallyWriterTest {
   @DisplayName("Phase 2: the roadbook is saved in place of the file chosen")
   void saveTest(@TempDir final Path folder) throws IOException {
     final Path file = Files.writeString(folder.resolve("roadbook.gpx"), "former");
-    OpenRallyWriter.save(ROADBOOK, NAME, file);
+    OpenRallyWriter.save(ROADBOOK, NAME, DESCRIPTION, file);
     try (Stream<Path> files = Files.list(folder)) {
       assertAll(
           () -> assertArrayEquals(written(), Files.readAllBytes(file)),
@@ -280,8 +285,8 @@ final class OpenRallyWriterTest {
     final Path occupied = Files.createDirectory(folder.resolve("roadbook.gpx"));
     Files.writeString(occupied.resolve("kept.txt"), "kept");
     assertAll(
-        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, NAME, missing)),
-        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, NAME, occupied)),
+        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, NAME, DESCRIPTION, missing)),
+        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, NAME, DESCRIPTION, occupied)),
         () -> assertFalse(Files.exists(missing)),
         () -> assertTrue(Files.isDirectory(occupied)));
     try (Stream<Path> files = Files.list(folder)) {

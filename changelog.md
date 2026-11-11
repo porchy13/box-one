@@ -16,6 +16,10 @@ All notable changes of the project are documented in this file.
   wheel and to the trackpad, set in the settings.
 - **Fastest route**: an extract of OpenStreetMap (e.g. of Geofabrik) is imported with File › Open a map…; the start
   and the finish clicked on the map give the fastest route by car, drawn on the map with its distance and duration.
+- **Terms of use at each start**: the routes are indicative, only the signs, the rules of the road and the local
+  laws are binding, the user alone is responsible for the routes and the roadbooks, shared ones included, and the
+  development team accepts no liability; "I accept", or "Refuse and quit". The roadbooks exported carry the terms
+  in short in their description, and the README in full.
 - **Roadbook for Terra Pirata**: File › Export the roadbook… writes the roadbook of the route as an OpenRally GPX
   file (GPX 1.1, extensions of OpenRally v1.0.3), to import into RDS for Terra Pirata: a box at the start, at each
   instruction of the route and at the finish, with its total distance and its heading (CAP), the track of the route
@@ -25,7 +29,7 @@ All notable changes of the project are documented in this file.
   60 minutes by steps of 5 (0 minutes: the same duration by other roads), or 5 to 100 % of the duration of the
   fastest route by steps of 5, the time it gives shown under the choice; without driving a road twice nor turning
   back, nor the roads for residents or private and the tracks elsewhere than around
-  the start and the finish; the motorways, the expressways, the ferries and the toll roads (the motorways of the
+  the start and the finish; the motorways, the expressways, the ferries and car-carrying trains, and the toll roads (the motorways of the
   vignette included) can be avoided, a choice kept for the next detours; of ten detours drawn, the one with the most
   boxes per kilometre is kept, for a roadbook with many tulips; it is drawn over the fastest route, and its seed, shown in the status bar,
   generates it again. The roadbook exported is the one of the route shown.
