@@ -12,12 +12,14 @@ import javafx.application.Platform;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.Reference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 /**
@@ -34,7 +36,8 @@ import java.util.stream.Stream;
  * generated and written for Terra Pirata, then read back (the writer and the parser of XML of the JDK, linked into the
  * runtime; issue #5 of GitLab); the JavaFX toolkit
  * is started (its native libraries), the map ({@link MapView}) loads its page (the native library of WebKit, Leaflet)
- * and a click on it reaches the application (the bridge, called by WebKit across the modules), then the toolkit is
+ * and a click on it and the marker of the start dropped reach the application (the bridge, called by WebKit across the
+ * modules; issue #4 of GitLab), then the toolkit is
  * stopped. A failing step throws an exception, so that the launcher ends with an error;
  * otherwise the launcher ends normally. Each step of a later phase that needs native code or a resource (fonts of the
  * PDF…) adds its check here.</p>
@@ -57,9 +60,12 @@ final class SmokeTest {
   static final GeoPoint CASTLE = new GeoPoint(46.7784, 6.6413);
   /** A click on the map, at the station, run in the page once loaded. */
   static final String CLICK = "boxOne.map.fire('click', {latlng: L.latLng(46.7813, 6.6410)})";
+  /** The marker of the start dropped at the castle, run in the page once loaded (issue #4 of GitLab). */
+  static final String DROP = "boxOne.map.eachLayer(function (layer) { if (layer.options.kind === 'start') {"
+                             + " layer.setLatLng(L.latLng(46.7784, 6.6413)); layer.fire('dragend'); } })";
   /** The beginning of the name of the temporary folder of the smoke test, in the data folder. */
   static final String SMOKE_FOLDER = "smoke-test";
-  /** The longest wait for the page of the map and its click, in seconds. */
+  /** The longest wait for the page of the map, its click and its marker dropped, in seconds. */
   static final long PAGE_TIMEOUT = 30;
 
   // *******************************************************************************************************************
@@ -97,14 +103,23 @@ final class SmokeTest {
     for (final Locale locale : Languages.ALL) {
       StartupNotice.PARAGRAPHS.forEach(Languages.bundle(locale)::getString);
     }
-    final CountDownLatch clicked = new CountDownLatch(1);
+    final CountDownLatch events = new CountDownLatch(2);
+    // The page holds its bridge by a weak reference only: the map is kept until its events, or a collection drops it.
+    final AtomicReference<MapView> kept = new AtomicReference<>();
     Platform.runLater(() -> {
-      final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), place -> clicked.countDown());
-      map.setOnLoaded(() -> map.getNode().getEngine().executeScript(CLICK));
+      final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), place -> events.countDown(),
+                                       (end, place) -> events.countDown());
+      kept.set(map);
+      map.setPlaces(STATION, null);
+      map.setOnLoaded(() -> {
+        map.getNode().getEngine().executeScript(CLICK);
+        map.getNode().getEngine().executeScript(DROP);
+      });
     });
-    final boolean reached = clicked.await(PAGE_TIMEOUT, TimeUnit.SECONDS);
+    final boolean reached = events.await(PAGE_TIMEOUT, TimeUnit.SECONDS);
+    Reference.reachabilityFence(kept);
     Platform.exit();
-    check(reached, "The page of the map did not load, or its clicks do not reach the application");
+    check(reached, "The page of the map did not load, or its clicks and its markers do not reach the application");
   }
 
   /**

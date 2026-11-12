@@ -15,7 +15,8 @@
   The main window (MainController, DESIGN.md §6, §14): the menu bar (global on macOS), the map in the centre, put
   under the card of the route and the veil by the controller, and the status bar, with the state of the work. The
   card of the route, at the top right of the map, shows its distance and duration once computed; the veil covers the
-  map while it is loaded or imported. Export the roadbook… and Generate a detour… are enabled once a route is shown;
+  map while it is loaded or imported. Undo and Redo bring back the itineraries shown before, enabled when there is one.
+  Export the roadbook… and Generate a detour… are enabled once a route is shown;
   the seed of a detour shown is at the right of the status bar, in a field that can be selected and copied. The
   controller keeps the items of the system: Settings… on macOS, Options… and Quit elsewhere.
 -->
@@ -32,6 +33,10 @@
         <MenuItem fx:id="settingsItem" text="%menu.settings" onAction="#settings" accelerator="Shortcut+Comma"/>
         <SeparatorMenuItem fx:id="quitSeparator"/>
         <MenuItem fx:id="quitItem" text="%menu.quit" onAction="#quit" accelerator="Shortcut+Q"/>
+      </Menu>
+      <Menu fx:id="editMenu" text="%menu.edit">
+        <MenuItem fx:id="undoItem" text="%menu.undo" onAction="#undo" accelerator="Shortcut+Z" disable="true"/>
+        <MenuItem fx:id="redoItem" text="%menu.redo" onAction="#redo" accelerator="Shortcut+Shift+Z" disable="true"/>
       </Menu>
       <Menu fx:id="routeMenu" text="%menu.route">
         <MenuItem fx:id="detourItem" text="%menu.detour" onAction="#generateDetour" accelerator="Shortcut+D"

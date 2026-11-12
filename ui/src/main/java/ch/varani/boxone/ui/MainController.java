@@ -32,6 +32,9 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -47,6 +50,7 @@ import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 
@@ -61,12 +65,14 @@ import java.util.stream.Collectors;
  * window and loads, in the background, the graph of the last map imported. While a graph is loaded or imported, a veil
  * covers the map, with a progress indicator and what is happening, and the map cannot be clicked.</p>
  *
- * <p><b>Route</b>: a click on the map places the start, the next one the finish ({@link Itinerary}); the fastest route
- * is then computed in the background, a route still being computed being cancelled, and shown on the map with its
- * distance and duration in a card at the top right of the map. Without graph, the status bar says how to open a map.
- * File › Open a map… imports an extract of OpenStreetMap in the background, replacing the graph; the import of
- * GraphHopper cannot be interrupted, so the item is disabled until it ends. The long work runs one task after the
- * other on the executor of the {@link Services}; the results come back on the JavaFX Application Thread.</p>
+ * <p><b>Route</b>: a click on the map places the start, the next one the finish ({@link Itinerary}); once both are
+ * placed, a click does nothing, and they are moved by dragging their marker or by the context menu of the map (issue #4
+ * of GitLab). The fastest route is then computed in the background, a route still being computed being cancelled, and
+ * shown on the map with its distance and duration in a card at the top right of the map. Without graph, the status bar
+ * says how to open a map. File › Open a map… imports an extract of OpenStreetMap in the background, replacing the
+ * graph; the import of GraphHopper cannot be interrupted, so the item is disabled until it ends. The long work runs one
+ * task after the other on the executor of the {@link Services}; the results come back on the JavaFX Application
+ * Thread.</p>
  *
  * <p><b>Roadbook</b> (development plan, phase 2): once a route is shown, File › Export the roadbook… asks for a GPX
  * file ({@link RoadbookFiles}), then, in the background, generates the boxes of the route ({@link RoadbookGenerator})
@@ -78,8 +84,8 @@ import java.util.stream.Collectors;
  * from the start to the finish ({@link DetourGenerator}); it is drawn over the fastest route, its distance and
  * duration in the card of the route, its budget and the duration of the fastest route in the status bar, and its
  * seed at the right of the status bar, in a field that can be selected and copied. The roadbook exported is then the
- * one of the detour. A click on the map, as for the fastest route, cancels a detour being generated, and begins a new
- * itinerary. The item is disabled while no route is shown, and while there is no graph (a map imported, or none).</p>
+ * one of the detour. The start or the finish moved, as for the fastest route, cancels a detour being generated. The
+ * item is disabled while no route is shown, and while there is no graph (a map imported, or none).</p>
  *
  * <p><b>Opening</b> (issue #5 of GitLab): the roadbook exported holds where its route comes from ({@link Origin}): the
  * start and the finish clicked and, for a detour, its seed, its budget, the kinds of road it avoids and the duration of
@@ -88,7 +94,7 @@ import java.util.stream.Collectors;
  * exported: the start and the finish, the route (a detour drawn alone, the fastest route not being kept), its card,
  * its seed, its budget in the status bar; the budget is proposed for the next detour. It can be exported again, and a
  * detour generated from its start and finish once a graph is loaded; the graph loaded or imported meanwhile does not
- * replace it. A file that cannot be opened says why in the status bar ({@code error.read.<code>}). A click on the map
+ * replace it. A file that cannot be opened says why in a dialog ({@code error.read.<code>}). A start or a finish placed
  * cancels a file being read.</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
@@ -167,6 +173,8 @@ final class MainController {
   static final String OPEN_ERROR = "open.error";
   /** The key of the button closing the dialog of a failure to open a roadbook. */
   static final String OPEN_CLOSE = "open.close";
+  /** The other shortcut of Redo outside macOS, beside Shortcut+Shift+Z of its item (DESIGN.md §10: Ctrl+Y). */
+  static final KeyCombination REDO_OTHER = new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN);
 
   // *******************************************************************************************************************
   // Attributes
@@ -202,6 +210,10 @@ final class MainController {
   private Task<?> routing;
   /** The roadbook being opened, or {@code null}: the route shown and the work asked stay until it is read. */
   private Task<?> reading;
+  /** The fastest route drawn under the detour shown, or {@code null} (no detour, or a detour opened). */
+  private Route under;
+  /** The states shown before, brought back by Undo and Redo (issue #4 of GitLab). */
+  private final History<View> history = new History<>();
   /** The route shown, the fastest one or a detour, or {@code null} while there is none. */
   private Route route;
   /** Where the route shown comes from, written into its roadbook, or {@code null} while there is none. */
@@ -242,6 +254,12 @@ final class MainController {
   /** The item Export the roadbook…, injected by the view. */
   @FXML
   private MenuItem exportItem;
+  /** The item Undo, injected by the view. */
+  @FXML
+  private MenuItem undoItem;
+  /** The item Redo, injected by the view. */
+  @FXML
+  private MenuItem redoItem;
   /** The item Generate a detour…, injected by the view. */
   @FXML
   private MenuItem detourItem;
@@ -322,9 +340,12 @@ final class MainController {
     } else {
       fileMenu.getItems().removeAll(settingsSeparator, settingsItem);
     }
+    if (!mac) {
+      scene.getAccelerators().put(REDO_OTHER, this::redo);
+    }
     final Theme theme = new Theme(scene, colors);
     settings = store.load();
-    map = new MapView(texts, this::clicked);
+    map = new MapView(texts, this::clicked, this::moved);
     map.setColors(theme.tokens());
     map.setTiles(settings.source());
     map.setZoom(settings.zoom());
@@ -364,17 +385,108 @@ final class MainController {
   }
 
   /**
-   * Receives a click on the map: places the start or the finish, and computes the route once both are placed.
+   * Receives a click on the map: places the start or the finish, if one of them is not placed, and computes the route
+   * once both are placed; once both are placed, a click does nothing (issue #4 of GitLab).
    *
    * @param place the place clicked.
    */
   private void clicked(final GeoPoint place) {
+    if (!itinerary.isComplete()) {
+      edit(() -> itinerary.place(place));
+    }
+  }
+
+  /**
+   * Receives the start or the finish moved by the user, its marker dropped or by the context menu of the map, and
+   * computes the route once both are placed (issue #4 of GitLab).
+   *
+   * @param end the end moved.
+   * @param place its new place.
+   */
+  private void moved(final Itinerary.End end, final GeoPoint place) {
+    edit(() -> itinerary.move(end, place));
+  }
+
+  /**
+   * Changes the itinerary, the state shown before being recorded for Undo: the work asked is cancelled, the route
+   * shown is removed, and the route of the new itinerary computed once it is complete.
+   *
+   * @param change the change of the itinerary.
+   */
+  private void edit(final Runnable change) {
     cancelRouting();
-    opened = false;
-    itinerary.place(place);
-    showRoute(null, null);
-    map.setPlaces(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null));
-    next();
+    history.remember(current());
+    change.run();
+    display(new View(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null), null, null, null, false));
+  }
+
+  /**
+   * Brings back the state shown before the last change: the item Edit › Undo.
+   */
+  @FXML
+  private void undo() {
+    bringBack(history::undo);
+  }
+
+  /**
+   * Brings back the state undone last: the item Edit › Redo, or Shortcut+Y outside macOS.
+   */
+  @FXML
+  private void redo() {
+    bringBack(history::redo);
+  }
+
+  /**
+   * Brings back a state of the history, if there is one: the work asked is cancelled, and the state shown.
+   *
+   * @param step takes the state shown, and returns the state to bring back, or nothing.
+   */
+  private void bringBack(final Function<View, Optional<View>> step) {
+    step.apply(current()).ifPresent(view -> {
+      cancelRouting();
+      display(view);
+    });
+  }
+
+  /**
+   * Returns the state shown: the start, the finish, the route, where it comes from.
+   *
+   * @return the state shown.
+   */
+  private View current() {
+    return new View(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null), under, route, origin,
+                    opened);
+  }
+
+  /**
+   * Shows a state: its start and its finish, and its route, the fastest one or a detour, with its card, its seed and
+   * its status; without route, the next step of the itinerary is done (the route computed if it is complete). The
+   * items Undo and Redo are enabled when there is a state to bring back.
+   *
+   * @param view the state to show.
+   */
+  private void display(final View view) {
+    itinerary.set(view.start(), view.finish());
+    opened = view.opened();
+    under = view.under();
+    map.setPlaces(view.start(), view.finish());
+    undoItem.setDisable(!history.canUndo());
+    redoItem.setDisable(!history.canRedo());
+    if (view.route() == null) {
+      showRoute(null, null);
+      next();
+    } else if (view.origin() instanceof final Origin.Detour detour) {
+      map.setDetour(view.under(), view.route());
+      fastest = detour.fastest();
+      budget = budget(detour);
+      showRoute(view.route(), detour);
+      showBudget(budget);
+    } else {
+      map.setRoute(view.route());
+      fastest = view.route().duration();
+      showRoute(view.route(), view.origin());
+      setStatus(STATUS_ROUTED);
+    }
   }
 
   /**
@@ -405,10 +517,9 @@ final class MainController {
    */
   private void routed(final Route route) {
     routing = null;
-    map.setRoute(route);
-    fastest = route.duration();
-    showRoute(route, new Origin.Fastest(itinerary.getStart().orElseThrow(), itinerary.getFinish().orElseThrow()));
-    setStatus(STATUS_ROUTED);
+    final GeoPoint start = itinerary.getStart().orElseThrow();
+    final GeoPoint finish = itinerary.getFinish().orElseThrow();
+    display(new View(start, finish, null, route, new Origin.Fastest(start, finish), false));
   }
 
   /**
@@ -418,14 +529,13 @@ final class MainController {
    */
   private void detoured(final Detour detour) {
     routing = null;
-    opened = false;
-    map.setDetour(detour.fastest(), detour.route());
-    fastest = detour.fastest().duration();
-    showRoute(detour.route(), new Origin.Detour(
-        itinerary.getStart().orElseThrow(), itinerary.getFinish().orElseThrow(), detour.seed(),
-        detour.budget().unit().name(), detour.budget().amount(),
-        detour.avoided().stream().map(RoadKind::name).collect(Collectors.toSet()), fastest));
-    showBudget(detour.budget());
+    final GeoPoint start = itinerary.getStart().orElseThrow();
+    final GeoPoint finish = itinerary.getFinish().orElseThrow();
+    history.remember(current());
+    display(new View(start, finish, detour.fastest(), detour.route(), new Origin.Detour(
+        start, finish, detour.seed(), detour.budget().unit().name(), detour.budget().amount(),
+        detour.avoided().stream().map(RoadKind::name).collect(Collectors.toSet()), detour.fastest().duration()),
+                     false));
   }
 
   /**
@@ -633,22 +743,9 @@ final class MainController {
   private void opened(final RoadbookFile file) {
     reading = null;
     cancelRouting();
-    opened = true;
+    history.remember(current());
     final Origin from = file.origin();
-    itinerary.set(from.start(), from.finish());
-    map.setPlaces(from.start(), from.finish());
-    if (from instanceof final Origin.Detour detour) {
-      map.setDetour(null, file.route());
-      fastest = detour.fastest();
-      budget = budget(detour);
-      showRoute(file.route(), from);
-      showBudget(budget);
-    } else {
-      map.setRoute(file.route());
-      fastest = file.route().duration();
-      showRoute(file.route(), from);
-      setStatus(STATUS_ROUTED);
-    }
+    display(new View(from.start(), from.finish(), null, file.route(), from, true));
   }
 
   /**
@@ -846,6 +943,21 @@ final class MainController {
    */
   private void setStatus(final String key) {
     status.setText(texts.getString(key));
+  }
+
+  /**
+   * A state of the window brought back by Undo and Redo (issue #4 of GitLab): the start, the finish and the route
+   * shown. Immutable; its places are personal data, never logged.
+   *
+   * @param start the start, or {@code null}.
+   * @param finish the finish, or {@code null}.
+   * @param under the fastest route drawn under the detour, or {@code null}.
+   * @param route the route shown, the fastest one or a detour, or {@code null} for none: it is computed again when
+   *              the state is shown, if the start and the finish are placed.
+   * @param origin where the route comes from, or {@code null} without route.
+   * @param opened whether the route was opened from a roadbook.
+   */
+  private record View(GeoPoint start, GeoPoint finish, Route under, Route route, Origin origin, boolean opened) {
   }
 
 }

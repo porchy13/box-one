@@ -24,6 +24,7 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -34,6 +35,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -300,7 +302,8 @@ final class MainControllerTest {
         () -> assertEquals(MainController.WIDTH, window.stage().getScene().getWidth()),
         () -> assertEquals(MainController.HEIGHT, window.stage().getScene().getHeight()),
         () -> assertTrue(menuBar.isUseSystemMenuBar()),
-        () -> assertEquals(List.of("fileMenu", "routeMenu", "toolsMenu"), menus.stream().map(Menu::getId).toList()),
+        () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "toolsMenu"),
+                           menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "exportItem", "quitSeparator", "quitItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()),
         () -> assertEquals(1, exits.get()),
@@ -329,7 +332,8 @@ final class MainControllerTest {
                                             owner -> Optional.empty(), owner -> Optional.empty()), colors);
     final List<Menu> menus = menuBar(robot, window).getMenus();
     assertAll(
-        () -> assertEquals(List.of("fileMenu", "routeMenu"), menus.stream().map(Menu::getId).toList()),
+        () -> assertFalse(window.stage().getScene().getAccelerators().containsKey(MainController.REDO_OTHER)),
+        () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu"), menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "exportItem", "settingsSeparator",
                                    "settingsItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()));
@@ -337,7 +341,8 @@ final class MainControllerTest {
 
   /**
    * The first click places the start, the second the finish; the fastest route is then computed and shown with its
-   * distance and duration; a third click begins a new itinerary.
+   * distance and duration; a third click changes nothing (issue #4), the finish dragged elsewhere computes the route
+   * again.
    *
    * @param robot the TestFX robot.
    *
@@ -362,6 +367,13 @@ final class MainControllerTest {
     final int markers = MapPages.count(robot, view, ".marker");
     final int routes = MapPages.count(robot, view, ".route-fastest");
     MapPages.click(robot, view, CASTLE_LATITUDE, STATION_LONGITUDE);
+    final String clickedAgain = text(robot, window, "status");
+    final int routesAgain = MapPages.count(robot, view, ".route-fastest");
+    MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, STATION_LONGITUDE);
+    final String moved = text(robot, window, "status");
+    final String movedSummary = text(robot, window, "summary");
+    final int movedRoutes = MapPages.count(robot, view, ".route-fastest");
+    robot.interact(background::runAll);
     assertAll(
         () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_START), start),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), finish),
@@ -373,16 +385,136 @@ final class MainControllerTest {
         () -> assertTrue(cardAfter),
         () -> assertEquals(2, markers),
         () -> assertEquals(1, routes),
-        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), text(robot, window, "status")),
-        () -> assertEquals("", text(robot, window, "summary")),
-        () -> assertEquals(1, MapPages.count(robot, view, ".marker")),
-        () -> assertEquals(0, MapPages.count(robot, view, ".route-fastest")));
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), clickedAgain),
+        () -> assertEquals(1, routesAgain),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTING), moved),
+        () -> assertEquals("", movedSummary),
+        () -> assertEquals(0, movedRoutes),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), text(robot, window, "status")),
+        () -> assertEquals(2, MapPages.count(robot, view, ".marker")),
+        () -> assertEquals(1, MapPages.count(robot, view, ".route-fastest")));
+  }
+
+  /**
+   * Edit › Undo brings back the states shown before each change, the last first: a detour gives back its fastest
+   * route, drawn at once; the finish and the start placed are removed one after the other. Edit › Redo brings them back
+   * in the opposite order, the detour last, with its seed. A route still being computed when it is undone is computed
+   * again when it is brought back. Shortcut+Y redoes too outside macOS, and does nothing without state undone; a new
+   * change forgets the states undone.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Issue #4: Edit › Undo and Redo bring back the itineraries and the detours shown before")
+  void undoTest(final FxRobot robot) throws TimeoutException {
+    final Shown window = show(robot, new FakeRouter());
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    final MenuItem undo = item(robot, window, "undoItem");
+    final MenuItem redo = item(robot, window, "redoItem");
+    final boolean nothingBefore = undo.isDisable() && redo.isDisable();
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    fire(robot, window, "undoItem");
+    final String cancelled = text(robot, window, "status");
+    fire(robot, window, "redoItem");
+    final String recomputed = text(robot, window, "status");
+    robot.interact(background::runAll);
+    generate(robot, window);
+    robot.interact(background::runAll);
+    fire(robot, window, "undoItem");
+    final String fastest = text(robot, window, "status");
+    final int waiting = background.size();
+    final int detours = MapPages.count(robot, view, ".route-detour");
+    final int fastestRoutes = MapPages.count(robot, view, ".route-fastest");
+    fire(robot, window, "undoItem");
+    final String finish = text(robot, window, "status");
+    final int finishMarkers = MapPages.count(robot, view, ".marker");
+    fire(robot, window, "undoItem");
+    final String start = text(robot, window, "status");
+    final boolean undoAtStart = undo.isDisable();
+    robot.interact(() -> window.stage().getScene().getAccelerators().get(MainController.REDO_OTHER).run());
+    fire(robot, window, "redoItem");
+    final String routed = text(robot, window, "status");
+    robot.interact(() -> window.stage().getScene().getAccelerators().get(MainController.REDO_OTHER).run());
+    final boolean redoAtEnd = redo.isDisable();
+    final String seed = robot.from(window.stage().getScene().getRoot()).lookup("#seed").queryAs(TextField.class)
+                             .getText();
+    robot.interact(() -> window.stage().getScene().getAccelerators().get(MainController.REDO_OTHER).run());
+    final int afterNothing = background.size();
+    fire(robot, window, "undoItem");
+    MapPages.drag(robot, view, "start", CASTLE_LATITUDE, STATION_LONGITUDE);
+    assertAll(
+        () -> assertTrue(nothingBefore),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), cancelled),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTING), recomputed),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), fastest),
+        () -> assertEquals(0, waiting),
+        () -> assertEquals(0, detours),
+        () -> assertEquals(1, fastestRoutes),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), finish),
+        () -> assertEquals(1, finishMarkers),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_START), start),
+        () -> assertTrue(undoAtStart),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), routed),
+        () -> assertTrue(redoAtEnd),
+        () -> assertTrue(DetourDialog.isValid(seed), seed),
+        () -> assertEquals(0, afterNothing),
+        () -> assertTrue(redo.isDisable()),
+        () -> assertFalse(undo.isDisable()));
+  }
+
+  /**
+   * A right-click on the map shows its context menu: "Place the start here" and "Place the finish here" move the start
+   * and the finish, placed or not, and the route is computed once both are placed.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Issue #4: the context menu of the map places the start and the finish")
+  void contextMenuTest(final FxRobot robot) throws TimeoutException {
+    final Shown window = show(robot, new FakeRouter());
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.contextMenu(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    final ContextMenu menu = contextMenu();
+    final boolean showing = menu.isShowing();
+    final List<String> labels = menu.getItems().stream().map(MenuItem::getText).toList();
+    robot.interact(menu.getItems().get(1)::fire);
+    final String finish = text(robot, window, "status");
+    MapPages.contextMenu(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    robot.interact(contextMenu().getItems().getFirst()::fire);
+    final String routing = text(robot, window, "status");
+    robot.interact(background::runAll);
+    robot.interact(menu::hide);
+    assertAll(
+        () -> assertTrue(showing),
+        () -> assertEquals(List.of(TEXTS.getString(MapView.PLACE_START), TEXTS.getString(MapView.PLACE_FINISH)),
+                           labels),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_START), finish),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTING), routing),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), text(robot, window, "status")),
+        () -> assertEquals(2, MapPages.count(robot, view, ".marker")));
+  }
+
+  /**
+   * Returns the context menu of the map, shown or hidden.
+   *
+   * @return the context menu.
+   */
+  private static ContextMenu contextMenu() {
+    return Window.getWindows().stream().filter(ContextMenu.class::isInstance).map(ContextMenu.class::cast)
+                 .findFirst().orElseThrow();
   }
 
   /**
    * File › Export the roadbook… is disabled until a route is shown; it then writes the roadbook of the route into the
-   * file chosen, in the background, and gives its number of boxes; nothing happens when no file is chosen; a new
-   * click disables it again.
+   * file chosen, in the background, and gives its number of boxes; nothing happens when no file is chosen; the start
+   * moved disables it again.
    *
    * @param robot the TestFX robot.
    *
@@ -409,7 +541,7 @@ final class MainControllerTest {
     final String exporting = text(robot, window, "status");
     robot.interact(background::runAll);
     final String exported = text(robot, window, "status");
-    MapPages.click(robot, view, CASTLE_LATITUDE, STATION_LONGITUDE);
+    MapPages.drag(robot, view, "start", CASTLE_LATITUDE, STATION_LONGITUDE);
     assertAll(
         () -> assertTrue(disabledBefore),
         () -> assertTrue(enabled),
@@ -426,8 +558,8 @@ final class MainControllerTest {
   /**
    * Route › Generate a detour… is disabled until a route is shown; cancelled, nothing happens; asked with a budget and
    * the seed proposed, the detour is generated in the background, drawn over the fastest route, its distance and
-   * duration in the card, its budget and the fastest duration in the status bar, its seed at the right of it; a new
-   * click on the map begins a new itinerary, without detour.
+   * duration in the card, its budget and the fastest duration in the status bar, its seed at the right of it; the
+   * finish moved computes a new fastest route, without detour.
    *
    * @param robot the TestFX robot.
    *
@@ -439,7 +571,7 @@ final class MainControllerTest {
     final Shown window = show(robot, new FakeRouter());
     robot.interact(background::runAll);
     final WebView view = map(window);
-    final MenuItem item = menuBar(robot, window).getMenus().get(1).getItems().getFirst();
+    final MenuItem item = item(robot, window, "detourItem");
     final boolean disabledBefore = item.isDisable();
     MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
@@ -467,7 +599,7 @@ final class MainControllerTest {
     final boolean seedVisible = seedField.getParent().isVisible();
     final int fastest = MapPages.count(robot, view, ".route-fastest");
     final int detours = MapPages.count(robot, view, ".route-detour");
-    MapPages.click(robot, view, CASTLE_LATITUDE, STATION_LONGITUDE);
+    MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, STATION_LONGITUDE);
     assertAll(
         () -> assertTrue(disabledBefore),
         () -> assertTrue(enabled),
@@ -569,12 +701,12 @@ final class MainControllerTest {
     final String failed = text(robot, window, "status");
     final String kept = text(robot, window, "summary");
     generate(robot, window);
-    MapPages.click(robot, view, STATION_LATITUDE, CASTLE_LONGITUDE);
+    MapPages.drag(robot, view, "finish", STATION_LATITUDE, CASTLE_LONGITUDE);
     robot.interact(background::runAll);
     assertAll(
         () -> assertEquals(TEXTS.getString(MainController.DETOUR_ERROR + DetourError.NO_DETOUR.name()), failed),
         () -> assertEquals(summary, kept),
-        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), text(robot, window, "status")));
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), text(robot, window, "status")));
   }
 
   /**
@@ -636,25 +768,38 @@ final class MainControllerTest {
   }
 
   /**
-   * A click while the route is computed cancels it: its result is never shown.
+   * The finish moved while the route is computed cancels it: it is never computed, only the route to the new finish.
    *
    * @param robot the TestFX robot.
    *
    * @throws TimeoutException if the page of the map does not load in time.
    */
   @Test
-  @DisplayName("Phase 1: a new click cancels the route being computed")
+  @DisplayName("Phase 1: the finish moved cancels the route being computed")
   void cancelTest(final FxRobot robot) throws TimeoutException {
-    final Shown window = show(robot, new FakeRouter());
+    final FakeRouter fake = new FakeRouter();
+    final AtomicInteger routes = new AtomicInteger();
+    final Shown window = show(robot, new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+        routes.incrementAndGet();
+        return fake.route(points, avoided);
+      }
+
+      @Override
+      public void close() {
+        fake.close();
+      }
+    });
     robot.interact(background::runAll);
     final WebView view = map(window);
     MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
-    MapPages.click(robot, view, CASTLE_LATITUDE, STATION_LONGITUDE);
+    MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, STATION_LONGITUDE);
     robot.interact(background::runAll);
     assertAll(
-        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), text(robot, window, "status")),
-        () -> assertEquals("", text(robot, window, "summary")));
+        () -> assertEquals(1, routes.get()),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), text(robot, window, "status")));
   }
 
   /**
@@ -1033,8 +1178,8 @@ final class MainControllerTest {
         () -> assertEquals("", seed),
         () -> assertEquals(1, fastest),
         () -> assertTrue(detourEnabled),
-        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), text(robot, window, "status")),
-        () -> assertEquals("", text(robot, window, "summary")));
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), text(robot, window, "status")),
+        () -> assertFalse(text(robot, window, "summary").isEmpty()));
   }
 
   /**

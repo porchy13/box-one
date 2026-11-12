@@ -70,8 +70,12 @@ theme, accent and colours following the system.
   `switzerland-latest.osm.pbf` from [Geofabrik](https://download.geofabrik.de/europe/switzerland.html). Open it with
   File › Open a map…: it is imported once (a few minutes for a country), then loaded at each start.
 - **Fastest route**: click on the map to place the start, click again to place the finish; the fastest route by car
-  is drawn as a dashed line, with its distance and its duration in a card at the top right of the map. A third click
-  begins a new route.
+  is drawn as a dashed line, with its distance and its duration in a card at the top right of the map. Once both are
+  placed, a click changes nothing, so that a click by mistake does not lose the route: drag the start or the finish to
+  move it, or right-click on the map and choose "Place the start here" or "Place the finish here".
+- **Undo and Redo**: Edit › Undo (Shortcut+Z) brings back the start, the finish and the route or the detour shown
+  before each change (a click, a marker moved, a detour generated, a roadbook opened), Edit › Redo (Shortcut+Shift+Z,
+  or Ctrl+Y on Windows and Linux) the changes undone; the last 50 changes are kept, for the session only.
 - **Detour**: once the fastest route is shown, Route › Generate a detour… (Shortcut+D) asks for a budget, in minutes
   (0 to 60, by steps of 5) or in percent of the duration of the fastest route (5 to 100 %, by steps of 5, the time it
   gives shown under the choice), the kinds of road to avoid (motorways, expressways, ferries and car-carrying trains, toll roads — the

@@ -1,7 +1,7 @@
 /*
  * The map of Box One (MapView, DESIGN.md §14). The page only shows: Java calls the functions of window.boxOne, and the
- * clicks on the map go to the bridge window.bridge, installed by Java (AGENTS.md §3). The texts handed by Java are
- * written as text (textContent), never as HTML; no eval.
+ * clicks on the map, the markers dropped and the context menus asked go to the bridge window.bridge, installed by Java
+ * (AGENTS.md §3). The texts handed by Java are written as text (textContent), never as HTML; no eval.
  */
 'use strict';
 (function () {
@@ -34,11 +34,24 @@
     return element;
   }
 
-  /** A marker: a letter in a disc, with its meaning as tooltip. */
-  function marker(latitude, longitude, letter, meaning) {
+  /**
+   * A marker: a letter in a disc, with its meaning as tooltip; it can be dragged, and where it is dropped goes to the
+   * bridge, as the start or the finish (its kind, start or finish).
+   */
+  function marker(latitude, longitude, letter, meaning, kind) {
     var icon = L.divIcon({className: 'marker', html: text(letter), iconSize: [MARKER, MARKER]});
-    return L.marker([latitude, longitude], {icon: icon, keyboard: false, title: meaning})
-      .bindTooltip(text(meaning));
+    return L.marker([latitude, longitude], {icon: icon, keyboard: false, title: meaning, draggable: true, kind: kind})
+      .bindTooltip(text(meaning))
+      .on('dragend', function (event) {
+        var place = event.target.getLatLng().wrap();
+        if (window.bridge) {
+          if (kind === 'start') {
+            window.bridge.startMoved(place.lat, place.lng);
+          } else {
+            window.bridge.finishMoved(place.lat, place.lng);
+          }
+        }
+      });
   }
 
   window.boxOne = {
@@ -75,9 +88,9 @@
       routes = [];
     },
 
-    /** Shows the marker of the start or of the finish. */
-    addMarker: function (latitude, longitude, letter, meaning) {
-      shown.addLayer(marker(latitude, longitude, letter, meaning));
+    /** Shows the marker of the start or of the finish (its kind: start or finish). */
+    addMarker: function (latitude, longitude, letter, meaning, kind) {
+      shown.addLayer(marker(latitude, longitude, letter, meaning, kind));
     },
 
     /**
@@ -118,6 +131,14 @@
     var place = event.latlng.wrap();
     if (window.bridge) {
       window.bridge.clicked(place.lat, place.lng);
+    }
+  });
+
+  /* A right-click asks Java for the context menu of the place, shown where the pointer is. */
+  map.on('contextmenu', function (event) {
+    var place = event.latlng.wrap();
+    if (window.bridge) {
+      window.bridge.menu(place.lat, place.lng, event.containerPoint.x, event.containerPoint.y);
     }
   });
 }());

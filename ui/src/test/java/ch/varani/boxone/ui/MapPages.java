@@ -68,6 +68,36 @@ final class MapPages {
   }
 
   /**
+   * Drags the marker of the start or of the finish to a place, and drops it there, as Leaflet does.
+   *
+   * @param robot the TestFX robot.
+   * @param view the view of the map, loaded.
+   * @param kind the kind of the marker: {@code start} or {@code finish}.
+   * @param latitude the latitude of the place, in degrees.
+   * @param longitude the longitude of the place, in degrees.
+   */
+  static void drag(final FxRobot robot, final WebView view, final String kind, final double latitude,
+                   final double longitude) {
+    script(robot, view, String.format(Locale.ROOT, "boxOne.map.eachLayer(function (layer) {"
+                                                   + " if (layer.options.kind === '%s') {"
+                                                   + " layer.setLatLng(L.latLng(%s, %s)); layer.fire('dragend'); } })",
+                                      kind, latitude, longitude));
+  }
+
+  /**
+   * Asks for the context menu of a place of the map, as a right-click does.
+   *
+   * @param robot the TestFX robot.
+   * @param view the view of the map, loaded.
+   * @param latitude the latitude of the place, in degrees.
+   * @param longitude the longitude of the place, in degrees.
+   */
+  static void contextMenu(final FxRobot robot, final WebView view, final double latitude, final double longitude) {
+    script(robot, view, String.format(Locale.ROOT, "boxOne.map.fire('contextmenu', {latlng: L.latLng(%s, %s),"
+                                                   + " containerPoint: L.point(10, 20)})", latitude, longitude));
+  }
+
+  /**
    * Counts the elements of the page matching a selector.
    *
    * @param robot the TestFX robot.

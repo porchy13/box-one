@@ -69,7 +69,7 @@ final class MapViewTest {
   private static MapView show(final FxRobot robot, final List<GeoPoint> clicks, final List<Boolean> loaded) {
     final AtomicReference<MapView> map = new AtomicReference<>();
     robot.interact(() -> {
-      final MapView view = new MapView(Languages.bundle(Languages.ENGLISH), clicks::add);
+      final MapView view = new MapView(Languages.bundle(Languages.ENGLISH), clicks::add, (end, place) -> { });
       view.setColors(Map.of("-c-accent", "#2D6A57"));
       view.setTiles(TILES);
       view.setZoom(ZoomSensitivity.LOW);
@@ -214,7 +214,7 @@ final class MapViewTest {
   void noTilesTest(final FxRobot robot) throws TimeoutException {
     final AtomicReference<MapView> map = new AtomicReference<>();
     robot.interact(() -> {
-      map.set(new MapView(Languages.bundle(Languages.ENGLISH), place -> { }));
+      map.set(new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { }));
       map.get().setPlaces(SmokeTest.STATION, null);
       final Stage stage = new Stage();
       stage.setScene(new Scene(map.get().getNode(), WIDTH, HEIGHT));

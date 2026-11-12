@@ -37,3 +37,7 @@ All notable changes of the project are documented in this file.
   exported, with its start and finish and, for a detour, its seed and its budget, so that the detour can be generated
   again; the roadbooks exported hold them for this purpose (format version 1). A file that cannot be opened is
   reported in a dialog saying why, and the route shown stays.
+- **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the
+  start and the finish are moved by dragging their marker, or by the context menu of the map (right-click, "Place the
+  start here", "Place the finish here"). Edit › Undo and Edit › Redo bring back the itineraries, the routes and the
+  detours shown before (the last 50 changes).

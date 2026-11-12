@@ -4,6 +4,9 @@ import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.ui.map.MapBridge;
 import javafx.concurrent.Worker;
+import javafx.geometry.Point2D;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import netscape.javascript.JSObject;
@@ -11,6 +14,7 @@ import netscape.javascript.JSObject;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -24,7 +28,9 @@ import java.util.stream.Collectors;
  * not lost. The strings (key of the tiles, texts of the markers) are handed as arguments of the functions, never
  * written into a script; the routes as JSON arrays of numbers, with the style class of their line:
  * {@value #FASTEST_LINE} (dashed) or {@value #DETOUR_LINE} (solid, over the fastest route; DESIGN.md §14). The clicks
- * on the map come back through a {@link MapBridge}. The attribution of OpenStreetMap ({@value #OSM_ATTRIBUTION}),
+ * on the map come back through a {@link MapBridge}, as do the markers of the start and the finish dragged and dropped
+ * (issue #4 of GitLab), and the right-clicks, which show a context menu of the place, "Place the start here" and
+ * "Place the finish here", where the pointer is. The attribution of OpenStreetMap ({@value #OSM_ATTRIBUTION}),
  * the source of the routes, follows the one of the provider of the tiles.</p>
  *
  * <p>Confined to the JavaFX Application Thread.</p>
@@ -49,6 +55,14 @@ final class MapView {
   static final String FINISH_NAME = "map.finish";
   /** The key of the letter of the finish. */
   static final String FINISH_LETTER = "map.finishLetter";
+  /** The key of the item of the context menu placing the start. */
+  static final String PLACE_START = "map.placeStart";
+  /** The key of the item of the context menu placing the finish. */
+  static final String PLACE_FINISH = "map.placeFinish";
+  /** The kind of the marker of the start, for the page. */
+  private static final String START_KIND = "start";
+  /** The kind of the marker of the finish, for the page. */
+  private static final String FINISH_KIND = "finish";
   /** The style class of the line of the fastest route (map.css). */
   static final String FASTEST_LINE = "route-fastest";
   /** The style class of the line of the detour (map.css). */
@@ -68,6 +82,10 @@ final class MapView {
   private final ResourceBundle texts;
   /** The bridge of the clicks, kept here as the page only holds a weak reference to it. */
   private final MapBridge bridge;
+  /** The context menu of the map, placing the start or the finish where it was asked. */
+  private final ContextMenu menu = new ContextMenu();
+  /** The place where the context menu was asked, or {@code null} before the first one. */
+  private GeoPoint menuPlace;
   /** The tiles of the background map, or {@code null} before the first ones. */
   private TileSource tiles;
   /** The colours of the theme: the tokens and their values. */
@@ -94,11 +112,21 @@ final class MapView {
    *
    * @param texts the texts of the user interface.
    * @param clicks receives the places clicked on the map.
+   * @param moves receives the start or the finish moved by the user, its marker dropped or by the context menu, and its
+   *              new place.
    */
-  MapView(final ResourceBundle texts, final Consumer<GeoPoint> clicks) {
+  MapView(final ResourceBundle texts, final Consumer<GeoPoint> clicks,
+          final BiConsumer<Itinerary.End, GeoPoint> moves) {
     this.texts = texts;
-    this.bridge = new MapBridge(clicks);
+    this.bridge = new MapBridge(clicks, place -> moves.accept(Itinerary.End.START, place),
+                                place -> moves.accept(Itinerary.End.FINISH, place), this::showMenu);
     view.setAccessibleText(texts.getString(ACCESSIBLE));
+    view.setContextMenuEnabled(false);
+    final MenuItem placeStart = new MenuItem(texts.getString(PLACE_START));
+    placeStart.setOnAction(event -> moves.accept(Itinerary.End.START, menuPlace));
+    final MenuItem placeFinish = new MenuItem(texts.getString(PLACE_FINISH));
+    placeFinish.setOnAction(event -> moves.accept(Itinerary.End.FINISH, menuPlace));
+    menu.getItems().setAll(placeStart, placeFinish);
     final WebEngine engine = view.getEngine();
     engine.getLoadWorker().stateProperty().addListener((property, before, after) -> {
       if (after == Worker.State.SUCCEEDED) {
@@ -217,6 +245,19 @@ final class MapView {
   // *******************************************************************************************************************
 
   /**
+   * Shows the context menu of a place of the map, where the pointer is.
+   *
+   * @param place the place.
+   * @param position where the context menu was asked, in the page, in pixels.
+   */
+  private void showMenu(final GeoPoint place, final Point2D position) {
+    menuPlace = place;
+    menu.hide();
+    final Point2D screen = view.localToScreen(position);
+    menu.show(view, screen.getX(), screen.getY());
+  }
+
+  /**
    * Returns the object of the page driven by the view, once the page has loaded.
    *
    * @return the object {@code boxOne} of the page, or {@code null} before the page has loaded.
@@ -269,8 +310,8 @@ final class MapView {
       return;
     }
     page.call("clear");
-    marker(page, start, START_LETTER, START_NAME);
-    marker(page, finish, FINISH_LETTER, FINISH_NAME);
+    marker(page, start, START_LETTER, START_NAME, START_KIND);
+    marker(page, finish, FINISH_LETTER, FINISH_NAME, FINISH_KIND);
     if (route != null) {
       page.call("addRoute", json(route), FASTEST_LINE);
     }
@@ -289,10 +330,14 @@ final class MapView {
    * @param place the place, or {@code null}.
    * @param letter the key of the letter of the marker.
    * @param meaning the key of the name of the place.
+   * @param kind the kind of the marker for the page, start or finish: where it is dropped goes to the start or to the
+   *             finish.
    */
-  private void marker(final JSObject page, final GeoPoint place, final String letter, final String meaning) {
+  private void marker(final JSObject page, final GeoPoint place, final String letter, final String meaning,
+                      final String kind) {
     if (place != null) {
-      page.call("addMarker", place.latitude(), place.longitude(), texts.getString(letter), texts.getString(meaning));
+      page.call("addMarker", place.latitude(), place.longitude(), texts.getString(letter), texts.getString(meaning),
+                kind);
     }
   }
 
