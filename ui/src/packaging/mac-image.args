@@ -1,2 +1,3 @@
 --mac-package-identifier ch.varani.boxone
 --mac-package-name "Box One"
+--icon src/packaging/icons/box-one.icns

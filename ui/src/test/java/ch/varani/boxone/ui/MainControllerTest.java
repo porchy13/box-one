@@ -302,6 +302,8 @@ final class MainControllerTest {
         () -> assertEquals(MainController.WIDTH, window.stage().getScene().getWidth()),
         () -> assertEquals(MainController.HEIGHT, window.stage().getScene().getHeight()),
         () -> assertTrue(menuBar.isUseSystemMenuBar()),
+        () -> assertEquals(MainController.ICON_SIZES,
+                           window.stage().getIcons().stream().map(icon -> (int) icon.getWidth()).toList()),
         () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "toolsMenu"),
                            menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "exportItem", "quitSeparator", "quitItem"),

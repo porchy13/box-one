@@ -32,6 +32,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -44,6 +45,7 @@ import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -119,6 +121,10 @@ final class MainController {
   static final double WIDTH = 1280;
   /** The height of the window at the first start, in pixels (DESIGN.md §2). */
   static final double HEIGHT = 800;
+  /** The icon of the application in the window, at each size, in pixels, in {@value #ICON}. */
+  static final List<Integer> ICON_SIZES = List.of(16, 32, 48, 64, 128, 256);
+  /** The icon of the window at a size, in this package (drawn from {@code ui/src/packaging/icons/box-one.svg}). */
+  static final String ICON = "icons/box-one-%d.png";
   /** The key of the status while the graph is loaded. */
   static final String STATUS_LOADING = "status.loading";
   /** The key of the status without graph. */
@@ -359,12 +365,26 @@ final class MainController {
     seed.getParent().managedProperty().bind(seed.getParent().visibleProperty());
     StackPane.setMargin(routeCard, new Insets(CARD_MARGIN));
     stage.setTitle(texts.getString(TITLE));
+    stage.getIcons().setAll(icons());
     stage.setMinWidth(MIN_WIDTH);
     stage.setMinHeight(MIN_HEIGHT);
     stage.setScene(scene);
     stage.centerOnScreen();
     stage.show();
     load();
+  }
+
+  /**
+   * Returns the icon of the application at each size, for the title bar and the task bar of the window and of its
+   * dialogs (the installers carry their own, from {@code ui/src/packaging/icons/}).
+   *
+   * @return the images of the icon, the smallest first; an image that cannot be loaded is in error ({@link
+   *         Image#isError()}), which the smoke test checks.
+   */
+  static List<Image> icons() {
+    return ICON_SIZES.stream()
+                     .map(size -> new Image(MainController.class.getResource(ICON.formatted(size)).toExternalForm()))
+                     .toList();
   }
 
   /**

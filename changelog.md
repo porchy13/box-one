@@ -11,6 +11,8 @@ All notable changes of the project are documented in this file.
 - **Main window**: the frame of the application, in French or English following the system, with the light or dark
   theme of the system and its colours: the accent, the background and the text chosen by the user for the system,
   followed when they change.
+- **Icon**: the icon of the application, a junction of a tulip and the box number 1, in the installers and in the
+  window.
 - **Map**: the national maps of swisstopo (default), or the maps of MapTiler with a personal key typed in the
   settings; the attributions of the provider and of OpenStreetMap on the map; the sensitivity of the zoom to the mouse
   wheel and to the trackpad, set in the settings.

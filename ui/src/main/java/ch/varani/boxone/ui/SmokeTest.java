@@ -8,6 +8,7 @@ import ch.varani.boxone.export.ReadException;
 import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.GraphHopperRouter;
 import javafx.application.Platform;
+import javafx.scene.image.Image;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,7 +36,8 @@ import java.util.stream.Stream;
  * libraries, the compilation of its custom models), and a route joins the station and the castle; its roadbook is
  * generated and written for Terra Pirata, then read back (the writer and the parser of XML of the JDK, linked into the
  * runtime; issue #5 of GitLab); the JavaFX toolkit
- * is started (its native libraries), the map ({@link MapView}) loads its page (the native library of WebKit, Leaflet)
+ * is started (its native libraries), the icon of the window is loaded (images of the module), the map
+ * ({@link MapView}) loads its page (the native library of WebKit, Leaflet)
  * and a click on it and the marker of the start dropped reach the application (the bridge, called by WebKit across the
  * modules; issue #4 of GitLab), then the toolkit is
  * stopped. A failing step throws an exception, so that the launcher ends with an error;
@@ -103,6 +105,7 @@ final class SmokeTest {
     for (final Locale locale : Languages.ALL) {
       StartupNotice.PARAGRAPHS.forEach(Languages.bundle(locale)::getString);
     }
+    check(MainController.icons().stream().noneMatch(Image::isError), "The icon of the window cannot be loaded");
     final CountDownLatch events = new CountDownLatch(2);
     // The page holds its bridge by a weak reference only: the map is kept until its events, or a collection drops it.
     final AtomicReference<MapView> kept = new AtomicReference<>();
