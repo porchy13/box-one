@@ -1,0 +1,10 @@
+# Reference route: a roundabout, one box at its entry.
+# Rue Cordey, Yverdon-les-Bains, to the north, through the roundabout of the Rue de l'Industrie, out into the Avenue
+# Haldimand, to the west.
+# © OpenStreetMap contributors (ODbL): the roads of the extract of the tests of the routing.
+start = 46.77720, 6.64780
+finish = 46.77910, 6.64550
+# number; latitude, longitude; total distance (m); partial distance (m); CAP (degrees, - at the finish)
+box = 1; 46.77721, 6.64775; 0; 0; 17
+box = 2; 46.77841, 6.64827; 139; 139; 20
+box = 3; 46.77914, 6.64552; 400; 261; -

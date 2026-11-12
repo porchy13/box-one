@@ -1,0 +1,10 @@
+# Reference route: a slip road, the lane turning to the right before the junction.
+# Avenue de Grandson, Yverdon-les-Bains, to the south, then the slip road to the right, towards the Route de
+# Sainte-Croix, to the west.
+# © OpenStreetMap contributors (ODbL): the roads of the extract of the tests of the routing.
+start = 46.79003, 6.62911
+finish = 46.78930, 6.62700
+# number; latitude, longitude; total distance (m); partial distance (m); CAP (degrees, - at the finish)
+box = 1; 46.79003, 6.62911; 0; 0; 158
+box = 2; 46.78970, 6.62931; 40; 40; 246
+box = 3; 46.78930, 6.62700; 238; 198; -

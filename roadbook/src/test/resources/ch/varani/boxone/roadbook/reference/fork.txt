@@ -1,0 +1,10 @@
+# Reference route: a fork (French "patte d'oie"), keeping to the left.
+# Rue de Clendy, Yverdon-les-Bains, to the west, then the left branch of the fork, the Avenue des
+# Quatre-Marronniers, to the south-west; the right branch goes on as the Rue de Clendy.
+# © OpenStreetMap contributors (ODbL): the roads of the extract of the tests of the routing.
+start = 46.77791, 6.65368
+finish = 46.77755, 6.65250
+# number; latitude, longitude; total distance (m); partial distance (m); CAP (degrees, - at the finish)
+box = 1; 46.77799, 6.65364; 0; 0; 250
+box = 2; 46.77784, 6.65289; 60; 60; 225
+box = 3; 46.77756, 6.65248; 106; 46; -

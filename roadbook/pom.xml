@@ -23,6 +23,15 @@
             <artifactId>box-one-core</artifactId>
         </dependency>
 
+        <!-- The collection of reference routes (AGENTS.md, 2): the routes of the tests are computed by GraphHopper on
+             the small extract of the routing, so that the boxes are the ones of real junctions. Tests only: the
+             roadbook itself reads no routing engine. -->
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-routing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
@@ -30,8 +39,26 @@
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <testResources>
+            <testResource>
+                <directory>${project.basedir}/src/test/resources</directory>
+            </testResource>
+            <!-- The small extract of OpenStreetMap of the tests of the routing, shared rather than copied: the
+                 reference routes are computed on it by GraphHopper (AGENTS.md, 6). -->
+            <testResource>
+                <directory>${root.dir}/routing/src/test/resources</directory>
+            </testResource>
+        </testResources>
+    </build>
 
 </project>

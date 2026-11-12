@@ -1,0 +1,9 @@
+# Reference route: a crossroads, a turn to the left.
+# Rue de Chamblon, Yverdon-les-Bains, to the north-east, then left into the Rue Saint-Georges, to the north-west.
+# © OpenStreetMap contributors (ODbL): the roads of the extract of the tests of the routing.
+start = 46.78028, 6.63014
+finish = 46.78107, 6.62989
+# number; latitude, longitude; total distance (m); partial distance (m); CAP (degrees, - at the finish)
+box = 1; 46.78028, 6.63014; 0; 0; 51
+box = 2; 46.78051, 6.63055; 40; 40; 321
+box = 3; 46.78107, 6.62989; 121; 80; -
