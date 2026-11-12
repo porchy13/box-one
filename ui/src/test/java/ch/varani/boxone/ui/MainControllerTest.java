@@ -2,7 +2,15 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.DetourError;
+import ch.varani.boxone.export.OpenRallyReader;
+import ch.varani.boxone.export.OpenRallyWriter;
+import ch.varani.boxone.export.Origin;
+import ch.varani.boxone.export.ReadError;
+import ch.varani.boxone.export.ReadException;
+import ch.varani.boxone.export.RoadbookFile;
+import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingError;
@@ -50,6 +58,7 @@ import java.util.function.Function;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -133,8 +142,28 @@ final class MainControllerTest {
   private Shown show(final FxRobot robot, final Function<Path, Optional<? extends Router>> loader,
                       final BiFunction<Path, Path, ? extends Router> importer,
                       final Function<javafx.stage.Window, Optional<Path>> chooser) {
-    return show(robot, false, () -> { }, new Services(data, background, loader, importer, chooser,
-                                                      owner -> Optional.empty()), colors);
+    return show(robot, loader, importer, chooser, owner -> Optional.empty(), owner -> Optional.empty());
+  }
+
+  /**
+   * Shows the main window, outside macOS, with all its services.
+   *
+   * @param robot the TestFX robot.
+   * @param loader loads the graph.
+   * @param importer imports a map.
+   * @param chooser chooses the extract.
+   * @param saver chooses the file of the roadbook exported.
+   * @param opener chooses the roadbook to open.
+   *
+   * @return the window.
+   */
+  private Shown show(final FxRobot robot, final Function<Path, Optional<? extends Router>> loader,
+                      final BiFunction<Path, Path, ? extends Router> importer,
+                      final Function<javafx.stage.Window, Optional<Path>> chooser,
+                      final Function<javafx.stage.Window, Optional<Path>> saver,
+                      final Function<javafx.stage.Window, Optional<Path>> opener) {
+    return show(robot, false, () -> { }, new Services(data, background, loader, importer, chooser, saver, opener),
+                colors);
   }
 
   /**
@@ -149,9 +178,8 @@ final class MainControllerTest {
    */
   private Shown show(final FxRobot robot, final Router router,
                       final Function<javafx.stage.Window, Optional<Path>> saver) {
-    return show(robot, false, () -> { }, new Services(data, background, folder -> Optional.of(router),
-                                                      (map, graph) -> router, owner -> Optional.empty(), saver),
-                colors);
+    return show(robot, folder -> Optional.of(router), (map, graph) -> router, owner -> Optional.empty(), saver,
+                owner -> Optional.empty());
   }
 
   /**
@@ -225,10 +253,21 @@ final class MainControllerTest {
    * @param id the identifier of the item.
    */
   private static void fire(final FxRobot robot, final Shown window, final String id) {
-    final MenuItem item = menuBar(robot, window).getMenus().stream().flatMap(menu -> menu.getItems().stream())
-                                               .filter(candidate -> id.equals(candidate.getId())).findFirst()
-                                               .orElseThrow();
-    robot.interact(item::fire);
+    robot.interact(item(robot, window, id)::fire);
+  }
+
+  /**
+   * Returns a menu item.
+   *
+   * @param robot the TestFX robot.
+   * @param window the window.
+   * @param id the identifier of the item.
+   *
+   * @return the item.
+   */
+  private static MenuItem item(final FxRobot robot, final Shown window, final String id) {
+    return menuBar(robot, window).getMenus().stream().flatMap(menu -> menu.getItems().stream())
+                                 .filter(candidate -> id.equals(candidate.getId())).findFirst().orElseThrow();
   }
 
   /**
@@ -244,7 +283,7 @@ final class MainControllerTest {
     final Shown window = show(robot, false, exits::incrementAndGet,
                                new Services(data, background, folder -> Optional.empty(),
                                             (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
-                                            owner -> Optional.empty()), colors);
+                                            owner -> Optional.empty(), owner -> Optional.empty()), colors);
     final String loading = text(robot, window, "status");
     final boolean veiled = busy(window).isVisible();
     final String veil = text(robot, window, "busyText");
@@ -262,7 +301,7 @@ final class MainControllerTest {
         () -> assertEquals(MainController.HEIGHT, window.stage().getScene().getHeight()),
         () -> assertTrue(menuBar.isUseSystemMenuBar()),
         () -> assertEquals(List.of("fileMenu", "routeMenu", "toolsMenu"), menus.stream().map(Menu::getId).toList()),
-        () -> assertEquals(List.of("openMapItem", "exportItem", "quitSeparator", "quitItem"),
+        () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "exportItem", "quitSeparator", "quitItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()),
         () -> assertEquals(1, exits.get()),
         () -> assertTrue(window.stage().getScene().lookup(".web-view") instanceof WebView),
@@ -287,11 +326,12 @@ final class MainControllerTest {
     final Shown window = show(robot, true, () -> { },
                                new Services(data, background, folder -> Optional.empty(),
                                             (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
-                                            owner -> Optional.empty()), colors);
+                                            owner -> Optional.empty(), owner -> Optional.empty()), colors);
     final List<Menu> menus = menuBar(robot, window).getMenus();
     assertAll(
         () -> assertEquals(List.of("fileMenu", "routeMenu"), menus.stream().map(Menu::getId).toList()),
-        () -> assertEquals(List.of("openMapItem", "exportItem", "settingsSeparator", "settingsItem"),
+        () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "exportItem", "settingsSeparator",
+                                   "settingsItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()));
   }
 
@@ -357,7 +397,7 @@ final class MainControllerTest {
                                owner -> choices.getAndIncrement() == 0 ? Optional.empty() : Optional.of(file));
     robot.interact(background::runAll);
     final WebView view = map(window);
-    final MenuItem item = menuBar(robot, window).getMenus().getFirst().getItems().get(1);
+    final MenuItem item = item(robot, window, "exportItem");
     final boolean disabledBefore = item.isDisable();
     MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
@@ -790,7 +830,7 @@ final class MainControllerTest {
     final Shown window = show(robot, false, () -> { },
                                new Services(blocked, background, folder -> Optional.empty(),
                                             (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
-                                            owner -> Optional.empty()), colors);
+                                            owner -> Optional.empty(), owner -> Optional.empty()), colors);
     fire(robot, window, "optionsItem");
     robot.interact(() -> button(robot, ButtonBar.ButtonData.OK_DONE).fire());
     WaitForAsyncUtils.waitForFxEvents();
@@ -849,6 +889,279 @@ final class MainControllerTest {
     final ButtonType type = pane.getButtonTypes().stream().filter(candidate -> candidate.getButtonData() == data)
                                 .findFirst().orElseThrow();
     return (Button) pane.lookupButton(type);
+  }
+
+  /**
+   * Generates a detour of 30 minutes from the station to the castle with the seed proposed, and exports it.
+   *
+   * @param robot the TestFX robot.
+   * @param file the file of the roadbook exported.
+   *
+   * @return the window, showing the detour exported.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  private Shown exportDetour(final FxRobot robot, final Path file) throws TimeoutException {
+    final Shown window = show(robot, new FakeRouter(), owner -> Optional.of(file));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    fire(robot, window, "detourItem");
+    robot.interact(() -> {
+      robot.lookup("#" + DetourDialog.BUDGET_ID).queryAs(ComboBox.class).getSelectionModel().select(THIRTY_MINUTES);
+      button(robot, ButtonBar.ButtonData.OK_DONE).fire();
+    });
+    WaitForAsyncUtils.waitForFxEvents();
+    robot.interact(background::runAll);
+    fire(robot, window, "exportItem");
+    robot.interact(background::runAll);
+    return window;
+  }
+
+  /**
+   * File › Open a roadbook… shows a detour exported as it was: its route drawn alone, its card, its seed, its budget
+   * and the duration of the fastest route in the status bar; without graph, no detour can be generated, but the
+   * roadbook can be exported again, the same; a map imported then keeps it shown, enables the detours and proposes
+   * its budget; nothing happens when no file is chosen.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws Exception if the page of the map does not load in time, or a roadbook cannot be read.
+   */
+  @Test
+  @DisplayName("Issue #5: File › Open a roadbook… shows a detour exported, with its seed and its budget")
+  void openDetourTest(final FxRobot robot) throws Exception {
+    final Path file = data.resolve("detour.gpx");
+    final Path again = data.resolve("again.gpx");
+    final Shown exporter = exportDetour(robot, file);
+    final String exportedSummary = text(robot, exporter, "summary");
+    final String exportedSeed = robot.from(exporter.stage().getScene().getRoot()).lookup("#seed")
+                                     .queryAs(TextField.class).getText();
+    final AtomicInteger choices = new AtomicInteger();
+    final Shown window = show(robot, folder -> Optional.empty(), (map, graph) -> new FakeRouter(),
+                               owner -> Optional.of(data.resolve("switzerland-latest.osm.pbf")),
+                               owner -> Optional.of(again),
+                               owner -> choices.getAndIncrement() == 0 ? Optional.empty() : Optional.of(file));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    fire(robot, window, "openRoadbookItem");
+    final int waitingAfterCancel = background.size();
+    fire(robot, window, "openRoadbookItem");
+    final String opening = text(robot, window, "status");
+    robot.interact(background::runAll);
+    final String status = text(robot, window, "status");
+    final String title = text(robot, window, "routeTitle");
+    final String summary = text(robot, window, "summary");
+    final String seed = robot.from(window.stage().getScene().getRoot()).lookup("#seed").queryAs(TextField.class)
+                             .getText();
+    final int fastest = MapPages.count(robot, view, ".route-fastest");
+    final int detours = MapPages.count(robot, view, ".route-detour");
+    final int markers = MapPages.count(robot, view, ".marker");
+    final boolean detourDisabled = item(robot, window, "detourItem").isDisable();
+    final boolean exportDisabled = item(robot, window, "exportItem").isDisable();
+    fire(robot, window, "exportItem");
+    robot.interact(background::runAll);
+    fire(robot, window, "openMapItem");
+    robot.interact(background::runAll);
+    final String summaryAfterImport = text(robot, window, "summary");
+    final boolean detourEnabled = !item(robot, window, "detourItem").isDisable();
+    fire(robot, window, "detourItem");
+    final AtomicInteger proposed = new AtomicInteger();
+    robot.interact(() -> {
+      proposed.set(robot.lookup("#" + DetourDialog.BUDGET_ID).queryAs(ComboBox.class).getSelectionModel()
+                        .getSelectedIndex());
+      button(robot, ButtonBar.ButtonData.CANCEL_CLOSE).fire();
+    });
+    assertAll(
+        () -> assertEquals(0, waitingAfterCancel),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_OPENING), opening),
+        () -> assertTrue(status.startsWith("Détour d’au plus 30 min de plus que l’itinéraire le plus rapide "
+                                           + "(1 h 15)."), status),
+        () -> assertEquals(TEXTS.getString(MainController.DETOUR_TITLE), title),
+        () -> assertEquals(exportedSummary, summary),
+        () -> assertEquals(exportedSeed, seed),
+        () -> assertEquals(0, fastest),
+        () -> assertEquals(1, detours),
+        () -> assertEquals(2, markers),
+        () -> assertTrue(detourDisabled),
+        () -> assertFalse(exportDisabled),
+        () -> assertEquals(OpenRallyReader.read(file), OpenRallyReader.read(again)),
+        () -> assertEquals(summary, summaryAfterImport),
+        () -> assertTrue(detourEnabled),
+        () -> assertEquals(THIRTY_MINUTES, proposed.get()));
+  }
+
+  /**
+   * File › Open a roadbook… shows a fastest route exported, without seed, the detours enabled with a graph; a click
+   * then begins a new itinerary.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Issue #5: File › Open a roadbook… shows a fastest route exported")
+  void openFastestTest(final FxRobot robot) throws TimeoutException {
+    final Path file = data.resolve("fastest.gpx");
+    final Shown exporter = show(robot, new FakeRouter(), owner -> Optional.of(file));
+    robot.interact(background::runAll);
+    final WebView exporterView = map(exporter);
+    MapPages.click(robot, exporterView, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, exporterView, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    fire(robot, exporter, "exportItem");
+    robot.interact(background::runAll);
+    final FakeRouter router = new FakeRouter();
+    final Shown window = show(robot, folder -> Optional.of(router), (map, graph) -> router,
+                               owner -> Optional.empty(), owner -> Optional.empty(), owner -> Optional.of(file));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    fire(robot, window, "openRoadbookItem");
+    robot.interact(background::runAll);
+    final String status = text(robot, window, "status");
+    final String title = text(robot, window, "routeTitle");
+    final String seed = robot.from(window.stage().getScene().getRoot()).lookup("#seed").queryAs(TextField.class)
+                             .getText();
+    final int fastest = MapPages.count(robot, view, ".route-fastest");
+    final boolean detourEnabled = !item(robot, window, "detourItem").isDisable();
+    MapPages.click(robot, view, CASTLE_LATITUDE, STATION_LONGITUDE);
+    assertAll(
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), status),
+        () -> assertEquals(TEXTS.getString(MainController.ROUTE_TITLE), title),
+        () -> assertEquals("", seed),
+        () -> assertEquals(1, fastest),
+        () -> assertTrue(detourEnabled),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), text(robot, window, "status")),
+        () -> assertEquals("", text(robot, window, "summary")));
+  }
+
+  /**
+   * A roadbook that cannot be opened says why in a dialog over the window, titled by the action: a missing file, a
+   * detour of an unknown budget; the status bar is left as before the opening, or as the routing asked before set it
+   * meanwhile, and the route shown stays.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws IOException if the roadbook of the test cannot be written.
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Issue #5: a roadbook that cannot be opened says why in a dialog, the route shown stays")
+  void openFailureTest(final FxRobot robot) throws IOException, TimeoutException {
+    final Path invalid = invalidRoadbook();
+    final AtomicInteger choices = new AtomicInteger();
+    final FakeRouter router = new FakeRouter();
+    final Shown window = show(robot, folder -> Optional.of(router), (map, graph) -> router,
+                               owner -> Optional.empty(), owner -> Optional.empty(),
+                               owner -> Optional.of(choices.getAndIncrement() == 0 ? data.resolve("missing.gpx")
+                                                                                   : invalid));
+    robot.interact(background::runAll);
+    fire(robot, window, "openRoadbookItem");
+    robot.interact(background::runAll);
+    final String missingStatus = text(robot, window, "status");
+    final List<String> missing = alert(robot);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    fire(robot, window, "openRoadbookItem");
+    robot.interact(background::runAll);
+    final List<String> damaged = alert(robot);
+    assertAll(
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_START), missingStatus),
+        () -> assertEquals(List.of(TEXTS.getString(RoadbookFiles.OPEN_TITLE),
+                                   TEXTS.getString(MainController.OPEN_ERROR),
+                                   TEXTS.getString(MainController.READ_ERROR + ReadError.UNREADABLE.name()),
+                                   TEXTS.getString(MainController.OPEN_CLOSE)), missing),
+        () -> assertEquals(TEXTS.getString(MainController.READ_ERROR + ReadError.INVALID.name()), damaged.get(2)),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), text(robot, window, "status")),
+        () -> assertFalse(text(robot, window, "summary").isEmpty()),
+        () -> assertTrue(robot.lookup(".dialog-pane").queryAll().isEmpty()));
+  }
+
+  /**
+   * A roadbook being opened is cancelled by a new opening, and by a click on the map: neither its route nor its
+   * failure is shown.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws IOException if the roadbook of the test cannot be written.
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Issue #5: a roadbook being opened is cancelled by a new opening or a click")
+  void openCancelledTest(final FxRobot robot) throws IOException, TimeoutException {
+    final Path invalid = invalidRoadbook();
+    final FakeRouter router = new FakeRouter();
+    final Shown window = show(robot, folder -> Optional.of(router), (map, graph) -> router,
+                               owner -> Optional.empty(), owner -> Optional.empty(), owner -> Optional.of(invalid));
+    robot.interact(background::runAll);
+    fire(robot, window, "openRoadbookItem");
+    fire(robot, window, "openRoadbookItem");
+    MapPages.click(robot, map(window), STATION_LATITUDE, STATION_LONGITUDE);
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertTrue(robot.lookup(".dialog-pane").queryAll().isEmpty()),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), text(robot, window, "status")));
+  }
+
+  /**
+   * Writes a roadbook whose detour has a budget in hours, unknown to this version.
+   *
+   * @return the file of the roadbook, in the data folder of the test.
+   *
+   * @throws IOException if it cannot be written.
+   */
+  private Path invalidRoadbook() throws IOException {
+    final Path invalid = data.resolve("hours.gpx");
+    OpenRallyWriter.save(RoadbookGenerator.generate(new FakeRouter().route(SmokeTest.STATION, SmokeTest.CASTLE)),
+                         new Origin.Detour(SmokeTest.STATION, SmokeTest.CASTLE, 1, "HOURS", 1, Set.of(),
+                                           FakeRouter.DURATION), "hours", "Indicative", invalid);
+    return invalid;
+  }
+
+  /**
+   * Reads the dialog shown, then closes it with its button.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @return the title of its window, its heading, its text and the label of its button.
+   */
+  private static List<String> alert(final FxRobot robot) {
+    final DialogPane pane = robot.lookup(".dialog-pane").queryAs(DialogPane.class);
+    final Button close = button(robot, ButtonBar.ButtonData.OK_DONE);
+    final List<String> texts = List.of(((Stage) pane.getScene().getWindow()).getTitle(), pane.getHeaderText(),
+                                       pane.getContentText(), close.getText());
+    robot.interact(close::fire);
+    return texts;
+  }
+
+  /**
+   * The detour of a roadbook read back is checked: an amount out of the bounds of its unit, or an unknown kind of
+   * road, is invalid; a fastest route, or a detour of this version, is kept; a failure that is not a reading is
+   * unexpected.
+   */
+  @Test
+  @DisplayName("Issue #5: the budget and the kinds of road of a detour opened are checked")
+  void checkedTest() {
+    final Route route = new FakeRouter().route(SmokeTest.STATION, SmokeTest.CASTLE);
+    final RoadbookFile fastest = new RoadbookFile(route, new Origin.Fastest(SmokeTest.STATION, SmokeTest.CASTLE));
+    final RoadbookFile detour = new RoadbookFile(route, new Origin.Detour(
+        SmokeTest.STATION, SmokeTest.CASTLE, 1, "PERCENT", Budget.MAX_PERCENT, Set.of("TOLL"), FakeRouter.DURATION));
+    final RoadbookFile sevenMinutes = new RoadbookFile(route, new Origin.Detour(
+        SmokeTest.STATION, SmokeTest.CASTLE, 1, "MINUTES", Budget.STEP + 2, Set.of(), FakeRouter.DURATION));
+    final RoadbookFile bridges = new RoadbookFile(route, new Origin.Detour(
+        SmokeTest.STATION, SmokeTest.CASTLE, 1, "MINUTES", Budget.STEP, Set.of("BRIDGE"), FakeRouter.DURATION));
+    assertAll(
+        () -> assertEquals(fastest, MainController.checked(fastest)),
+        () -> assertEquals(detour, MainController.checked(detour)),
+        () -> assertEquals(Set.of(RoadKind.TOLL), MainController.kinds((Origin.Detour) detour.origin())),
+        () -> assertEquals(ReadError.INVALID,
+                           assertThrows(ReadException.class, () -> MainController.checked(sevenMinutes)).getError()),
+        () -> assertEquals(ReadError.INVALID,
+                           assertThrows(ReadException.class, () -> MainController.checked(bridges)).getError()),
+        () -> assertEquals(MainController.UNEXPECTED, MainController.readError(new IllegalStateException("broken"))));
   }
 
 }

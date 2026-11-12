@@ -33,3 +33,7 @@ All notable changes of the project are documented in this file.
   vignette included) can be avoided, a choice kept for the next detours; of ten detours drawn, the one with the most
   boxes per kilometre is kept, for a roadbook with many tulips; it is drawn over the fastest route, and its seed, shown in the status bar,
   generates it again. The roadbook exported is the one of the route shown.
+- **Open a roadbook**: File › Open a roadbook… opens a roadbook exported by Box One and shows its route as it was
+  exported, with its start and finish and, for a detour, its seed and its budget, so that the detour can be generated
+  again; the roadbooks exported hold them for this purpose (format version 1). A file that cannot be opened is
+  reported in a dialog saying why, and the route shown stays.

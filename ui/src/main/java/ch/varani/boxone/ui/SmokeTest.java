@@ -1,7 +1,10 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
+import ch.varani.boxone.export.Origin;
+import ch.varani.boxone.export.ReadException;
 import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.GraphHopperRouter;
 import javafx.application.Platform;
@@ -9,7 +12,6 @@ import javafx.application.Platform;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -29,7 +31,8 @@ import java.util.stream.Stream;
  * routing works: the small extract of OpenStreetMap {@value #EXTRACT} (the centre of Yverdon-les-Bains, © OpenStreetMap
  * contributors, ODbL) is imported by GraphHopper into a temporary folder (the regrouped module of GraphHopper, its
  * libraries, the compilation of its custom models), and a route joins the station and the castle; its roadbook is
- * generated and written for Terra Pirata (the XML of the JDK, linked into the runtime); the JavaFX toolkit
+ * generated and written for Terra Pirata, then read back (the writer and the parser of XML of the JDK, linked into the
+ * runtime; issue #5 of GitLab); the JavaFX toolkit
  * is started (its native libraries), the map ({@link MapView}) loads its page (the native library of WebKit, Leaflet)
  * and a click on it reaches the application (the bridge, called by WebKit across the modules), then the toolkit is
  * stopped. A failing step throws an exception, so that the launcher ends with an error;
@@ -105,11 +108,13 @@ final class SmokeTest {
   }
 
   /**
-   * Imports the extract of the smoke test into a temporary folder, computes a route on it and writes its roadbook
-   * into nowhere; the folder is deleted afterwards. The folder is made in the data folder of the user
-   * ({@link DataFolder}), private to the user, rather than in the shared temporary folder of the system.
+   * Imports the extract of the smoke test into a temporary folder, computes a route on it, writes its roadbook into
+   * the folder and reads it back (issue #5 of GitLab: the parser of XML of the JDK); the folder is deleted
+   * afterwards. The folder is made in the data folder of the user ({@link DataFolder}), private to the user, rather
+   * than in the shared temporary folder of the system.
    *
    * @throws IOException if the extract cannot be copied into the temporary folder, or the roadbook written.
+   * @throws IllegalStateException if the roadbook written cannot be read back.
    * @throws ch.varani.boxone.routing.RoutingException if the extract cannot be imported or the route computed.
    */
   private static void route() throws IOException {
@@ -120,15 +125,34 @@ final class SmokeTest {
       try (InputStream input = SmokeTest.class.getResourceAsStream(EXTRACT)) {
         Files.copy(input, extract);
       }
+      final Origin origin = new Origin.Fastest(STATION, CASTLE);
+      final Path roadbook = folder.resolve("roadbook.gpx");
       try (GraphHopperRouter router = GraphHopperRouter.importMap(extract, folder.resolve(DataFolder.GRAPH))) {
-        OpenRallyWriter.write(RoadbookGenerator.generate(router.route(STATION, CASTLE)), SMOKE_FOLDER,
-                              Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE),
-                              OutputStream.nullOutputStream());
+        OpenRallyWriter.save(RoadbookGenerator.generate(router.route(STATION, CASTLE)), origin, SMOKE_FOLDER,
+                             Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE), roadbook);
       }
+      check(readsBack(roadbook, origin), "The roadbook exported cannot be opened again");
     } finally {
       try (Stream<Path> files = Files.walk(folder)) {
         files.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
       }
+    }
+  }
+
+  /**
+   * Tells whether a roadbook written can be read back, with its origin.
+   *
+   * @param roadbook the file of the roadbook.
+   * @param origin the origin written into it.
+   *
+   * @return {@code true} if the file is read back with this origin, {@code false} if it cannot be read or holds
+   *         another one.
+   */
+  static boolean readsBack(final Path roadbook, final Origin origin) {
+    try {
+      return origin.equals(OpenRallyReader.read(roadbook).origin());
+    } catch (ReadException _) {
+      return false;
     }
   }
 

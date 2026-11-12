@@ -3,6 +3,7 @@ package ch.varani.boxone.export;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Roadbook;
+import ch.varani.boxone.core.Route;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -14,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 /**
  * Writes a roadbook for the application Terra Pirata: a GPX 1.1 file with the extensions of OpenRally v1.0.3
@@ -25,7 +27,12 @@ import java.util.Locale;
  *   <li>the metadata: the name of the roadbook, its description — the reminder that the route is indicative, only the
  *       signs, the rules of the road and the local laws are binding (issue #7 of GitLab), in the language of the
  *       application —, the attribution of OpenStreetMap under the ODbL (AGENTS.md §2: every export carries it), the
- *       units ({@value #UNITS}: kilometres) and the length of the roadbook;</li>
+ *       units ({@value #UNITS}: kilometres) and the length of the roadbook; then the route of Box One
+ *       ({@value #ROUTE}, namespace {@value #BOX_ONE}, issue #5 of GitLab), so that the roadbook can be opened again
+ *       ({@link OpenRallyReader}): the version of its format ({@value #FORMAT_VERSION}), the distance in metres and
+ *       the duration of the route, the indices of its maneuvers among the points of the track, the start and the
+ *       finish clicked and, for a detour, its seed, its budget, the kinds of road it avoids and the duration of the
+ *       fastest route;</li>
  *   <li>one waypoint ({@code wpt}) per box, at its place: its number as name, its total distance in kilometres with
  *       two decimals (OpenRally only carries the total distance, the reader computes the partial one), its heading
  *       ({@code cap}) when it has one; the box of the start opens the stage ({@code dss}), the box of the finish
@@ -37,8 +44,8 @@ import java.util.Locale;
  * found on the module path (Woodstox, brought by GraphHopper through Jackson, would be found first, and writes
  * differently).</p>
  *
- * <p><b>Saving</b>: {@link #save(Roadbook, String, String, Path)} writes a temporary file next to the file chosen,
- * then moves it in place, so that a failed export never leaves a damaged file (AGENTS.md §5).</p>
+ * <p><b>Saving</b>: {@link #save(Roadbook, Origin, String, String, Path)} writes a temporary file next to the file
+ * chosen, then moves it in place, so that a failed export never leaves a damaged file (AGENTS.md §5).</p>
  *
  * <p>Utility class without state, safe for concurrent use.</p>
  */
@@ -54,6 +61,54 @@ public final class OpenRallyWriter {
   public static final String OPENRALLY = "http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3";
   /** The prefix of the namespace of OpenRally. */
   static final String PREFIX = "openrally";
+  /**
+   * The namespace of the route of Box One (issue #5 of GitLab), an extension of the metadata of GPX; its schema is
+   * {@code boxone.xsd} of the test resources.
+   */
+  public static final String BOX_ONE = "urn:ch.varani.boxone:roadbook";
+  /** The prefix of the namespace of Box One. */
+  static final String BOX_ONE_PREFIX = "boxone";
+  /**
+   * The version of the format of the route of Box One (AGENTS.md §5): 1, the first one. Once a version of the
+   * application is released, a change of the format increments it, and {@link OpenRallyReader} converts the older
+   * versions.
+   */
+  public static final int FORMAT_VERSION = 1;
+  /** The element of the route of Box One, in the extensions of the metadata. */
+  static final String ROUTE = "route";
+  /** The element of the start clicked, in the route of Box One. */
+  static final String START = "start";
+  /** The element of the finish clicked, in the route of Box One. */
+  static final String FINISH = "finish";
+  /** The element of the detour, in the route of Box One. */
+  static final String DETOUR = "detour";
+  /** The attribute of the version of the format, on the route of Box One. */
+  static final String FORMAT_VERSION_ATTRIBUTE = "formatVersion";
+  /**
+   * The name of a distance: the element of OpenRally of the roadbook and of each box, in kilometres, and the attribute
+   * of the route of Box One, in metres.
+   */
+  static final String DISTANCE = "distance";
+  /** The attribute of the duration of the route, an ISO 8601 duration ({@code xs:duration}). */
+  static final String DURATION = "duration";
+  /** The attribute of the indices of the maneuvers among the points of the track, separated by spaces. */
+  static final String MANEUVERS = "maneuvers";
+  /** The attribute of the seed of the detour. */
+  static final String SEED = "seed";
+  /** The attribute of the unit of the budget of the detour. */
+  static final String BUDGET_UNIT = "budgetUnit";
+  /** The attribute of the amount of the budget of the detour, in its unit. */
+  static final String BUDGET = "budget";
+  /** The attribute of the kinds of road the detour avoids, separated by spaces; absent if none. */
+  static final String AVOIDED = "avoided";
+  /** The attribute of the duration of the fastest route, an ISO 8601 duration. */
+  static final String FASTEST = "fastest";
+  /** The attribute of the latitude of a point. */
+  static final String LATITUDE = "lat";
+  /** The attribute of the longitude of a point. */
+  static final String LONGITUDE = "lon";
+  /** The separator of the values of a list attribute ({@code xs:list}). */
+  static final String LIST_SEPARATOR = " ";
   /** The version of GPX. */
   static final String VERSION = "1.1";
   /** The application that wrote the file, attribute {@code creator} of GPX. */
@@ -96,20 +151,21 @@ public final class OpenRallyWriter {
    * moved in place.
    *
    * @param roadbook the roadbook.
+   * @param origin where the route of the roadbook comes from.
    * @param name the name of the roadbook, shown by the reader.
    * @param description the description of the roadbook: the reminder that the route is indicative.
    * @param file the file.
    *
    * @throws IOException if the file cannot be written; it is then left as it was.
    */
-  public static void save(final Roadbook roadbook, final String name, final String description, final Path file)
-      throws IOException {
+  public static void save(final Roadbook roadbook, final Origin origin, final String name, final String description,
+                          final Path file) throws IOException {
     final Path target = file.toAbsolutePath();
     final Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(),
                                                 TEMPORARY_SUFFIX);
     try {
       try (OutputStream output = Files.newOutputStream(temporary)) {
-        write(roadbook, name, description, output);
+        write(roadbook, origin, name, description, output);
       }
       Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     } catch (final IOException e) {
@@ -122,13 +178,14 @@ public final class OpenRallyWriter {
    * Writes a roadbook into a stream, in UTF-8; the stream is left open.
    *
    * @param roadbook the roadbook.
+   * @param origin where the route of the roadbook comes from.
    * @param name the name of the roadbook, shown by the reader.
    * @param description the description of the roadbook: the reminder that the route is indicative.
    * @param output the stream.
    *
    * @throws IOException if the stream cannot be written.
    */
-  public static void write(final Roadbook roadbook, final String name, final String description,
+  public static void write(final Roadbook roadbook, final Origin origin, final String name, final String description,
                            final OutputStream output) throws IOException {
     try {
       final XMLStreamWriter stream = XMLOutputFactory.newDefaultFactory()
@@ -136,13 +193,15 @@ public final class OpenRallyWriter {
       stream.writeStartDocument(StandardCharsets.UTF_8.name(), "1.0");
       stream.setDefaultNamespace(GPX);
       stream.setPrefix(PREFIX, OPENRALLY);
+      stream.setPrefix(BOX_ONE_PREFIX, BOX_ONE);
       final Indented xml = new Indented(stream);
       xml.open(GPX, "gpx");
       stream.writeDefaultNamespace(GPX);
       stream.writeNamespace(PREFIX, OPENRALLY);
+      stream.writeNamespace(BOX_ONE_PREFIX, BOX_ONE);
       stream.writeAttribute("version", VERSION);
       stream.writeAttribute("creator", CREATOR);
-      metadata(xml, roadbook, name, description);
+      metadata(xml, roadbook, origin, name, description);
       for (final Box box : roadbook.boxes()) {
         waypoint(xml, box, box.number() == roadbook.boxes().size());
       }
@@ -159,16 +218,17 @@ public final class OpenRallyWriter {
 
   /**
    * Writes the metadata: the name, the description, the attribution of OpenStreetMap, the units and the length of the
-   * roadbook.
+   * roadbook, and the route of Box One.
    *
    * @param xml the writer, inside the element {@code gpx}.
    * @param roadbook the roadbook.
+   * @param origin where the route of the roadbook comes from.
    * @param name the name of the roadbook.
    * @param description the description of the roadbook.
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void metadata(final Indented xml, final Roadbook roadbook, final String name,
+  private static void metadata(final Indented xml, final Roadbook roadbook, final Origin origin, final String name,
                                final String description) throws XMLStreamException {
     xml.open(GPX, "metadata");
     xml.text(GPX, "name", name);
@@ -179,8 +239,43 @@ public final class OpenRallyWriter {
     xml.close();
     xml.open(GPX, "extensions");
     xml.text(OPENRALLY, "units", UNITS);
-    xml.text(OPENRALLY, "distance", kilometres(roadbook.distance()));
+    xml.text(OPENRALLY, DISTANCE, kilometres(roadbook.distance()));
+    route(xml, roadbook.route(), origin);
     xml.close();
+    xml.close();
+  }
+
+  /**
+   * Writes the route of Box One: the version of the format, the distance, the duration and the maneuvers of the route,
+   * the start and the finish clicked, and the detour the route comes from.
+   *
+   * @param xml the writer, inside the extensions of the metadata.
+   * @param route the route of the roadbook.
+   * @param origin where the route comes from.
+   *
+   * @throws XMLStreamException if the stream cannot be written.
+   */
+  private static void route(final Indented xml, final Route route, final Origin origin) throws XMLStreamException {
+    xml.open(BOX_ONE, ROUTE);
+    xml.attribute(FORMAT_VERSION_ATTRIBUTE, Integer.toString(FORMAT_VERSION));
+    xml.attribute(DISTANCE, Double.toString(route.distance()));
+    xml.attribute(DURATION, route.duration().toString());
+    xml.attribute(MANEUVERS, route.maneuvers().stream().map(String::valueOf)
+                                  .collect(Collectors.joining(LIST_SEPARATOR)));
+    xml.empty(BOX_ONE, START);
+    position(xml, origin.start());
+    xml.empty(BOX_ONE, FINISH);
+    position(xml, origin.finish());
+    if (origin instanceof final Origin.Detour detour) {
+      xml.empty(BOX_ONE, DETOUR);
+      xml.attribute(SEED, Long.toString(detour.seed()));
+      xml.attribute(BUDGET_UNIT, detour.unit());
+      xml.attribute(BUDGET, Integer.toString(detour.amount()));
+      if (!detour.avoided().isEmpty()) {
+        xml.attribute(AVOIDED, detour.avoided().stream().sorted().collect(Collectors.joining(LIST_SEPARATOR)));
+      }
+      xml.attribute(FASTEST, detour.fastest().toString());
+    }
     xml.close();
   }
 
@@ -199,7 +294,7 @@ public final class OpenRallyWriter {
     position(xml, box.position());
     xml.text(GPX, "name", Integer.toString(box.number()));
     xml.open(GPX, "extensions");
-    xml.text(OPENRALLY, "distance", kilometres(box.total()));
+    xml.text(OPENRALLY, DISTANCE, kilometres(box.total()));
     if (box.heading().isPresent()) {
       xml.text(OPENRALLY, "cap", Integer.toString(box.heading().getAsInt()));
     }
@@ -244,8 +339,8 @@ public final class OpenRallyWriter {
    * @throws XMLStreamException if the stream cannot be written.
    */
   private static void position(final Indented xml, final GeoPoint point) throws XMLStreamException {
-    xml.attribute("lat", String.format(Locale.ROOT, COORDINATE_FORMAT, point.latitude()));
-    xml.attribute("lon", String.format(Locale.ROOT, COORDINATE_FORMAT, point.longitude()));
+    xml.attribute(LATITUDE, String.format(Locale.ROOT, COORDINATE_FORMAT, point.latitude()));
+    xml.attribute(LONGITUDE, String.format(Locale.ROOT, COORDINATE_FORMAT, point.longitude()));
   }
 
   /**

@@ -202,7 +202,8 @@ final class MapView {
   /**
    * Shows a detour over the fastest route, both whole.
    *
-   * @param fastest the fastest route.
+   * @param fastest the fastest route, or {@code null} if it is not known (a detour opened from a roadbook, issue #5 of
+   *                GitLab): the detour is then drawn alone.
    * @param generated the detour.
    */
   void setDetour(final Route fastest, final Route generated) {
@@ -272,9 +273,11 @@ final class MapView {
     marker(page, finish, FINISH_LETTER, FINISH_NAME);
     if (route != null) {
       page.call("addRoute", json(route), FASTEST_LINE);
-      if (detour != null) {
-        page.call("addRoute", json(detour), DETOUR_LINE);
-      }
+    }
+    if (detour != null) {
+      page.call("addRoute", json(detour), DETOUR_LINE);
+    }
+    if (route != null || detour != null) {
       page.call("fit");
     }
   }

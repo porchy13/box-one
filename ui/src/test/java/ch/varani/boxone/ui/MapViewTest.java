@@ -114,7 +114,8 @@ final class MapViewTest {
   }
 
   /**
-   * A detour is drawn over the fastest route, both shown whole; the fastest route alone then removes it.
+   * A detour is drawn over the fastest route, both shown whole; a detour opened, without fastest route, is drawn alone
+   * (issue #5 of GitLab); the fastest route alone then removes it.
    *
    * @param robot the TestFX robot.
    *
@@ -135,10 +136,15 @@ final class MapViewTest {
         "Array.from(document.querySelectorAll('path')).pop().getAttribute('class')");
     final boolean east = (Boolean) MapPages.script(robot, view,
         "boxOne.map.getBounds().contains(L.latLng(" + WAYPOINT.latitude() + ", " + WAYPOINT.longitude() + "))");
+    robot.interact(() -> map.setDetour(null, detour));
+    final int fastestAlone = MapPages.count(robot, view, ".route-fastest");
+    final int detourAlone = MapPages.count(robot, view, ".route-detour");
     robot.interact(() -> map.setRoute(ROUTE));
     assertAll(
         () -> assertEquals(1, fastest),
         () -> assertEquals(1, detours),
+        () -> assertEquals(0, fastestAlone),
+        () -> assertEquals(1, detourAlone),
         () -> assertTrue(String.valueOf(last).contains(MapView.DETOUR_LINE)),
         () -> assertTrue(east),
         () -> assertEquals(1, MapPages.count(robot, view, ".route-fastest")),

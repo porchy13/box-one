@@ -91,7 +91,14 @@ theme, accent and colours following the system.
   box at the start, one at each instruction of the route (turn, roundabout, road of another name…) and one at the
   finish, each with its total distance and its heading (CAP) (OpenRally carries no partial distance: the reader
   computes it), and the track of the route. Import the file into RDS to read it in the application Terra Pirata. The
-  tulips are not drawn yet.
+  tulips are not drawn yet. The file also holds what Box One needs to open it again: the start and the finish
+  clicked and, for a detour, its seed, its budget and the kinds of road it avoids.
+- **Open a roadbook**: File › Open a roadbook… (Shortcut+Shift+O) opens a roadbook exported by Box One and shows it
+  as it was exported: its start and finish, its route (a detour is drawn alone, without the fastest route), its
+  distance and duration and, for a detour, its seed, its budget and the duration of the fastest route; the budget is
+  proposed for the next detour. It can be exported again, and once a map is open, Route › Generate a detour… with its
+  seed, budget and kinds of road generates the same detour again. Only the roadbooks exported by Box One can be
+  opened; a file that cannot be opened is reported in a dialog saying why, and the route shown stays.
 
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.

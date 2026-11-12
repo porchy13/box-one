@@ -11,7 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests of {@link Itinerary}: the first click places the start, the second the finish, the third a new start.
+ * Tests of {@link Itinerary}: the first click places the start, the second the finish, the third a new start; a
+ * roadbook opened places both (issue #5 of GitLab).
  */
 final class ItineraryTest {
 
@@ -36,6 +37,26 @@ final class ItineraryTest {
         () -> assertFalse(startComplete),
         () -> assertTrue(bothComplete),
         () -> assertEquals(Optional.of(SmokeTest.STATION), secondStart),
+        () -> assertEquals(Optional.of(SmokeTest.CASTLE), itinerary.getStart()),
+        () -> assertTrue(itinerary.getFinish().isEmpty()));
+  }
+
+  /**
+   * The start and the finish of a roadbook opened replace the itinerary, even when only its start is placed; the next
+   * click begins a new itinerary.
+   */
+  @Test
+  @DisplayName("Issue #5: a roadbook opened places its start and finish, the next click a new start")
+  void setTest() {
+    final Itinerary itinerary = new Itinerary();
+    itinerary.place(SmokeTest.CASTLE);
+    itinerary.set(SmokeTest.STATION, SmokeTest.CASTLE);
+    final Optional<?> start = itinerary.getStart();
+    final Optional<?> finish = itinerary.getFinish();
+    itinerary.place(SmokeTest.CASTLE);
+    assertAll(
+        () -> assertEquals(Optional.of(SmokeTest.STATION), start),
+        () -> assertEquals(Optional.of(SmokeTest.CASTLE), finish),
         () -> assertEquals(Optional.of(SmokeTest.CASTLE), itinerary.getStart()),
         () -> assertTrue(itinerary.getFinish().isEmpty()));
   }

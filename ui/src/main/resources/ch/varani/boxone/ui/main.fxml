@@ -24,6 +24,8 @@
     <MenuBar fx:id="menuBar">
       <Menu fx:id="fileMenu" text="%menu.file">
         <MenuItem fx:id="openMapItem" text="%menu.openMap" onAction="#openMap" accelerator="Shortcut+O"/>
+        <MenuItem fx:id="openRoadbookItem" text="%menu.openRoadbook" onAction="#openRoadbook"
+                  accelerator="Shortcut+Shift+O"/>
         <MenuItem fx:id="exportItem" text="%menu.export" onAction="#exportRoadbook" accelerator="Shortcut+E"
                   disable="true"/>
         <SeparatorMenuItem fx:id="settingsSeparator"/>

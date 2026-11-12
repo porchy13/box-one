@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The route of Box One (issue #5 of GitLab), version 1 of its format: an extension of the metadata of a roadbook
+  exported as GPX 1.1 with the extensions of OpenRally v1.0.3, so that Box One can open the roadbook again. Written by
+  OpenRallyWriter, read by OpenRallyReader; the strict schema of the tests (boxone-strict.xsd) validates every file
+  exported against it.
+
+  route: the version of the format (formatVersion), the distance of the route in metres, its duration (xs:duration)
+  and the indices of its maneuvers among the points of the track (trk), in increasing order;
+  start, finish: the places clicked, in WGS 84;
+  detour (only for a detour): its seed, its budget (unit and amount), the kinds of road it avoids and the duration of
+  the fastest route.
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="urn:ch.varani.boxone:roadbook"
+            targetNamespace="urn:ch.varani.boxone:roadbook"
+            elementFormDefault="qualified">
+
+  <xsd:element name="route">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="start" type="pointType"/>
+        <xsd:element name="finish" type="pointType"/>
+        <xsd:element name="detour" type="detourType" minOccurs="0"/>
+      </xsd:sequence>
+      <xsd:attribute name="formatVersion" type="xsd:positiveInteger" use="required"/>
+      <xsd:attribute name="distance" type="nonNegativeDouble" use="required"/>
+      <xsd:attribute name="duration" type="xsd:duration" use="required"/>
+      <xsd:attribute name="maneuvers" type="indicesType" use="required"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:complexType name="pointType">
+    <xsd:attribute name="lat" use="required">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:decimal">
+          <xsd:minInclusive value="-90"/>
+          <xsd:maxInclusive value="90"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="lon" use="required">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:decimal">
+          <xsd:minInclusive value="-180"/>
+          <xsd:maxInclusive value="180"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+  </xsd:complexType>
+
+  <xsd:complexType name="detourType">
+    <xsd:attribute name="seed" type="xsd:long" use="required"/>
+    <xsd:attribute name="budgetUnit" use="required">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:token">
+          <xsd:enumeration value="MINUTES"/>
+          <xsd:enumeration value="PERCENT"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="budget" type="xsd:nonNegativeInteger" use="required"/>
+    <xsd:attribute name="avoided">
+      <xsd:simpleType>
+        <xsd:list>
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:token">
+              <xsd:enumeration value="MOTORWAY"/>
+              <xsd:enumeration value="TRUNK"/>
+              <xsd:enumeration value="FERRY"/>
+              <xsd:enumeration value="TOLL"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:list>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="fastest" type="xsd:duration" use="required"/>
+  </xsd:complexType>
+
+  <xsd:simpleType name="nonNegativeDouble">
+    <xsd:restriction base="xsd:double">
+      <xsd:minInclusive value="0"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="indicesType">
+    <xsd:list itemType="xsd:positiveInteger"/>
+  </xsd:simpleType>
+
+</xsd:schema>

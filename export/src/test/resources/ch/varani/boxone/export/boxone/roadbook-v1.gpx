@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:openrally="http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3" xmlns:boxone="urn:ch.varani.boxone:roadbook" version="1.1" creator="Box One">
+  <metadata>
+    <name>Version 1</name>
+    <desc>A roadbook of version 1 of the format of Box One, from the station to the castle of Yverdon-les-Bains.</desc>
+    <copyright author="OpenStreetMap contributors">
+      <license>https://opendatacommons.org/licenses/odbl/</license>
+    </copyright>
+    <extensions>
+      <openrally:units>metric</openrally:units>
+      <openrally:distance>0.52</openrally:distance>
+      <boxone:route formatVersion="1" distance="523.4" duration="PT1M12.5S" maneuvers="1 2">
+        <boxone:start lat="46.781310" lon="6.641020"/>
+        <boxone:finish lat="46.778390" lon="6.641290"/>
+        <boxone:detour seed="654321" budgetUnit="MINUTES" budget="15" avoided="FERRY TRUNK" fastest="PT58S"/>
+      </boxone:route>
+    </extensions>
+  </metadata>
+  <wpt lat="46.781300" lon="6.641000">
+    <name>1</name>
+    <extensions>
+      <openrally:distance>0.00</openrally:distance>
+      <openrally:cap>127</openrally:cap>
+      <openrally:dss/>
+    </extensions>
+  </wpt>
+  <wpt lat="46.780120" lon="6.643457">
+    <name>2</name>
+    <extensions>
+      <openrally:distance>0.20</openrally:distance>
+      <openrally:cap>214</openrally:cap>
+    </extensions>
+  </wpt>
+  <wpt lat="46.779000" lon="6.644000">
+    <name>3</name>
+    <extensions>
+      <openrally:distance>0.35</openrally:distance>
+      <openrally:cap>250</openrally:cap>
+    </extensions>
+  </wpt>
+  <wpt lat="46.778400" lon="6.641300">
+    <name>4</name>
+    <extensions>
+      <openrally:distance>0.52</openrally:distance>
+      <openrally:ass/>
+    </extensions>
+  </wpt>
+  <trk>
+    <name>Version 1</name>
+    <trkseg>
+      <trkpt lat="46.781300" lon="6.641000"/>
+      <trkpt lat="46.780120" lon="6.643457"/>
+      <trkpt lat="46.779000" lon="6.644000"/>
+      <trkpt lat="46.778400" lon="6.641300"/>
+    </trkseg>
+  </trk>
+</gpx>

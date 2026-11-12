@@ -7,14 +7,23 @@ import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.Detour;
 import ch.varani.boxone.detour.DetourException;
 import ch.varani.boxone.detour.DetourGenerator;
+import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
+import ch.varani.boxone.export.Origin;
+import ch.varani.boxone.export.ReadError;
+import ch.varani.boxone.export.ReadException;
+import ch.varani.boxone.export.RoadbookFile;
 import ch.varani.boxone.roadbook.RoadbookGenerator;
+import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingException;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -31,12 +40,15 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.random.RandomGenerator;
+import java.util.stream.Collectors;
 
 /**
  * The main window (DESIGN.md §6, §14): the menu bar, the map in the centre and the status bar, with the fastest route
@@ -67,7 +79,17 @@ import java.util.random.RandomGenerator;
  * duration in the card of the route, its budget and the duration of the fastest route in the status bar, and its
  * seed at the right of the status bar, in a field that can be selected and copied. The roadbook exported is then the
  * one of the detour. A click on the map, as for the fastest route, cancels a detour being generated, and begins a new
- * itinerary. The item is disabled while no route is shown, and while a map is imported.</p>
+ * itinerary. The item is disabled while no route is shown, and while there is no graph (a map imported, or none).</p>
+ *
+ * <p><b>Opening</b> (issue #5 of GitLab): the roadbook exported holds where its route comes from ({@link Origin}): the
+ * start and the finish clicked and, for a detour, its seed, its budget, the kinds of road it avoids and the duration of
+ * the fastest route. File › Open a roadbook… asks for a GPX file ({@link RoadbookFiles#opening}), reads it in the
+ * background ({@link OpenRallyReader}), checks the budget and the kinds of road of its detour, then shows it as it was
+ * exported: the start and the finish, the route (a detour drawn alone, the fastest route not being kept), its card,
+ * its seed, its budget in the status bar; the budget is proposed for the next detour. It can be exported again, and a
+ * detour generated from its start and finish once a graph is loaded; the graph loaded or imported meanwhile does not
+ * replace it. A file that cannot be opened says why in the status bar ({@code error.read.<code>}). A click on the map
+ * cancels a file being read.</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -137,6 +159,14 @@ final class MainController {
   static final String ROUTE_TITLE = "route.title";
   /** The key of the title of the card of a detour. */
   static final String DETOUR_TITLE = "route.detourTitle";
+  /** The key of the status while a roadbook is opened. */
+  static final String STATUS_OPENING = "status.opening";
+  /** The beginning of the keys of the failures to open a roadbook ({@code error.read.<code>}). */
+  static final String READ_ERROR = "error.read.";
+  /** The key of the heading of the dialog of a failure to open a roadbook: the consequence. */
+  static final String OPEN_ERROR = "open.error";
+  /** The key of the button closing the dialog of a failure to open a roadbook. */
+  static final String OPEN_CLOSE = "open.close";
 
   // *******************************************************************************************************************
   // Attributes
@@ -170,8 +200,14 @@ final class MainController {
   private boolean busy;
   /** The route or the detour being computed, or {@code null}. */
   private Task<?> routing;
+  /** The roadbook being opened, or {@code null}: the route shown and the work asked stay until it is read. */
+  private Task<?> reading;
   /** The route shown, the fastest one or a detour, or {@code null} while there is none. */
   private Route route;
+  /** Where the route shown comes from, written into its roadbook, or {@code null} while there is none. */
+  private Origin origin;
+  /** Whether the route shown was opened from a roadbook, kept when a graph is loaded or imported. */
+  private boolean opened;
   /** The budget of the last detour asked, proposed for the next one. */
   private Budget budget = Budget.DEFAULT;
   /** The duration of the fastest route shown, alone or under a detour, of which a budget in percent is a share. */
@@ -200,6 +236,9 @@ final class MainController {
   /** The item Open a map…, injected by the view. */
   @FXML
   private MenuItem openMapItem;
+  /** The item Open a roadbook…, injected by the view. */
+  @FXML
+  private MenuItem openRoadbookItem;
   /** The item Export the roadbook…, injected by the view. */
   @FXML
   private MenuItem exportItem;
@@ -331,6 +370,7 @@ final class MainController {
    */
   private void clicked(final GeoPoint place) {
     cancelRouting();
+    opened = false;
     itinerary.place(place);
     showRoute(null, null);
     map.setPlaces(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null));
@@ -367,7 +407,7 @@ final class MainController {
     routing = null;
     map.setRoute(route);
     fastest = route.duration();
-    showRoute(route, null);
+    showRoute(route, new Origin.Fastest(itinerary.getStart().orElseThrow(), itinerary.getFinish().orElseThrow()));
     setStatus(STATUS_ROUTED);
   }
 
@@ -378,28 +418,53 @@ final class MainController {
    */
   private void detoured(final Detour detour) {
     routing = null;
+    opened = false;
     map.setDetour(detour.fastest(), detour.route());
     fastest = detour.fastest().duration();
-    showRoute(detour.route(), detour);
-    status.setText(new MessageFormat(texts.getString(STATUS_DETOUR), locale).format(new Object[] {
-        RouteText.budget(detour.budget(), fastest, texts, locale),
-        RouteText.duration(detour.fastest().duration(), texts, locale)}));
+    showRoute(detour.route(), new Origin.Detour(
+        itinerary.getStart().orElseThrow(), itinerary.getFinish().orElseThrow(), detour.seed(),
+        detour.budget().unit().name(), detour.budget().amount(),
+        detour.avoided().stream().map(RoadKind::name).collect(Collectors.toSet()), fastest));
+    showBudget(detour.budget());
   }
 
   /**
-   * Keeps the route shown, writes its distance and its duration in its card, with the seed of a detour, and enables
-   * its export and the generation of a detour.
+   * Shows the budget of the detour shown and the duration of the fastest route in the status bar.
+   *
+   * @param shown the budget of the detour shown.
+   */
+  private void showBudget(final Budget shown) {
+    status.setText(new MessageFormat(texts.getString(STATUS_DETOUR), locale).format(new Object[] {
+        RouteText.budget(shown, fastest, texts, locale), RouteText.duration(fastest, texts, locale)}));
+  }
+
+  /**
+   * Keeps the route shown and where it comes from, writes its distance and its duration in its card, with the seed of
+   * a detour, and enables its export and the generation of a detour.
    *
    * @param shown the route shown, or {@code null} for none: the card is hidden and the export disabled.
-   * @param detour the detour shown, or {@code null} for the fastest route or none.
+   * @param from where the route comes from, or {@code null} for none.
    */
-  private void showRoute(final Route shown, final Detour detour) {
+  private void showRoute(final Route shown, final Origin from) {
     route = shown;
+    origin = from;
     summary.setText(shown == null ? "" : RouteText.summary(shown, texts, locale));
-    routeTitle.setText(texts.getString(detour == null ? ROUTE_TITLE : DETOUR_TITLE));
-    seed.setText(detour == null ? "" : String.valueOf(detour.seed()));
+    if (from instanceof final Origin.Detour detour) {
+      routeTitle.setText(texts.getString(DETOUR_TITLE));
+      seed.setText(String.valueOf(detour.seed()));
+    } else {
+      routeTitle.setText(texts.getString(ROUTE_TITLE));
+      seed.setText("");
+    }
     exportItem.setDisable(shown == null);
-    detourItem.setDisable(shown == null);
+    enableDetour();
+  }
+
+  /**
+   * Enables the generation of a detour while a route is shown and a graph is loaded.
+   */
+  private void enableDetour() {
+    detourItem.setDisable(route == null || router == null);
   }
 
   /**
@@ -412,7 +477,11 @@ final class MainController {
     busyPane.setVisible(false);
     openMapItem.setDisable(false);
     router = loaded;
-    next();
+    if (opened) {
+      enableDetour();
+    } else {
+      next();
+    }
   }
 
   /**
@@ -426,9 +495,9 @@ final class MainController {
     }
     busy = true;
     openMapItem.setDisable(true);
-    detourItem.setDisable(true);
     cancelRouting();
     replaceRouter(null);
+    enableDetour();
     showBusy(BUSY_IMPORTING, BUSY_IMPORT_HINT);
     setStatus(STATUS_IMPORTING);
     run(() -> services.importer().apply(file.get(), graph()), this::ready, this::failed);
@@ -445,15 +514,141 @@ final class MainController {
       return;
     }
     final Route exported = route;
+    final Origin exportedFrom = origin;
     final String notice = texts.getString(EXPORT_NOTICE);
     setStatus(STATUS_EXPORTING);
     run(() -> {
       final Roadbook roadbook = RoadbookGenerator.generate(exported);
-      OpenRallyWriter.save(roadbook, RoadbookFiles.name(file.get()), notice, file.get());
+      OpenRallyWriter.save(roadbook, exportedFrom, RoadbookFiles.name(file.get()), notice, file.get());
       return roadbook;
     }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_EXPORTED), locale)
                                       .format(new Object[] {roadbook.boxes().size()})),
         _ -> setStatus(EXPORT_ERROR));
+  }
+
+  /**
+   * Opens a roadbook exported by Box One, chosen by the user, and shows its route: the item File › Open a roadbook….
+   */
+  @FXML
+  private void openRoadbook() {
+    final Optional<Path> file = services.opener().apply(stage);
+    if (file.isEmpty()) {
+      return;
+    }
+    cancelReading();
+    final String before = status.getText();
+    setStatus(STATUS_OPENING);
+    reading = run(() -> checked(OpenRallyReader.read(file.get())), this::opened, failure -> {
+      reading = null;
+      if (status.getText().equals(texts.getString(STATUS_OPENING))) {
+        status.setText(before);
+      }
+      showReadError(failure);
+    });
+  }
+
+  /**
+   * Shows the failure to open a roadbook in a dialog over the window, where it is seen, the status bar being left as
+   * it was before the opening, or as the work asked before set it meanwhile.
+   *
+   * @param failure the exception of the opening.
+   */
+  private void showReadError(final Throwable failure) {
+    final Alert alert = new Alert(Alert.AlertType.ERROR, texts.getString(readError(failure)),
+                                  new ButtonType(texts.getString(OPEN_CLOSE), ButtonBar.ButtonData.OK_DONE));
+    alert.initOwner(stage);
+    alert.setTitle(texts.getString(RoadbookFiles.OPEN_TITLE));
+    alert.setHeaderText(texts.getString(OPEN_ERROR));
+    alert.getDialogPane().getStylesheets().setAll(stage.getScene().getStylesheets());
+    alert.show();
+  }
+
+  /**
+   * Returns the key of the text of a failure to open a roadbook.
+   *
+   * @param failure the exception of the opening.
+   *
+   * @return {@code error.read.<code>} for a roadbook that cannot be read, {@value #UNEXPECTED} otherwise.
+   */
+  static String readError(final Throwable failure) {
+    return failure instanceof final ReadException error ? READ_ERROR + error.getError().name() : UNEXPECTED;
+  }
+
+  /**
+   * Checks the detour of a roadbook read back: its budget and its kinds of road must be ones of this version.
+   *
+   * @param file the roadbook read back.
+   *
+   * @return the roadbook.
+   *
+   * @throws ReadException if the budget or a kind of road of its detour is not known, or out of its bounds.
+   */
+  static RoadbookFile checked(final RoadbookFile file) throws ReadException {
+    if (file.origin() instanceof final Origin.Detour detour) {
+      try {
+        budget(detour);
+        kinds(detour);
+      } catch (DetourException | IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
+      }
+    }
+    return file;
+  }
+
+  /**
+   * Returns the budget of the detour of a roadbook read back.
+   *
+   * @param detour the detour.
+   *
+   * @return its budget.
+   *
+   * @throws IllegalArgumentException if its unit is not one of {@link Budget.Unit}.
+   * @throws DetourException if its amount is out of the bounds of its unit.
+   */
+  static Budget budget(final Origin.Detour detour) {
+    return new Budget(Budget.Unit.valueOf(detour.unit()), detour.amount());
+  }
+
+  /**
+   * Returns the kinds of road the detour of a roadbook read back avoids.
+   *
+   * @param detour the detour.
+   *
+   * @return the kinds of road.
+   *
+   * @throws IllegalArgumentException if a kind is not one of {@link RoadKind}.
+   */
+  static Set<RoadKind> kinds(final Origin.Detour detour) {
+    final Set<RoadKind> kinds = EnumSet.noneOf(RoadKind.class);
+    detour.avoided().forEach(name -> kinds.add(RoadKind.valueOf(name)));
+    return kinds;
+  }
+
+  /**
+   * Shows a roadbook opened: its start and finish, its route, and for a detour its seed and its budget, proposed for
+   * the next detour.
+   *
+   * @param file the roadbook read back, its detour checked.
+   */
+  private void opened(final RoadbookFile file) {
+    reading = null;
+    cancelRouting();
+    opened = true;
+    final Origin from = file.origin();
+    itinerary.set(from.start(), from.finish());
+    map.setPlaces(from.start(), from.finish());
+    if (from instanceof final Origin.Detour detour) {
+      map.setDetour(null, file.route());
+      fastest = detour.fastest();
+      budget = budget(detour);
+      showRoute(file.route(), from);
+      showBudget(budget);
+    } else {
+      map.setRoute(file.route());
+      fastest = file.route().duration();
+      showRoute(file.route(), from);
+      setStatus(STATUS_ROUTED);
+    }
   }
 
   /**
@@ -547,12 +742,23 @@ final class MainController {
   }
 
   /**
-   * Cancels the route being computed, if any: its result is not shown.
+   * Cancels the route being computed and the roadbook being opened, if any: their result is not shown.
    */
   private void cancelRouting() {
     if (routing != null) {
       routing.cancel();
       routing = null;
+    }
+    cancelReading();
+  }
+
+  /**
+   * Cancels the roadbook being opened, if any: it is not shown.
+   */
+  private void cancelReading() {
+    if (reading != null) {
+      reading.cancel();
+      reading = null;
     }
   }
 

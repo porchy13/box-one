@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -51,6 +52,29 @@ final class RoadbookFilesTest {
         () -> assertTrue(cancelled.get().isEmpty()),
         () -> assertEquals("Exporter le roadbook", dialog.getTitle()),
         () -> assertEquals(RoadbookFiles.INITIAL_NAME, dialog.getInitialFileName()),
+        () -> assertEquals(List.of(RoadbookFiles.GPX), dialog.getExtensionFilters().getFirst().getExtensions()));
+  }
+
+  /**
+   * The dialog of the opening asks for a GPX file, without name proposed; the file chosen is returned as it is.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Issue #5: the choice of the roadbook to open asks for a GPX file and returns the file chosen")
+  void openTest(final FxRobot robot) {
+    final File roadbook = new File("yverdon");
+    final List<FileChooser> dialogs = new ArrayList<>();
+    final AtomicReference<Optional<Path>> chosen = new AtomicReference<>();
+    robot.interact(() -> chosen.set(RoadbookFiles.opening(Languages.bundle(Languages.FRENCH), (chooser, owner) -> {
+      dialogs.add(chooser);
+      return roadbook;
+    }).apply(null)));
+    final FileChooser dialog = dialogs.getFirst();
+    assertAll(
+        () -> assertEquals(Optional.of(roadbook.toPath()), chosen.get()),
+        () -> assertEquals("Ouvrir un roadbook", dialog.getTitle()),
+        () -> assertNull(dialog.getInitialFileName()),
         () -> assertEquals(List.of(RoadbookFiles.GPX), dialog.getExtensionFilters().getFirst().getExtensions()));
   }
 

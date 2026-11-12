@@ -1,5 +1,6 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.export.Origin;
 import javafx.application.Platform;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -43,6 +45,18 @@ final class SmokeTestTest {
     assertAll(
         () -> assertDoesNotThrow(() -> SmokeTest.check(true, "fine")),
         () -> assertThrows(IllegalStateException.class, () -> SmokeTest.check(false, "broken")));
+  }
+
+  /**
+   * A roadbook that cannot be read back fails the smoke test.
+   *
+   * @param folder a folder without roadbook.
+   */
+  @Test
+  @DisplayName("Issue #5: a roadbook that cannot be read back fails the smoke test")
+  void readsBackTest(@TempDir final Path folder) {
+    assertFalse(SmokeTest.readsBack(folder.resolve("missing.gpx"),
+                                    new Origin.Fastest(SmokeTest.STATION, SmokeTest.CASTLE)));
   }
 
 }

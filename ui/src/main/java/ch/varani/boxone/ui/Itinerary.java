@@ -8,7 +8,8 @@ import java.util.Optional;
  * The start and the finish placed by the user on the map (development plan, phase 1).
  *
  * <p><b>Algorithm</b>: a click places the start when there is none, or when both are placed (a new itinerary
- * begins); otherwise it places the finish, and the itinerary is complete.</p>
+ * begins); otherwise it places the finish, and the itinerary is complete. A roadbook opened places both (issue #5 of
+ * GitLab).</p>
  *
  * <p>The places are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -84,6 +85,17 @@ final class Itinerary {
     } else {
       finish = place;
     }
+  }
+
+  /**
+   * Places the start and the finish of a roadbook opened, replacing the itinerary.
+   *
+   * @param newStart the start.
+   * @param newFinish the finish.
+   */
+  void set(final GeoPoint newStart, final GeoPoint newFinish) {
+    start = newStart;
+    finish = newFinish;
   }
 
 }

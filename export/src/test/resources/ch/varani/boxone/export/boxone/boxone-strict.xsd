@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The strict schema of the roadbooks exported by Box One: the strict OpenRally schema v1.0.3 (GPX 1.1, every
+     extension an element of OpenRally) and the route of Box One (boxone.xsd). For the tests only. -->
+<schema elementFormDefault="qualified"
+    xmlns="http://www.w3.org/2001/XMLSchema">
+    <import namespace="http://www.openrally.org/xmlschemas/GpxExtensions/v1.0.3"
+            schemaLocation="../openrally/openrally.xsd"/>
+    <import namespace="http://www.topografix.com/GPX/1/1" schemaLocation="../openrally/gpx-strict.xsd"/>
+    <import namespace="urn:ch.varani.boxone:roadbook" schemaLocation="boxone.xsd"/>
+</schema>

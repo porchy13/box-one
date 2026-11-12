@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -69,6 +70,21 @@ final class OpenRallyWriterTest {
   /** The description of the roadbook: the reminder that the route is indicative, with an apostrophe. */
   private static final String DESCRIPTION = "Parcours indicatif : seules la signalisation et les lois font foi, "
                                             + "aujourd’hui comme demain.";
+  /** The start clicked, before the routing engine places it on a road. */
+  private static final GeoPoint CLICKED_START = new GeoPoint(46.781_312_34, 6.641_05);
+  /** The finish clicked. */
+  private static final GeoPoint CLICKED_FINISH = new GeoPoint(46.7784, 6.6412);
+  /** The seed of the detour of the tests. */
+  private static final long SEED = 123_456;
+  /** The amount of the budget of the detour of the tests, in percent. */
+  private static final int PERCENT = 25;
+  /** The duration of the fastest route of the detour of the tests. */
+  private static final Duration FASTEST_DURATION = Duration.ofSeconds(150);
+  /** The roadbook of the tests as a fastest route. */
+  private static final Origin FASTEST = new Origin.Fastest(CLICKED_START, CLICKED_FINISH);
+  /** The roadbook of the tests as a detour avoiding the toll roads and the motorways. */
+  private static final Origin DETOUR = new Origin.Detour(CLICKED_START, CLICKED_FINISH, SEED, "PERCENT", PERCENT,
+                                                         Set.of("TOLL", "MOTORWAY"), FASTEST_DURATION);
   /** The roadbook of the tests: three boxes on a line of four points. */
   private static final Roadbook ROADBOOK = new Roadbook(
       new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1), LENGTH, Duration.ofMinutes(3)),
@@ -85,8 +101,38 @@ final class OpenRallyWriterTest {
    */
   private static byte[] written() throws IOException {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(ROADBOOK, NAME, DESCRIPTION, output);
+    OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, output);
     return output.toByteArray();
+  }
+
+  /**
+   * Writes the roadbook of the tests into memory, as a fastest route.
+   *
+   * @return the bytes of the file.
+   *
+   * @throws IOException never: the memory can always be written.
+   */
+  private static byte[] writtenFastest() throws IOException {
+    final ByteArrayOutputStream output = new ByteArrayOutputStream();
+    OpenRallyWriter.write(ROADBOOK, FASTEST, NAME, DESCRIPTION, output);
+    return output.toByteArray();
+  }
+
+  /**
+   * Returns the element of the route of Box One and its children, by their names.
+   *
+   * @param document the document.
+   * @param name the name of the elements of Box One.
+   *
+   * @return the elements.
+   */
+  private static List<Element> boxOne(final Document document, final String name) {
+    final NodeList nodes = document.getElementsByTagNameNS(OpenRallyWriter.BOX_ONE, name);
+    final List<Element> elements = new ArrayList<>();
+    for (int i = 0; i < nodes.getLength(); i++) {
+      elements.add((Element) nodes.item(i));
+    }
+    return elements;
   }
 
   /**
@@ -150,7 +196,63 @@ final class OpenRallyWriterTest {
   @Test
   @DisplayName("Phase 2: the roadbook exported is valid against the OpenRally schema v1.0.3")
   void validTest() {
-    assertDoesNotThrow(() -> OpenRallySchema.validate(new StreamSource(new ByteArrayInputStream(written()))));
+    assertAll(
+        () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
+            new StreamSource(new ByteArrayInputStream(written())))),
+        () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
+            new StreamSource(new ByteArrayInputStream(writtenFastest())))));
+  }
+
+  /**
+   * The metadata hold the route of Box One: the version of its format, the distance, the duration and the maneuvers of
+   * the route, the start and the finish clicked, and the seed, the budget, the kinds of road avoided and the duration
+   * of the fastest route of a detour.
+   *
+   * @throws Exception if the file cannot be written or read.
+   */
+  @Test
+  @DisplayName("Issue #5: the roadbook exported holds its start, finish, seed, budget and kinds of road avoided")
+  void originTest() throws Exception {
+    final Document document = parse(written());
+    final Element route = boxOne(document, OpenRallyWriter.ROUTE).getFirst();
+    final Element start = boxOne(document, OpenRallyWriter.START).getFirst();
+    final Element finish = boxOne(document, OpenRallyWriter.FINISH).getFirst();
+    final Element detour = boxOne(document, OpenRallyWriter.DETOUR).getFirst();
+    assertAll(
+        () -> assertEquals(elements(document, "metadata").getFirst(), route.getParentNode().getParentNode()),
+        () -> assertEquals("1", route.getAttribute(OpenRallyWriter.FORMAT_VERSION_ATTRIBUTE)),
+        () -> assertEquals("1270.0", route.getAttribute(OpenRallyWriter.DISTANCE)),
+        () -> assertEquals("PT3M", route.getAttribute(OpenRallyWriter.DURATION)),
+        () -> assertEquals("1", route.getAttribute(OpenRallyWriter.MANEUVERS)),
+        () -> assertEquals("46.781312", start.getAttribute(OpenRallyWriter.LATITUDE)),
+        () -> assertEquals("6.641050", start.getAttribute(OpenRallyWriter.LONGITUDE)),
+        () -> assertEquals("46.778400", finish.getAttribute(OpenRallyWriter.LATITUDE)),
+        () -> assertEquals("123456", detour.getAttribute(OpenRallyWriter.SEED)),
+        () -> assertEquals("PERCENT", detour.getAttribute(OpenRallyWriter.BUDGET_UNIT)),
+        () -> assertEquals("25", detour.getAttribute(OpenRallyWriter.BUDGET)),
+        () -> assertEquals("MOTORWAY TOLL", detour.getAttribute(OpenRallyWriter.AVOIDED)),
+        () -> assertEquals("PT2M30S", detour.getAttribute(OpenRallyWriter.FASTEST)));
+  }
+
+  /**
+   * The route of Box One of a fastest route has no detour, and a detour avoiding no kind of road has no attribute of
+   * the kinds avoided.
+   *
+   * @throws Exception if the file cannot be written or read.
+   */
+  @Test
+  @DisplayName("Issue #5: a fastest route is exported without detour, a detour avoiding nothing without kinds")
+  void fastestOriginTest() throws Exception {
+    final ByteArrayOutputStream output = new ByteArrayOutputStream();
+    OpenRallyWriter.write(ROADBOOK, new Origin.Detour(CLICKED_START, CLICKED_FINISH, SEED, "MINUTES", 0, Set.of(),
+                                                      FASTEST_DURATION), NAME, DESCRIPTION, output);
+    final Document avoidingNothing = parse(output.toByteArray());
+    assertAll(
+        () -> assertEquals(List.of(), boxOne(parse(writtenFastest()), OpenRallyWriter.DETOUR)),
+        () -> assertFalse(boxOne(avoidingNothing, OpenRallyWriter.DETOUR).getFirst()
+                              .hasAttribute(OpenRallyWriter.AVOIDED)),
+        () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
+            new StreamSource(new ByteArrayInputStream(output.toByteArray())))));
   }
 
   /**
@@ -249,7 +351,7 @@ final class OpenRallyWriterTest {
         throw new IOException("full");
       }
     };
-    assertThrows(IOException.class, () -> OpenRallyWriter.write(ROADBOOK, NAME, DESCRIPTION, broken));
+    assertThrows(IOException.class, () -> OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, broken));
   }
 
   /**
@@ -263,7 +365,7 @@ final class OpenRallyWriterTest {
   @DisplayName("Phase 2: the roadbook is saved in place of the file chosen")
   void saveTest(@TempDir final Path folder) throws IOException {
     final Path file = Files.writeString(folder.resolve("roadbook.gpx"), "former");
-    OpenRallyWriter.save(ROADBOOK, NAME, DESCRIPTION, file);
+    OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, file);
     try (Stream<Path> files = Files.list(folder)) {
       assertAll(
           () -> assertArrayEquals(written(), Files.readAllBytes(file)),
@@ -285,8 +387,9 @@ final class OpenRallyWriterTest {
     final Path occupied = Files.createDirectory(folder.resolve("roadbook.gpx"));
     Files.writeString(occupied.resolve("kept.txt"), "kept");
     assertAll(
-        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, NAME, DESCRIPTION, missing)),
-        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, NAME, DESCRIPTION, occupied)),
+        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, missing)),
+        () -> assertThrows(IOException.class,
+                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, occupied)),
         () -> assertFalse(Files.exists(missing)),
         () -> assertTrue(Files.isDirectory(occupied)));
     try (Stream<Path> files = Files.list(folder)) {
