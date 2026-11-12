@@ -28,7 +28,8 @@ import java.util.stream.Collectors;
  * file of the
  * folder, readable by the user only on the systems that support it, then moved onto the settings file.</p>
  *
- * <p>The key of MapTiler is never logged (AGENTS.md §5).</p>
+ * <p>The key of MapTiler is never logged (AGENTS.md §5). It is kept in this file, not in the keychain of the system
+ * (decision of the maintainer, issue #1 of GitLab: a free key, revocable, limited to the tiles; AGENTS.md §5).</p>
  *
  * <p>Not thread-safe: used from the JavaFX Application Thread only.</p>
  */

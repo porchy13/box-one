@@ -64,7 +64,9 @@ theme, accent and colours following the system.
   OpenStreetMap, with a free personal key typed in the settings (File › Settings… on macOS, Tools › Options…
   elsewhere). To get a key, create a free account on [MapTiler Cloud](https://cloud.maptiler.com), then a new key
   under API keys: a name and a description are enough. The key is kept on the computer only, in the settings file
-  of the data folder, readable by the user only (macOS, Linux). The same settings set the sensitivity of the zoom to the mouse
+  of the data folder, readable by the user only (macOS, Linux; on Windows, in the folder of the profile of the
+  user), not in the keychain of the system. It gives access to the tiles of MapTiler only; if the computer is lost
+  or shared, delete the key on MapTiler Cloud and create a new one. The same settings set the sensitivity of the zoom to the mouse
   wheel and to the trackpad.
 - **Map extract**: the routes are computed offline on an extract of OpenStreetMap, e.g.
   `switzerland-latest.osm.pbf` from [Geofabrik](https://download.geofabrik.de/europe/switzerland.html). Open it with
