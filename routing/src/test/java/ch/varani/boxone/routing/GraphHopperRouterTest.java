@@ -1,6 +1,8 @@
 package ch.varani.boxone.routing;
 
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Junction;
+import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Route;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.routing.ev.BooleanEncodedValue;
@@ -26,6 +28,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +57,10 @@ final class GraphHopperRouterTest {
   private static final GeoPoint CASTLE = new GeoPoint(46.7784, 6.6413);
   /** A waypoint: the Avenue Haldimand, east of the centre. */
   private static final GeoPoint HALDIMAND = new GeoPoint(46.7790, 6.6460);
+  /** The start of the route through the roundabout of the Rue de l'Industrie: the Rue Cordey, to its south. */
+  private static final GeoPoint CORDEY = new GeoPoint(46.77720, 6.64780);
+  /** The finish of the route through the roundabout of the Rue de l'Industrie: the Avenue Haldimand, to its west. */
+  private static final GeoPoint HALDIMAND_WEST = new GeoPoint(46.77910, 6.64550);
   /** A place outside the extract: Zurich. */
   private static final GeoPoint ZURICH = new GeoPoint(47.3769, 8.5417);
   /** The largest distance between a place and the start or the finish of its route, in degrees (about 100 m). */
@@ -153,6 +160,34 @@ final class GraphHopperRouterTest {
         () -> assertTrue(route.distance() > MIN_DISTANCE && route.distance() < MAX_DISTANCE),
         () -> assertTrue(route.duration().isPositive()),
         () -> assertFalse(route.maneuvers().isEmpty()));
+  }
+
+  /**
+   * The route through the roundabout of the Rue de l'Industrie, in Switzerland, enters a roundabout driven
+   * counterclockwise there; its other junctions are crossings.
+   */
+  @Test
+  @DisplayName("Phase 4: a roundabout of a country driving on the right is driven counterclockwise")
+  void roundaboutJunctionTest() {
+    final Route route = router.route(CORDEY, HALDIMAND_WEST);
+    final List<Junction> junctions = router.junctions(route);
+    assertAll(
+        () -> assertEquals(route.maneuvers().size(), junctions.size()),
+        () -> assertEquals(JunctionShape.COUNTERCLOCKWISE_ROUNDABOUT, junctions.getFirst().shape()));
+  }
+
+  /**
+   * A maneuver far from every road of the map has the line of the route as junction: two branches.
+   */
+  @Test
+  @DisplayName("Phase 4: a maneuver far from every road of the map has the line of the route as junction")
+  void farJunctionTest() {
+    final Route route = new Route(List.of(STATION, ZURICH, CASTLE), List.of(1), 0, Duration.ZERO);
+    final List<Junction> junctions = router.junctions(route);
+    assertAll(
+        () -> assertEquals(1, junctions.size()),
+        () -> assertEquals(JunctionShape.CROSSING, junctions.getFirst().shape()),
+        () -> assertEquals(2, junctions.getFirst().branches().size()));
   }
 
   /**

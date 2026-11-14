@@ -1,6 +1,7 @@
 package ch.varani.boxone.routing;
 
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Junction;
 import ch.varani.boxone.core.Route;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
@@ -74,9 +75,11 @@ public final class GraphHopperRouter implements Router {
    * class of the road ({@code road_class}, for its instructions) to every graph, the graphs of phases 1 and 2
    * included: it tells the service roads, where no waypoint is placed (phase 3), and the motorways and the
    * expressways; it adds the environment of the road ({@code road_environment}) too, which tells the ferries. The
-   * toll ({@code toll}) tells the toll roads (issue #11 of GitLab): the graphs imported before it do not know it.
+   * toll ({@code toll}) tells the toll roads (issue #11 of GitLab): the graphs imported before it do not know it. The
+   * surface ({@code surface}) tells the roads without a hard surface, drawn as tracks by the tulips (phase 4): the
+   * graphs imported before it tell the tracks by their class only.
    */
-  static final String ENCODED_VALUES = "car_access, car_average_speed, road_access, toll";
+  static final String ENCODED_VALUES = "car_access, car_average_speed, road_access, toll, surface";
   /**
    * The access of the roads open to everyone: the others (residents, customers, delivery, private, agricultural,
    * forestry) are driven through by a route with waypoints only around its start and its finish.
@@ -125,6 +128,8 @@ public final class GraphHopperRouter implements Router {
   private final EnumEncodedValue<RoadClass> roadClass;
   /** Whether the graph knows the toll roads: not those imported before issue #11 of GitLab. */
   private final boolean tolls;
+  /** The reader of the junctions of the routes, in the graph (phase 4). */
+  private final JunctionReader junctionReader;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -142,6 +147,8 @@ public final class GraphHopperRouter implements Router {
     this.access = hopper.getEncodingManager().getEnumEncodedValue(RoadAccess.KEY, RoadAccess.class);
     this.roadClass = hopper.getEncodingManager().getEnumEncodedValue(RoadClass.KEY, RoadClass.class);
     this.tolls = hopper.getEncodingManager().hasEncodedValue(Toll.KEY);
+    this.junctionReader = new JunctionReader(hopper.getBaseGraph(), hopper.getLocationIndex(), roads,
+                                             hopper.getEncodingManager());
   }
 
   /**
@@ -193,7 +200,9 @@ public final class GraphHopperRouter implements Router {
   }
 
   /**
-   * Configures an engine for the profile of a car, its graph in a folder.
+   * Configures an engine for the profile of a car, its graph in a folder. The lines of its routes keep every point of
+   * the roads, not simplified (phase 4): the junctions are read in the graph from these points, the place where a
+   * route leaves the ring of a roundabout among them.
    *
    * @param graph the folder of the graph.
    *
@@ -207,6 +216,7 @@ public final class GraphHopperRouter implements Router {
     hopper.setEncodedValuesString(ENCODED_VALUES);
     hopper.setProfiles(new Profile(PROFILE).setCustomModel(model).setTurnCostsConfig(TurnCostsConfig.car()));
     hopper.getCHPreparationHandler().setCHProfiles(new CHProfile(PROFILE));
+    hopper.getRouterConfig().setSimplifyResponse(false);
     return hopper;
   }
 
@@ -252,6 +262,16 @@ public final class GraphHopperRouter implements Router {
     }
     return new Route(points(line), maneuvers(path.getInstructions(), line.size()), path.getDistance(),
                      Duration.ofMillis(path.getTime()));
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The branches of each junction are the roads of its node in the graph ({@link JunctionReader}).</p>
+   */
+  @Override
+  public List<Junction> junctions(final Route route) {
+    return junctionReader.junctions(route);
   }
 
   /**

@@ -3,6 +3,8 @@ package ch.varani.boxone.roadbook;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Roadbook;
+import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.routing.GraphHopperRouter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,12 +22,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * The collection of reference routes (development plan, §5; AGENTS.md §2): the non-regression suite of the roadbook,
- * and of the tulips once they come (phase 4). Each route crosses one kind of junction of the plan — a crossroads, a
+ * The collection of reference routes (development plan, §5; AGENTS.md §2): the non-regression suite of the roadbook
+ * and of the tulips (phase 4). Each route crosses one kind of junction of the plan — a crossroads, a
  * roundabout, a fork, a slip road — on the small extract of OpenStreetMap of the tests of the routing (the centre of
  * Yverdon-les-Bains, © OpenStreetMap contributors, ODbL), routed by GraphHopper, imported once for the class.
  *
@@ -33,9 +38,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * {@code #} are comments (the junction, the roads); {@code start = latitude, longitude} and
  * {@code finish = latitude, longitude} are the points clicked; each {@code box = } line is an expected box, in order:
  * its number, its place (5 decimals, about a metre), its total and partial distances rounded to the metre, and its
- * CAP in degrees ({@code -} at the finish). The boxes recorded are the ones generated when the route was added: a
- * change of the generator of boxes, of the routing or of the extract that moves one of them fails the test, to be
- * checked and recorded again on purpose.</p>
+ * CAP in degrees ({@code -} at the finish); each {@code tulip = } line is the tulip of a box, in order: the number
+ * of its box, its shape, the kind of its entry, its branches from the left to the right (angle and kind), and the
+ * index of its exit among them.
+ * The boxes and the tulips recorded are the ones generated when they were added: a change of the generator of boxes
+ * or of tulips, of the routing or of the extract that changes one of them fails the test, to be checked and recorded
+ * again on purpose.</p>
  */
 final class ReferenceRoutesTest {
 
@@ -57,10 +65,18 @@ final class ReferenceRoutesTest {
   private static final String FINISH = "finish";
   /** The key of a box. */
   private static final String BOX = "box";
+  /** The key of a tulip. */
+  private static final String TULIP = "tulip";
   /** The CAP written for a box without heading, the box of the finish. */
   private static final String NO_HEADING = "-";
   /** The format of a box: number, place, total, partial, CAP, as in the files. */
   private static final String BOX_FORMAT = "%d; %.5f, %.5f; %d; %d; %s";
+  /** The format of a tulip: number of its box, shape, kind of the entry, branches, exit, as in the files. */
+  private static final String TULIP_FORMAT = "%d; %s; %s; %s; %d";
+  /** The format of a branch of a tulip: its angle and its kind. */
+  private static final String BRANCH_FORMAT = "%d %s";
+  /** The separator of the angles of a tulip. */
+  private static final String ANGLES = ", ";
 
   /** The folder of the graph imported for the class. */
   @TempDir
@@ -88,7 +104,7 @@ final class ReferenceRoutesTest {
 
   /**
    * The roadbook of each reference route has the boxes recorded: a box at the start, one at the junction of the route,
-   * one at the finish, at their places, with their distances and their CAP.
+   * one at the finish, at their places, with their distances and their CAP; and the tulip recorded at the junction.
    *
    * @param name the name of the reference route, its file without the extension.
    *
@@ -96,11 +112,16 @@ final class ReferenceRoutesTest {
    */
   @ParameterizedTest(name = "{0}")
   @ValueSource(strings = {"crossroads", "roundabout", "fork", "slip-road"})
-  @DisplayName("Reference routes: the roadbook of each junction of the collection has the boxes recorded")
+  @DisplayName("Reference routes: the roadbook of each junction of the collection has the boxes and the tulips "
+               + "recorded")
   void boxesTest(final String name) throws IOException {
     final List<String> lines = read(name);
-    final Roadbook roadbook = RoadbookGenerator.generate(router.route(point(lines, START), point(lines, FINISH)));
-    assertEquals(values(lines, BOX), roadbook.boxes().stream().map(ReferenceRoutesTest::format).toList());
+    final Route route = router.route(point(lines, START), point(lines, FINISH));
+    final Roadbook roadbook = RoadbookGenerator.generate(route, router.junctions(route));
+    assertAll(
+        () -> assertEquals(values(lines, BOX), roadbook.boxes().stream().map(ReferenceRoutesTest::format).toList()),
+        () -> assertEquals(values(lines, TULIP), roadbook.boxes().stream().filter(box -> box.tulip().isPresent())
+            .map(box -> format(box.number(), box.tulip().orElseThrow())).toList()));
   }
 
   /**
@@ -169,6 +190,22 @@ final class ReferenceRoutesTest {
     final String heading = box.heading().isPresent() ? String.valueOf(box.heading().getAsInt()) : NO_HEADING;
     return String.format(Locale.ROOT, BOX_FORMAT, box.number(), box.position().latitude(),
                          box.position().longitude(), Math.round(box.total()), Math.round(box.partial()), heading);
+  }
+
+  /**
+   * Writes a tulip as in the files of the reference routes.
+   *
+   * @param number the number of its box.
+   * @param tulip the tulip.
+   *
+   * @return the number of its box, its shape, the kind of its entry, its branches from the left to the right (angle and
+   *         kind), the index of its exit.
+   */
+  private static String format(final int number, final Tulip tulip) {
+    final String branches = IntStream.range(0, tulip.branches().size())
+        .mapToObj(i -> String.format(Locale.ROOT, BRANCH_FORMAT, tulip.branches().get(i), tulip.kinds().get(i)))
+        .collect(Collectors.joining(ANGLES));
+    return String.format(Locale.ROOT, TULIP_FORMAT, number, tulip.shape(), tulip.entry(), branches, tulip.exit());
   }
 
 }

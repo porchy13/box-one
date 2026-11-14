@@ -1,6 +1,8 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Junction;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.DetourError;
@@ -27,6 +29,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
@@ -82,6 +85,8 @@ final class MainControllerTest {
   private static final double CASTLE_LONGITUDE = 6.6413;
   /** The texts of the tests, in French. */
   private static final ResourceBundle TEXTS = Languages.bundle(Languages.FRENCH);
+  /** The boxes of the roadbook of a route with one turn: the start, the turn, the finish. */
+  private static final int TURNING_BOXES = 3;
   /** The index of the budget of 30 minutes in the choice of the detour: after 0, 5… 25 minutes. */
   private static final int THIRTY_MINUTES = 6;
 
@@ -398,8 +403,80 @@ final class MainControllerTest {
   }
 
   /**
+   * The roadbook of the route shown is drawn at the right of the map, box after box, its tulips drawn by the
+   * catalogue: empty before the route, its number of boxes once drawn; the box selected is shown on the map, and no
+   * longer once the selection is cleared; a roadbook that cannot be drawn is told in the status bar.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 4: the roadbook of the route is drawn at the right of the map, the box selected shown on it")
+  void roadbookTest(final FxRobot robot) throws TimeoutException {
+    final AtomicReference<RuntimeException> failure = new AtomicReference<>();
+    final Router turning = new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+        return new Route(List.of(points.getFirst(), new GeoPoint(CASTLE_LATITUDE, STATION_LONGITUDE),
+                                 points.getLast()), List.of(1), FakeRouter.DISTANCE, FakeRouter.DURATION);
+      }
+
+      @Override
+      public List<Junction> junctions(final Route route) {
+        if (failure.get() != null) {
+          throw failure.get();
+        }
+        return Router.super.junctions(route);
+      }
+
+      @Override
+      public void close() {
+        // Nothing to release.
+      }
+    };
+    final Shown window = show(robot, turning);
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    final ListView<?> boxes = robot.from(window.stage().getScene().getRoot()).lookup("#boxList")
+                                   .queryAs(ListView.class);
+    final boolean emptyBefore = window.stage().getScene().lookup("#roadbookEmpty").isVisible();
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    final int drawn = boxes.getItems().size();
+    final String count = text(robot, window, "roadbookCount");
+    final boolean emptyAfter = window.stage().getScene().lookup("#roadbookEmpty").isVisible();
+    final BoxRow junction = (BoxRow) boxes.getItems().get(1);
+    final List<String> numbers = robot.from(boxes).lookup(".box-number").queryAllAs(Label.class).stream()
+                                      .map(Label::getText).filter(text -> !text.isEmpty()).sorted().toList();
+    robot.interact(() -> boxes.getSelectionModel().select(1));
+    final int selected = MapPages.count(robot, view, ".box-place");
+    robot.interact(() -> boxes.getSelectionModel().clearSelection());
+    final int cleared = MapPages.count(robot, view, ".box-place");
+    failure.set(new IllegalStateException("junctions"));
+    MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertTrue(emptyBefore),
+        () -> assertEquals(TURNING_BOXES, drawn),
+        () -> assertEquals("3 cases", count),
+        () -> assertFalse(emptyAfter),
+        () -> assertTrue(junction.tulip().isPresent()),
+        () -> assertTrue(junction.description().startsWith("Case 2 : "), junction.description()),
+        () -> assertEquals(List.of("1", "2", "3"), numbers),
+        () -> assertEquals(1, selected),
+        () -> assertEquals(0, cleared),
+        () -> assertEquals(TEXTS.getString(MainController.ROADBOOK_ERROR), text(robot, window, "status")),
+        () -> assertTrue(boxes.getItems().isEmpty()));
+  }
+
+  /**
    * Edit › Undo brings back the states shown before each change, the last first: a detour gives back its fastest
-   * route, drawn at once; the finish and the start placed are removed one after the other. Edit › Redo brings them back
+   * route, drawn at once, only its roadbook drawn in the background; the finish and the start placed are removed one
+   * after the other. Edit › Redo brings them back
    * in the opposite order, the detour last, with its seed. A route still being computed when it is undone is computed
    * again when it is brought back. Shortcut+Y redoes too outside macOS, and does nothing without state undone; a new
    * change forgets the states undone.
@@ -426,6 +503,7 @@ final class MainControllerTest {
     robot.interact(background::runAll);
     generate(robot, window);
     robot.interact(background::runAll);
+    robot.interact(background::runAll);
     fire(robot, window, "undoItem");
     final String fastest = text(robot, window, "status");
     final int waiting = background.size();
@@ -444,8 +522,9 @@ final class MainControllerTest {
     final boolean redoAtEnd = redo.isDisable();
     final String seed = robot.from(window.stage().getScene().getRoot()).lookup("#seed").queryAs(TextField.class)
                              .getText();
+    final int beforeNothing = background.size();
     robot.interact(() -> window.stage().getScene().getAccelerators().get(MainController.REDO_OTHER).run());
-    final int afterNothing = background.size();
+    final int afterNothing = background.size() - beforeNothing;
     fire(robot, window, "undoItem");
     MapPages.drag(robot, view, "start", CASTLE_LATITUDE, STATION_LONGITUDE);
     assertAll(
@@ -453,7 +532,7 @@ final class MainControllerTest {
         () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), cancelled),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTING), recomputed),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), fastest),
-        () -> assertEquals(0, waiting),
+        () -> assertEquals(1, waiting),
         () -> assertEquals(0, detours),
         () -> assertEquals(1, fastestRoutes),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_FINISH), finish),
@@ -536,6 +615,7 @@ final class MainControllerTest {
     MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
     robot.interact(background::runAll);
+    robot.interact(background::runAll);
     final boolean enabled = !item.isDisable();
     fire(robot, window, "exportItem");
     final int waitingAfterCancel = background.size();
@@ -577,6 +657,7 @@ final class MainControllerTest {
     final boolean disabledBefore = item.isDisable();
     MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
     robot.interact(background::runAll);
     final boolean enabled = !item.isDisable();
     fire(robot, window, "detourItem");
@@ -1264,7 +1345,7 @@ final class MainControllerTest {
     final Path invalid = data.resolve("hours.gpx");
     OpenRallyWriter.save(RoadbookGenerator.generate(new FakeRouter().route(SmokeTest.STATION, SmokeTest.CASTLE)),
                          new Origin.Detour(SmokeTest.STATION, SmokeTest.CASTLE, 1, "HOURS", 1, Set.of(),
-                                           FakeRouter.DURATION), "hours", "Indicative", invalid);
+                                           FakeRouter.DURATION), "hours", "Indicative", Catalogue.fia(), invalid);
     return invalid;
   }
 

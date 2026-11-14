@@ -1,12 +1,18 @@
 package ch.varani.boxone.export;
 
+import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
+import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import javax.imageio.ImageIO;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -24,7 +30,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -44,6 +52,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * of the file chosen, never leaving a damaged file.
  */
 final class OpenRallyWriterTest {
+
+  /** The catalogue of the FIA, which draws the tulips and tells the headings shown. */
+  private static final Catalogue FIA = Catalogue.fia();
 
   /** The start: the station of Yverdon-les-Bains. */
   private static final GeoPoint START = new GeoPoint(46.7813, 6.6410);
@@ -88,9 +99,9 @@ final class OpenRallyWriterTest {
   /** The roadbook of the tests: three boxes on a line of four points. */
   private static final Roadbook ROADBOOK = new Roadbook(
       new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1), LENGTH, Duration.ofMinutes(3)),
-      List.of(new Box(1, START, 0, 0, OptionalInt.of(START_HEADING)),
-              new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(JUNCTION_HEADING)),
-              new Box(3, FINISH, LENGTH, LENGTH - JUNCTION_TOTAL, OptionalInt.empty())));
+      List.of(new Box(1, START, 0, 0, OptionalInt.of(START_HEADING), Optional.empty()),
+              new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(JUNCTION_HEADING), Optional.empty()),
+              new Box(3, FINISH, LENGTH, LENGTH - JUNCTION_TOTAL, OptionalInt.empty(), Optional.empty())));
 
   /**
    * Writes the roadbook of the tests into memory.
@@ -101,7 +112,7 @@ final class OpenRallyWriterTest {
    */
   private static byte[] written() throws IOException {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, output);
+    OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, output);
     return output.toByteArray();
   }
 
@@ -114,7 +125,7 @@ final class OpenRallyWriterTest {
    */
   private static byte[] writtenFastest() throws IOException {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(ROADBOOK, FASTEST, NAME, DESCRIPTION, output);
+    OpenRallyWriter.write(ROADBOOK, FASTEST, NAME, DESCRIPTION, FIA, output);
     return output.toByteArray();
   }
 
@@ -133,6 +144,45 @@ final class OpenRallyWriterTest {
       elements.add((Element) nodes.item(i));
     }
     return elements;
+  }
+
+  /**
+   * The box of a junction carries its tulip, drawn by the catalogue as a PNG image in base64, of the size of the
+   * catalogue; the box of a junction in T between tarmac roads hides its heading, a crossroads shows it (FIA §5.11.1);
+   * the file stays valid against the strict schema.
+   *
+   * @throws Exception if the file cannot be written, read or validated.
+   */
+  @Test
+  @DisplayName("Phase 4: the tulips are exported as PNG in base64, the headings only where the FIA asks for them")
+  void tulipsTest() throws Exception {
+    final List<BranchKind> two = List.of(BranchKind.TARMAC, BranchKind.TARMAC);
+    final List<BranchKind> three = List.of(BranchKind.TARMAC, BranchKind.TARMAC, BranchKind.TARMAC);
+    final Tulip tee = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(-90, 90), two, 1);
+    final Tulip crossroads = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(-90, 0, 90), three, 0);
+    final Roadbook roadbook = new Roadbook(
+        new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1, 2), LENGTH, Duration.ofMinutes(3)),
+        List.of(new Box(1, START, 0, 0, OptionalInt.of(START_HEADING), Optional.empty()),
+                new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(JUNCTION_HEADING),
+                        Optional.of(tee)),
+                new Box(3, BEND, JUNCTION_TOTAL, 0, OptionalInt.of(JUNCTION_HEADING), Optional.of(crossroads)),
+                new Box(4, FINISH, LENGTH, LENGTH - JUNCTION_TOTAL, OptionalInt.empty(), Optional.empty())));
+    final ByteArrayOutputStream output = new ByteArrayOutputStream();
+    OpenRallyWriter.write(roadbook, DETOUR, NAME, DESCRIPTION, FIA, output);
+    final Document document = parse(output.toByteArray());
+    final NodeList tulips = document.getElementsByTagNameNS(OpenRallyWriter.OPENRALLY, "tulip");
+    final NodeList caps = document.getElementsByTagNameNS(OpenRallyWriter.OPENRALLY, "cap");
+    final String data = tulips.item(0).getTextContent();
+    final byte[] png = Base64.getDecoder().decode(data.substring(OpenRallyWriter.PNG_DATA.length()));
+    assertAll(
+        () -> assertEquals(2, tulips.getLength()),
+        () -> assertTrue(data.startsWith(OpenRallyWriter.PNG_DATA)),
+        () -> assertEquals(FIA.tulip().size(), ImageIO.read(new ByteArrayInputStream(png)).getWidth()),
+        () -> assertEquals(List.of(String.valueOf(START_HEADING), String.valueOf(JUNCTION_HEADING)),
+                           List.of(caps.item(0).getTextContent(), caps.item(1).getTextContent())),
+        () -> assertEquals(2, caps.getLength()),
+        () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
+            new StreamSource(new ByteArrayInputStream(output.toByteArray())))));
   }
 
   /**
@@ -245,7 +295,7 @@ final class OpenRallyWriterTest {
   void fastestOriginTest() throws Exception {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
     OpenRallyWriter.write(ROADBOOK, new Origin.Detour(CLICKED_START, CLICKED_FINISH, SEED, "MINUTES", 0, Set.of(),
-                                                      FASTEST_DURATION), NAME, DESCRIPTION, output);
+                                                      FASTEST_DURATION), NAME, DESCRIPTION, FIA, output);
     final Document avoidingNothing = parse(output.toByteArray());
     assertAll(
         () -> assertEquals(List.of(), boxOne(parse(writtenFastest()), OpenRallyWriter.DETOUR)),
@@ -351,7 +401,7 @@ final class OpenRallyWriterTest {
         throw new IOException("full");
       }
     };
-    assertThrows(IOException.class, () -> OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, broken));
+    assertThrows(IOException.class, () -> OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, broken));
   }
 
   /**
@@ -365,7 +415,7 @@ final class OpenRallyWriterTest {
   @DisplayName("Phase 2: the roadbook is saved in place of the file chosen")
   void saveTest(@TempDir final Path folder) throws IOException {
     final Path file = Files.writeString(folder.resolve("roadbook.gpx"), "former");
-    OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, file);
+    OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, file);
     try (Stream<Path> files = Files.list(folder)) {
       assertAll(
           () -> assertArrayEquals(written(), Files.readAllBytes(file)),
@@ -387,9 +437,10 @@ final class OpenRallyWriterTest {
     final Path occupied = Files.createDirectory(folder.resolve("roadbook.gpx"));
     Files.writeString(occupied.resolve("kept.txt"), "kept");
     assertAll(
-        () -> assertThrows(IOException.class, () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, missing)),
         () -> assertThrows(IOException.class,
-                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, occupied)),
+                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, missing)),
+        () -> assertThrows(IOException.class,
+                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, occupied)),
         () -> assertFalse(Files.exists(missing)),
         () -> assertTrue(Files.isDirectory(occupied)));
     try (Stream<Path> files = Files.list(folder)) {

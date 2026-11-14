@@ -1,6 +1,7 @@
 package ch.varani.boxone.core;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
@@ -10,7 +11,8 @@ import java.util.OptionalInt;
  * <p>A box holds its number, its place, the <i>total distance</i> (from the start of the roadbook to the box, the
  * figure read on the trip meter), the <i>partial distance</i> (from the previous box to this one) and the heading
  * (<i>CAP</i>) to follow on leaving the box, in whole degrees clockwise from the geographic north. The box of the
- * finish has no heading. The tulip and the notes come with phase 4.</p>
+ * finish has no heading. The box of a junction holds its tulip (phase 4), the boxes of the start and of the finish
+ * none. The notes come later.</p>
  *
  * <p><b>Preconditions</b>: a number from 1; a position; distances that are finite, non-negative numbers of metres; a
  * heading, when present, between {@value #MIN_HEADING} and {@value #MAX_HEADING}. Otherwise the box is rejected.</p>
@@ -25,8 +27,11 @@ import java.util.OptionalInt;
  * @param total the distance from the start of the roadbook to the box, in metres.
  * @param partial the distance from the previous box to this one, in metres; 0 for the first box.
  * @param heading the heading to follow on leaving the box, in degrees; empty for the box of the finish.
+ * @param tulip the tulip of the junction of the box; empty for the boxes of the start and of the finish, and for the
+ *              boxes of a roadbook generated without the geometry of its junctions.
  */
-public record Box(int number, GeoPoint position, double total, double partial, OptionalInt heading) {
+public record Box(int number, GeoPoint position, double total, double partial, OptionalInt heading,
+                  Optional<Tulip> tulip) {
 
   // *******************************************************************************************************************
   // Constants
@@ -52,8 +57,9 @@ public record Box(int number, GeoPoint position, double total, double partial, O
    * @param partial the distance from the previous box to this one, in metres, finite and non-negative.
    * @param heading the heading to follow on leaving the box, in degrees between {@value #MIN_HEADING} and
    *                {@value #MAX_HEADING}, or empty.
+   * @param tulip the tulip of the junction of the box, or empty.
    *
-   * @throws NullPointerException if the position or the heading is {@code null}.
+   * @throws NullPointerException if the position, the heading or the tulip is {@code null}.
    * @throws DomainException {@link ValidationError#INVALID_BOX_NUMBER} if the number is below {@value #FIRST},
    *                         {@link ValidationError#INVALID_DISTANCE} if a distance is negative or not finite,
    *                         {@link ValidationError#INVALID_HEADING} if the heading is beyond its range.
@@ -61,6 +67,7 @@ public record Box(int number, GeoPoint position, double total, double partial, O
   public Box {
     Objects.requireNonNull(position);
     Objects.requireNonNull(heading);
+    Objects.requireNonNull(tulip);
     if (number < FIRST) {
       throw new DomainException(ValidationError.INVALID_BOX_NUMBER);
     }

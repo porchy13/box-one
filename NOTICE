@@ -25,6 +25,11 @@ and JDK14 provider (MIT License); JTS Topology Suite (Eclipse Public License 2.0
 1.0, the latter applying); Janino, Protocol Buffers (BSD 3-Clause License) and the Stax2 API (BSD 2-Clause License);
 osmosis-osm-binary (GNU Lesser General Public License 3.0, kept as a separate, replaceable library).
 
+Roadbook symbols: the tulips and the symbols of the catalogues (catalog/src/main/resources/ch/varani/boxone/catalog/)
+are redrawn for Box One, not copied, after the road book lexicon of the FIA (2026 Cross-Country Rally Sporting
+Regulations, Appendix III, §5.14), the same as the one of the FIM (2026 FIM World Rally-Raid Championship, Road Book
+symbols); the icons of that lexicon are provided by rallynavigator.com.
+
 Map data: the routes are computed on extracts of OpenStreetMap, © OpenStreetMap contributors, available under the
 Open Database License (https://www.openstreetmap.org/copyright). The extract of the smoke test
 (ui/src/main/resources/ch/varani/boxone/ui/smoke/yverdon-centre.osm.gz) and the extract of the routing tests

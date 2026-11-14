@@ -16,10 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -180,6 +182,41 @@ final class MapViewTest {
         () -> assertEquals(0, routes),
         () -> assertEquals(1, MapPages.count(robot, view, ".route-fastest")),
         () -> assertEquals(1, MapPages.count(robot, view, ".leaflet-tile-pane .leaflet-layer")));
+  }
+
+  /**
+   * The box selected in the roadbook is shown as a circle on the map, and hidden; before the page has loaded, nothing
+   * happens; a new route removes it.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 4: the box selected in the roadbook is shown on the map, and hidden")
+  void boxTest(final FxRobot robot) throws TimeoutException {
+    final AtomicBoolean loadedBefore = new AtomicBoolean();
+    robot.interact(() -> {
+      final MapView fresh = new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { });
+      fresh.setBox(SmokeTest.STATION);
+      loadedBefore.set(fresh.isLoaded());
+    });
+    final MapView map = show(robot, new ArrayList<>(), new ArrayList<>());
+    final WebView view = map.getNode();
+    MapPages.waitLoaded(view);
+    final int beforeBox = MapPages.count(robot, view, ".box-place");
+    robot.interact(() -> map.setBox(SmokeTest.CASTLE));
+    final int shown = MapPages.count(robot, view, ".box-place");
+    robot.interact(() -> map.setBox(null));
+    final int hidden = MapPages.count(robot, view, ".box-place");
+    robot.interact(() -> map.setBox(SmokeTest.CASTLE));
+    robot.interact(() -> map.setRoute(ROUTE));
+    assertAll(
+        () -> assertFalse(loadedBefore.get()),
+        () -> assertEquals(0, beforeBox),
+        () -> assertEquals(1, shown),
+        () -> assertEquals(0, hidden),
+        () -> assertEquals(0, MapPages.count(robot, view, ".box-place")));
   }
 
   /**

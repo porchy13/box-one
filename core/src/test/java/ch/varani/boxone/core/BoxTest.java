@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -13,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests of {@link Box}: a box keeps its number, its place, its distances and its heading, the box of the finish has
- * no heading, and a box rejects a number below 1, an invalid distance and a heading beyond 0–359 degrees.
+ * no heading, the box of a junction keeps its tulip, and a box rejects a number below 1, an invalid distance and a
+ * heading beyond 0–359 degrees.
  */
 final class BoxTest {
 
@@ -36,7 +39,7 @@ final class BoxTest {
   @Test
   @DisplayName("Phase 2: a box keeps its number, its place, its total and partial distances and its heading")
   void valuesTest() {
-    final Box box = new Box(2, STATION, TOTAL, PARTIAL, EAST);
+    final Box box = new Box(2, STATION, TOTAL, PARTIAL, EAST, Optional.empty());
     assertAll(
         () -> assertEquals(2, box.number()),
         () -> assertEquals(STATION, box.position()),
@@ -52,9 +55,9 @@ final class BoxTest {
   @Test
   @DisplayName("Phase 2: a box at zero distance, a box without heading and the headings 0 and 359 are accepted")
   void boundsTest() {
-    final Box first = new Box(Box.FIRST, STATION, 0, 0, OptionalInt.of(Box.MIN_HEADING));
-    final Box finish = new Box(Box.FIRST, STATION, TOTAL, PARTIAL, OptionalInt.empty());
-    final Box last = new Box(Box.FIRST, STATION, TOTAL, PARTIAL, OptionalInt.of(Box.MAX_HEADING));
+    final Box first = new Box(Box.FIRST, STATION, 0, 0, OptionalInt.of(Box.MIN_HEADING), Optional.empty());
+    final Box finish = new Box(Box.FIRST, STATION, TOTAL, PARTIAL, OptionalInt.empty(), Optional.empty());
+    final Box last = new Box(Box.FIRST, STATION, TOTAL, PARTIAL, OptionalInt.of(Box.MAX_HEADING), Optional.empty());
     assertAll(
         () -> assertEquals(0, first.total()),
         () -> assertEquals(OptionalInt.of(0), first.heading()),
@@ -69,7 +72,7 @@ final class BoxTest {
   @DisplayName("Phase 2: a box numbered below 1 is rejected")
   void invalidNumberTest() {
     final DomainException rejected = assertThrows(DomainException.class,
-                                                  () -> new Box(0, STATION, TOTAL, PARTIAL, EAST));
+                                                  () -> new Box(0, STATION, TOTAL, PARTIAL, EAST, Optional.empty()));
     assertEquals(ValidationError.INVALID_BOX_NUMBER, rejected.getError());
   }
 
@@ -83,9 +86,9 @@ final class BoxTest {
   @DisplayName("Phase 2: a negative or not finite total or partial distance is rejected")
   void invalidDistanceTest(final double distance) {
     final DomainException total = assertThrows(DomainException.class,
-                                               () -> new Box(1, STATION, distance, PARTIAL, EAST));
+                                               () -> new Box(1, STATION, distance, PARTIAL, EAST, Optional.empty()));
     final DomainException partial = assertThrows(DomainException.class,
-                                                 () -> new Box(1, STATION, TOTAL, distance, EAST));
+                                                 () -> new Box(1, STATION, TOTAL, distance, EAST, Optional.empty()));
     assertAll(
         () -> assertEquals(ValidationError.INVALID_DISTANCE, total.getError()),
         () -> assertEquals(ValidationError.INVALID_DISTANCE, partial.getError()));
@@ -101,20 +104,34 @@ final class BoxTest {
   @DisplayName("Phase 2: a heading beyond 0–359 degrees is rejected")
   void invalidHeadingTest(final int heading) {
     final OptionalInt invalid = OptionalInt.of(heading);
-    final DomainException rejected = assertThrows(DomainException.class,
-                                                  () -> new Box(1, STATION, TOTAL, PARTIAL, invalid));
+    final DomainException rejected = assertThrows(DomainException.class, () -> new Box(1, STATION, TOTAL, PARTIAL,
+                                                                                       invalid, Optional.empty()));
     assertEquals(ValidationError.INVALID_HEADING, rejected.getError());
   }
 
   /**
-   * A missing place or heading is a programming error.
+   * The box of a junction keeps its tulip.
    */
   @Test
-  @DisplayName("A box without its place or its heading is a programming error")
+  @DisplayName("Phase 4: the box of a junction keeps its tulip")
+  void tulipTest() {
+    final List<BranchKind> kinds = List.of(BranchKind.TRACK, BranchKind.TARMAC, BranchKind.TARMAC);
+    final Optional<Tulip> tulip = Optional.of(new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(-90, 0, 90),
+                                                        kinds, 2));
+    assertEquals(tulip, new Box(2, STATION, TOTAL, PARTIAL, EAST, tulip).tulip());
+  }
+
+  /**
+   * A missing place, heading or tulip is a programming error.
+   */
+  @Test
+  @DisplayName("A box without its place, its heading or its tulip is a programming error")
   void nullTest() {
+    final Optional<Tulip> none = Optional.empty();
     assertAll(
-        () -> assertThrows(NullPointerException.class, () -> new Box(1, null, TOTAL, PARTIAL, EAST)),
-        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, null)));
+        () -> assertThrows(NullPointerException.class, () -> new Box(1, null, TOTAL, PARTIAL, EAST, none)),
+        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, null, none)),
+        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, null)));
   }
 
 }

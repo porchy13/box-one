@@ -240,6 +240,24 @@ final class MapView {
     drawPlaces();
   }
 
+  /**
+   * Shows the box selected in the roadbook: a circle at its place, the map centred on it, close enough to read the
+   * junction; or hides it. Nothing happens before the page has loaded: no box is selected then.
+   *
+   * @param place the place of the box, or {@code null} to hide it.
+   */
+  void setBox(final GeoPoint place) {
+    final JSObject page = page();
+    if (page == null) {
+      return;
+    }
+    if (place == null) {
+      page.call("hideBox");
+    } else {
+      page.call("showBox", place.latitude(), place.longitude());
+    }
+  }
+
   // *******************************************************************************************************************
   // Methods
   // *******************************************************************************************************************

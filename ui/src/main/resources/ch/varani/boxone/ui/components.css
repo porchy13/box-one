@@ -159,3 +159,68 @@
     -fx-wrap-text: true;
     -fx-text-alignment: center;
 }
+
+/* The roadbook of the route, at the right of the map (DESIGN.md §6, §14): its title, its number of boxes, and the
+   boxes drawn as on paper, the same in both themes, the box selected framed in the accent. */
+.roadbook-pane {
+    -fx-background-color: -c-surface;
+    -fx-padding: 12 0 0 0;
+    -fx-spacing: 2;
+    -fx-min-width: 240;
+}
+
+.roadbook-pane > .title-panel, .roadbook-pane > .caption {
+    -fx-padding: 0 12 0 12;
+}
+
+.roadbook-pane > .caption {
+    -fx-padding: 0 12 8 12;
+}
+
+.roadbook-strip, .roadbook-strip .box-cell {
+    -fx-background-color: -c-paper;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.roadbook-strip .box-paper {
+    -fx-spacing: 12;
+    -fx-padding: 8 12 8 12;
+    -fx-alignment: center-left;
+    -fx-border-color: transparent transparent -c-ink transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.roadbook-strip .box-cell:selected .box-paper {
+    -fx-border-color: -c-accent;
+    -fx-border-width: 3;
+    -fx-padding: 5 9 6 9;
+}
+
+.roadbook-strip .box-distances {
+    -fx-min-width: 72;
+    -fx-pref-width: 72;
+}
+
+.roadbook-strip .box-total, .roadbook-strip .box-heading {
+    -fx-font-size: 1.54em;
+    -fx-font-weight: 700;
+    -fx-text-fill: -c-ink;
+}
+
+.roadbook-strip .box-partial {
+    -fx-text-fill: -c-ink;
+}
+
+.roadbook-strip .box-number {
+    -fx-min-width: 24;
+    -fx-alignment: top-right;
+    -fx-font-weight: 700;
+    -fx-text-fill: -c-ink;
+}
+
+.roadbook-empty {
+    -fx-padding: 24;
+    -fx-text-fill: -c-text-2;
+    -fx-text-alignment: center;
+}

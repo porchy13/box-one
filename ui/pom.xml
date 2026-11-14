@@ -47,6 +47,11 @@
 
         <dependency>
             <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-catalog</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
             <artifactId>box-one-export</artifactId>
         </dependency>
 

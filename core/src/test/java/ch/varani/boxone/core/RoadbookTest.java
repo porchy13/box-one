@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -28,9 +29,9 @@ final class RoadbookTest {
   /** The route of the roadbook. */
   private static final Route ROUTE = new Route(List.of(START, FINISH), List.of(), DISTANCE, Duration.ofSeconds(40));
   /** The box of the start, heading south. */
-  private static final Box FIRST = new Box(1, START, 0, 0, OptionalInt.of(180));
+  private static final Box FIRST = new Box(1, START, 0, 0, OptionalInt.of(180), Optional.empty());
   /** The box of the finish. */
-  private static final Box LAST = new Box(2, FINISH, DISTANCE, DISTANCE, OptionalInt.empty());
+  private static final Box LAST = new Box(2, FINISH, DISTANCE, DISTANCE, OptionalInt.empty(), Optional.empty());
 
   /**
    * A roadbook keeps its route and its boxes; its length is the total distance of the box of the finish.

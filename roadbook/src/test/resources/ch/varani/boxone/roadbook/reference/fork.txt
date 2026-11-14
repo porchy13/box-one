@@ -8,3 +8,6 @@ finish = 46.77755, 6.65250
 box = 1; 46.77799, 6.65364; 0; 0; 250
 box = 2; 46.77784, 6.65289; 60; 60; 225
 box = 3; 46.77756, 6.65248; 106; 46; -
+# box number; shape; kind of the entry; branches from the left to the right: angle (degrees from straight ahead, the
+# entry at 180 not listed) and kind; index of the exit among them
+tulip = 2; CROSSING; TARMAC; -13 TARMAC, 9 TARMAC; 0

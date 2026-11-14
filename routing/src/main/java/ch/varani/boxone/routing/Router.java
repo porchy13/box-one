@@ -1,6 +1,7 @@
 package ch.varani.boxone.routing;
 
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Junction;
 import ch.varani.boxone.core.Route;
 
 import java.util.List;
@@ -9,7 +10,8 @@ import java.util.Set;
 /**
  * Computes the fastest route by car between two points of the map of the router (development plan, phase 1), with
  * its maneuvers, the places of the boxes of the roadbook (phase 2), possibly through waypoints, the points of passage
- * of a detour (phase 3), avoiding the kinds of road forbidden by the user (issue #11 of GitLab).
+ * of a detour (phase 3), avoiding the kinds of road forbidden by the user (issue #11 of GitLab), and reads the geometry
+ * of the junctions of a route on its map, from which their tulips are drawn (phase 4).
  *
  * <p>The interface hides the routing engine (AGENTS.md §3). A router holds the graph of its map until it is closed.
  * </p>
@@ -70,6 +72,22 @@ public interface Router extends AutoCloseable {
    *                          next one, {@link RoutingError#OUTDATED_MAP} if the map does not know a kind forbidden.
    */
   Route route(List<GeoPoint> points, Set<RoadKind> avoided);
+
+  /**
+   * Reads the geometry of the junctions of a route on the map of the router: the roads that meet at each maneuver, the
+   * one the route comes from and the one it takes (development plan, phase 4).
+   *
+   * <p>By default, for a router without the roads of a map, each junction is the line of the route alone: two
+   * branches, the stretch before the maneuver and the stretch after it.</p>
+   *
+   * @param route a route computed on the map of the router, or read back from a roadbook exported from it.
+   *
+   * @return the junctions, one per maneuver of the route, in their order: a roundabout where the route enters one, the
+   *         roads of the junction otherwise; the line of the route alone where the map has no junction.
+   */
+  default List<Junction> junctions(final Route route) {
+    return route.maneuvers().stream().map(maneuver -> JunctionReader.along(route.points(), maneuver)).toList();
+  }
 
   /**
    * Releases the graph of the map; the router cannot route any more.

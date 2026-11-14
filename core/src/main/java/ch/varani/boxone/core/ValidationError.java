@@ -27,6 +27,16 @@ public enum ValidationError {
   /** A heading that is not a whole number of degrees between 0 and 359. */
   INVALID_HEADING,
   /** A roadbook with fewer than two boxes: it needs at least the box of the start and the box of the finish. */
-  TOO_FEW_BOXES
+  TOO_FEW_BOXES,
+  /**
+   * The geometry of a junction with fewer than two branches, a bearing that is not a number of degrees from 0 included
+   * to 360 excluded, not one kind per branch, or an entry or an exit that is not one of its branches, or the same.
+   */
+  INVALID_JUNCTION,
+  /**
+   * A tulip without branch, with an angle that is not a whole number of degrees from −179 to 179 or not after the
+   * previous one, not one kind per branch, or an exit that is not one of its branches.
+   */
+  INVALID_TULIP
 
 }

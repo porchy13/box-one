@@ -39,6 +39,19 @@ All notable changes of the project are documented in this file.
   exported, with its start and finish and, for a detour, its seed and its budget, so that the detour can be generated
   again; the roadbooks exported hold them for this purpose (format version 1). A file that cannot be opened is
   reported in a dialog saying why, and the route shown stays.
+- **Tulips**: each box of a junction of the roadbook exported for Terra Pirata carries its tulip, drawn after the
+  lexicon of the FIA (2026 Cross-Country Rally Sporting Regulations, the same as the one of the FIM): the route
+  followed in blue with its arrow from a pin at the bottom, the other roads in black, a tarmac road as a double line,
+  a track as a single line, a roundabout as a ring with its exits and the part driven, a divided road meeting it
+  counted once. The symbols are redrawn for Box One after that lexicon,
+  whose icons are provided by rallynavigator.com.
+- **Roadbook beside the map**: the roadbook of the route shown is drawn at the right of the map, its boxes as on
+  paper (number, distances, tulip, heading); the box selected, with the mouse or the arrows of the keyboard, is shown on the
+  map.
+- **Headings where needed**: as the FIA asks, the roadbook exported gives the heading (CAP) only at the start, at
+  junctions of four roads or more, and where the road taken is a track. At a roundabout, the heading is the one of
+  the road taken out of it, no longer the direction of the ring at its entry. Open a map again to tell the gravel roads
+  from the tarmac roads.
 - **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the
   start and the finish are moved by dragging their marker, or by the context menu of the map (right-click, "Place the
   start here", "Place the finish here"). Edit › Undo and Edit › Redo bring back the itineraries, the routes and the

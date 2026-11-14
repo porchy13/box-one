@@ -1,5 +1,6 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.Route;
@@ -17,6 +18,7 @@ import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingException;
+import javafx.beans.binding.Bindings;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -26,11 +28,13 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
@@ -179,6 +183,14 @@ final class MainController {
   static final String OPEN_ERROR = "open.error";
   /** The key of the button closing the dialog of a failure to open a roadbook. */
   static final String OPEN_CLOSE = "open.close";
+  /** The key of the title of the roadbook, the name of its list for the readers of the screen. */
+  static final String ROADBOOK_TITLE = "roadbook.title";
+  /** The key of the number of boxes of the roadbook. */
+  static final String ROADBOOK_COUNT = "roadbook.count";
+  /** The key of the failure to draw the roadbook of the route. */
+  static final String ROADBOOK_ERROR = "error.roadbook";
+  /** The position of the divider between the map and the roadbook, as a part of the width of the window. */
+  static final double ROADBOOK_DIVIDER = 0.7;
   /** The other shortcut of Redo outside macOS, beside Shortcut+Shift+Z of its item (DESIGN.md §10: Ctrl+Y). */
   static final KeyCombination REDO_OTHER = new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN);
 
@@ -208,6 +220,12 @@ final class MainController {
   private Settings settings;
   /** The map. */
   private MapView map;
+  /**
+   * The catalogue of symbols of the roadbooks exported: the FIA (phase 4), whose lexicon the FIM and other rallies
+   * share for the tulips.
+   */
+  private static final Catalogue CATALOGUE = Catalogue.fia();
+
   /** The router of the graph, or {@code null} while there is none. */
   private Router router;
   /** Whether the graph is being loaded or imported. */
@@ -216,6 +234,8 @@ final class MainController {
   private Task<?> routing;
   /** The roadbook being opened, or {@code null}: the route shown and the work asked stay until it is read. */
   private Task<?> reading;
+  /** The roadbook of the route shown being drawn, or {@code null}. */
+  private Task<?> drawing;
   /** The fastest route drawn under the detour shown, or {@code null} (no detour, or a detour opened). */
   private Route under;
   /** The states shown before, brought back by Undo and Redo (issue #4 of GitLab). */
@@ -302,6 +322,21 @@ final class MainController {
   /** The label of the seed, injected by the view. */
   @FXML
   private Label seedLabel;
+  /** The map and the roadbook, side by side, injected by the view. */
+  @FXML
+  private SplitPane split;
+  /** The pane of the roadbook, at the right of the map, injected by the view. */
+  @FXML
+  private VBox roadbookPane;
+  /** The number of boxes of the roadbook, injected by the view. */
+  @FXML
+  private Label roadbookCount;
+  /** The boxes of the roadbook, injected by the view. */
+  @FXML
+  private ListView<BoxRow> boxList;
+  /** The empty state of the roadbook, injected by the view. */
+  @FXML
+  private Label roadbookEmpty;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -364,6 +399,14 @@ final class MainController {
     seed.getParent().visibleProperty().bind(seed.textProperty().isNotEmpty());
     seed.getParent().managedProperty().bind(seed.getParent().visibleProperty());
     StackPane.setMargin(routeCard, new Insets(CARD_MARGIN));
+    split.setDividerPositions(ROADBOOK_DIVIDER);
+    SplitPane.setResizableWithParent(roadbookPane, false);
+    boxList.setCellFactory(list -> new BoxCell());
+    boxList.setAccessibleText(texts.getString(ROADBOOK_TITLE));
+    roadbookEmpty.visibleProperty().bind(Bindings.isEmpty(boxList.getItems()));
+    boxList.getSelectionModel().selectedItemProperty().addListener(
+        (property, before, selected) -> map.setBox(selected == null ? null : selected.place()));
+    showRoadbook(List.of());
     stage.setTitle(texts.getString(TITLE));
     stage.getIcons().setAll(icons());
     stage.setMinWidth(MIN_WIDTH);
@@ -588,6 +631,48 @@ final class MainController {
     }
     exportItem.setDisable(shown == null);
     enableDetour();
+    drawRoadbook(shown);
+  }
+
+  /**
+   * Draws, in the background, the roadbook of the route shown in the strip at the right of the map: its boxes, the
+   * tulips of its junctions read on the map loaded, if any, drawn by the catalogue. The roadbook drawn before is
+   * removed at once, and the drawing of a route no longer shown is cancelled.
+   *
+   * @param shown the route shown, or {@code null} for none.
+   */
+  private void drawRoadbook(final Route shown) {
+    if (drawing != null) {
+      drawing.cancel();
+      drawing = null;
+    }
+    showRoadbook(List.of());
+    if (shown == null) {
+      return;
+    }
+    final Router on = router;
+    drawing = run(() -> BoxRow.rows(on == null ? RoadbookGenerator.generate(shown)
+                                               : RoadbookGenerator.generate(shown, on.junctions(shown)),
+                                    CATALOGUE, locale, texts),
+        rows -> {
+          drawing = null;
+          showRoadbook(rows);
+        },
+        failure -> {
+          drawing = null;
+          setStatus(ROADBOOK_ERROR);
+        });
+  }
+
+  /**
+   * Shows the boxes of a roadbook in the strip, and their number.
+   *
+   * @param rows the boxes, empty for none.
+   */
+  private void showRoadbook(final List<BoxRow> rows) {
+    boxList.getItems().setAll(rows);
+    roadbookCount.setText(new MessageFormat(texts.getString(ROADBOOK_COUNT), locale)
+                              .format(new Object[] {rows.size()}));
   }
 
   /**
@@ -645,11 +730,14 @@ final class MainController {
     }
     final Route exported = route;
     final Origin exportedFrom = origin;
+    final Router exportedOn = router;
     final String notice = texts.getString(EXPORT_NOTICE);
     setStatus(STATUS_EXPORTING);
     run(() -> {
-      final Roadbook roadbook = RoadbookGenerator.generate(exported);
-      OpenRallyWriter.save(roadbook, exportedFrom, RoadbookFiles.name(file.get()), notice, file.get());
+      final Roadbook roadbook = exportedOn == null
+                                ? RoadbookGenerator.generate(exported)
+                                : RoadbookGenerator.generate(exported, exportedOn.junctions(exported));
+      OpenRallyWriter.save(roadbook, exportedFrom, RoadbookFiles.name(file.get()), notice, CATALOGUE, file.get());
       return roadbook;
     }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_EXPORTED), locale)
                                       .format(new Object[] {roadbook.boxes().size()})),

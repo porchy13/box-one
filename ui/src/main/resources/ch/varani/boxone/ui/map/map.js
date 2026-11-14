@@ -10,6 +10,10 @@
   var FIRST_ZOOM = 8;
   /** The size of the markers of the start and the finish, in pixels. */
   var MARKER = 28;
+  /** The smallest zoom at which the box selected in the roadbook is shown: the junction and its roads. */
+  var BOX_ZOOM = 17;
+  /** The radius of the circle of the box selected, in pixels. */
+  var BOX_RADIUS = 12;
   /** The margin around the route when the map shows it whole, in pixels. */
   var MARGIN = 48;
   /** The scroll that changes the zoom by one level until Java sets it, in pixels (ZoomSensitivity.MEDIUM). */
@@ -25,6 +29,7 @@
   map.attributionControl.setPrefix(false);
   var tiles = null;
   var shown = L.layerGroup().addTo(map);
+  var box = L.layerGroup().addTo(map);
   var routes = [];
 
   /** An element holding a text. */
@@ -82,9 +87,10 @@
       return wheel.pixels;
     },
 
-    /** Removes the markers and the routes. */
+    /** Removes the markers, the routes and the box selected. */
     clear: function () {
       shown.clearLayers();
+      box.clearLayers();
       routes = [];
     },
 
@@ -101,6 +107,19 @@
       var route = L.polyline(JSON.parse(points), {className: className});
       routes.push(route);
       shown.addLayer(route);
+    },
+
+    /** Shows the box selected in the roadbook: a circle at its place, centred, the junction close enough to read. */
+    showBox: function (latitude, longitude) {
+      box.clearLayers();
+      box.addLayer(L.circleMarker([latitude, longitude], {className: 'box-place', radius: BOX_RADIUS,
+                                                          interactive: false}));
+      map.setView([latitude, longitude], Math.max(map.getZoom(), BOX_ZOOM));
+    },
+
+    /** Hides the box selected. */
+    hideBox: function () {
+      box.clearLayers();
     },
 
     /** Shows the whole routes. */

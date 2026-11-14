@@ -4,7 +4,11 @@
 # © OpenStreetMap contributors (ODbL): the roads of the extract of the tests of the routing.
 start = 46.77720, 6.64780
 finish = 46.77910, 6.64550
-# number; latitude, longitude; total distance (m); partial distance (m); CAP (degrees, - at the finish)
+# number; latitude, longitude; total distance (m); partial distance (m); CAP (degrees, - at the finish; at a
+# roundabout, read where the route leaves the ring: 20, the direction of the ring at the entry, until 2026-11-14)
 box = 1; 46.77721, 6.64775; 0; 0; 17
-box = 2; 46.77841, 6.64827; 139; 139; 20
+box = 2; 46.77841, 6.64827; 139; 139; 288
 box = 3; 46.77914, 6.64552; 400; 261; -
+# box number; shape; kind of the entry; branches from the left to the right: angle (degrees from straight ahead, the
+# entry at 180 not listed) and kind; index of the exit among them
+tulip = 2; COUNTERCLOCKWISE_ROUNDABOUT; TARMAC; -80 TARMAC, 3 TARMAC, 84 TARMAC; 0

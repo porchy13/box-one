@@ -10,8 +10,9 @@ a road route with a random detour bounded in time, turns it into a roadbook draw
 mode. The name refers to the very first box of a roadbook.
 
 The project is at its beginning: the application shows a map, computes the fastest route between two places,
-generates detours within a budget of time, and exports the roadbook of the route for Terra Pirata, without drawings
-yet; the tulips, the editor, the other exports and the training mode come in the next versions (see
+generates detours within a budget of time, and exports the roadbook of the route for Terra Pirata, with the tulip of
+each junction drawn after the lexicon of the FIA; the other symbols, the editor, the other exports and the training
+mode come in the next versions (see
 [`changelog.md`](changelog.md)).
 
 Licensed under the [Apache License, Version 2.0](LICENSE) (see also [`NOTICE`](NOTICE)). Routing data © OpenStreetMap
@@ -95,10 +96,20 @@ theme, accent and colours following the system.
 - **Roadbook for Terra Pirata**: File › Export the roadbook… (Shortcut+E) writes the roadbook of the route shown (the
   fastest route or the detour) as a GPX file with the extensions of OpenRally, the format read by Terra Pirata: one
   box at the start, one at each instruction of the route (turn, roundabout, road of another name…) and one at the
-  finish, each with its total distance and its heading (CAP) (OpenRally carries no partial distance: the reader
-  computes it), and the track of the route. Import the file into RDS to read it in the application Terra Pirata. The
-  tulips are not drawn yet. The file also holds what Box One needs to open it again: the start and the finish
+  finish, each with its total distance (OpenRally carries no partial distance: the reader computes it), and the
+  track of the route. Each box of a junction carries its **tulip**, drawn after the lexicon of the FIA (the same as
+  the one of the FIM): the route followed in blue with its arrow, from a pin at the bottom, the other roads in black,
+  a tarmac road as a double line, a track (a road classified as a track, or without a hard surface) as a single line;
+  a roundabout as a ring, its exits around it (a divided road, its two halves named alike, counted once) and the part
+  of the ring driven in blue. The heading (CAP) is the one of the road taken, read once out of the junction: for a
+  roundabout, from its exit. As the FIA asks, it is given only where it is needed: at the start, at a junction of four roads or more, and when the road taken
+  is a track. A map imported with an earlier version of Box One knows the tracks by their class only: open it again
+  (File › Open a map…) to draw the gravel roads as tracks. Import the file into RDS to read it in the application
+  Terra Pirata. The file also holds what Box One needs to open it again: the start and the finish
   clicked and, for a detour, its seed, its budget and the kinds of road it avoids.
+- **Roadbook beside the map**: the roadbook of the route shown is drawn at the right of the map, box after box, as on
+  paper: the total and partial distances, the tulip and, where needed, the heading. Selecting a box, with the mouse or
+  the arrows of the keyboard, shows its place on the map, to check the roadbook against the roads.
 - **Open a roadbook**: File › Open a roadbook… (Shortcut+Shift+O) opens a roadbook exported by Box One and shows it
   as it was exported: its start and finish, its route (a detour is drawn alone, without the fastest route), its
   distance and duration and, for a detour, its seed, its budget and the duration of the fastest route; the budget is
@@ -129,15 +140,16 @@ page of the map) with:
 
 | Module | Role |
 |--------|------|
-| `core` | Domain model (geographic points, routes and their maneuvers, roadbooks and their boxes; then the waypoints and the speed zones). No dependency outside the JDK. |
+| `core` | Domain model (geographic points, routes and their maneuvers, the geometry of their junctions, roadbooks, their boxes and their tulips; then the waypoints and the speed zones). No dependency outside the JDK. |
 | `graphhopper` | GraphHopper as one JPMS module (`graphhopper-core`, `graphhopper-web-api` and `osm-legal-default-speeds-jvm` regrouped, as they cannot go on the module path apart). No code of its own. |
-| `routing` | The fastest route by car between two points, possibly through waypoints, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers. |
+| `routing` | The fastest route by car between two points, possibly through waypoints, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers and the roads of the junction of each (roundabouts included). |
 | `detour` | Detours: routes through random waypoints drawn in an ellipse around the start and the finish, within a budget of time, reproducible from their seed. |
-| `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading. |
-| `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3); later the PDF strip and the plain GPX. |
+| `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry. |
+| `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first), and the drawing of the tulips with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
+| `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips as PNG); later the PDF strip and the plain GPX. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |
 
-The catalogues of symbols and the training mode become modules of their own as they are developed.
+The training mode becomes a module of its own when it is developed.
 
 ## Dependencies
 
@@ -146,6 +158,7 @@ The catalogues of symbols and the training mode become modules of their own as t
 | OpenJFX (`javafx-controls`, `javafx-fxml`, `javafx-web`) | User interface, map | compile (`ui`) |
 | Leaflet | Map, bundled in the resources of `ui` (no CDN) | resource (`ui`) |
 | GraphHopper (`graphhopper-core`, `graphhopper-web-api`) and its libraries (Jackson, HPPC, JTS, Janino, Kotlin standard library, osmosis-osm-binary, Protocol Buffers, XML Graphics Commons, SLF4J) | Routing on OpenStreetMap | compile (`graphhopper`, `routing`) |
+| Jackson (`jackson-core`, `jackson-databind`) | Reading the JSON files of the catalogues of symbols | compile (`catalog`) |
 | SLF4J JDK14 provider | Messages of GraphHopper to `java.util.logging` | runtime (`routing`) |
 | JUnit Jupiter | Tests | test |
 | TestFX, Monocle | Headless user interface tests | test (`ui`) |

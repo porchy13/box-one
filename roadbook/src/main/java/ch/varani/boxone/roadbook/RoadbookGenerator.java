@@ -2,17 +2,20 @@ package ch.varani.boxone.roadbook;
 
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Junction;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.Route;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.IntFunction;
 
 /**
  * Turns a route into the boxes of its roadbook (development plan, phase 2): one box at the start, one at each maneuver
- * of the routing engine, one at the finish, each with its total distance, its partial distance and its heading; the
- * tulips come with phase 4.
+ * of the routing engine, one at the finish, each with its total distance, its partial distance and its heading, and
+ * the box of each maneuver with the tulip of its junction (phase 4), when the geometry of the junctions is given.
  *
  * <p><b>Algorithm</b>:</p>
  * <ol>
@@ -22,9 +25,14 @@ import java.util.OptionalInt;
  *       finish, numbered from {@value Box#FIRST};</li>
  *   <li>the total distance of a box is the distance of its point from the start, its partial distance the difference
  *       with the total distance of the previous box (0 for the first box);</li>
- *   <li>the heading of a box is the heading from its point to the first point of the line at least
- *       {@value #HEADING_DISTANCE} metres further, or to the finish if none is, rounded to the degree (360 written 0);
- *       the box of the finish has none, and nor has a box from which the line does not move any more.</li>
+ *   <li>the heading of a box is the heading from the point where the route leaves its junction (its point, or, for
+ *       a roundabout, the point where the route leaves the ring: {@link Junction#departure()}) to the first point of
+ *       the line at least {@value #HEADING_DISTANCE} metres further, or to the finish if none is, rounded to the
+ *       degree (360 written 0): the heading of the road taken (trial in Terra Pirata, 2026-11-14: read from the entry
+ *       of a roundabout, it was the direction of its ring); the box of the finish has none, and nor has a box from
+ *       which the line does not move any more;</li>
+ *   <li>the tulip of the box of a maneuver is drawn from the geometry of its junction ({@link TulipGenerator}); the
+ *       boxes of the start and of the finish have none.</li>
  * </ol>
  *
  * <p><b>Postconditions</b>: the boxes are at least two, their total distances never decrease, and the total distance
@@ -61,13 +69,47 @@ public final class RoadbookGenerator {
   // *******************************************************************************************************************
 
   /**
-   * Generates the roadbook of a route.
+   * Generates the roadbook of a route, without tulips.
    *
    * @param route the route, with its maneuvers.
    *
-   * @return the roadbook: a box at the start, one at each maneuver, one at the finish.
+   * @return the roadbook: a box at the start, one at each maneuver, one at the finish, none with a tulip.
    */
   public static Roadbook generate(final Route route) {
+    return generate(route, _ -> Optional.empty());
+  }
+
+  /**
+   * Generates the roadbook of a route, with the tulips of its junctions.
+   *
+   * @param route the route, with its maneuvers.
+   * @param junctions the geometry of the junctions of the route, one per maneuver, in their order.
+   *
+   * @return the roadbook: a box at the start, one at each maneuver with the tulip of its junction, one at the finish.
+   *
+   * @throws IllegalArgumentException if the junctions are not as many as the maneuvers.
+   */
+  public static Roadbook generate(final Route route, final List<Junction> junctions) {
+    if (junctions.size() != route.maneuvers().size()) {
+      throw new IllegalArgumentException("one junction per maneuver");
+    }
+    final int finish = junctions.size() + 1;
+    return generate(route, rank -> rank == 0 || rank == finish ? Optional.empty()
+                                                               : Optional.of(junctions.get(rank - 1)));
+  }
+
+  /**
+   * Generates the roadbook of a route, each box with the tulip of its junction, if any, its heading read from where
+   * the route leaves the junction.
+   *
+   * @param route the route, with its maneuvers.
+   * @param junctions gives the junction of a box by its rank, from 0, the box of the start, to the number of
+   *                  maneuvers plus one, the box of the finish; none for the start, the finish, or a roadbook
+   *                  without junctions.
+   *
+   * @return the roadbook: a box at the start, one at each maneuver, one at the finish.
+   */
+  private static Roadbook generate(final Route route, final IntFunction<Optional<Junction>> junctions) {
     final List<GeoPoint> points = route.points();
     final double[] along = along(points);
     final List<Integer> places = new ArrayList<>();
@@ -79,8 +121,12 @@ public final class RoadbookGenerator {
     for (int rank = 0; rank < places.size(); rank++) {
       final int index = places.get(rank);
       final double total = along[index];
-      final OptionalInt heading = rank == places.size() - 1 ? OptionalInt.empty() : heading(points, along, index);
-      boxes.add(new Box(Box.FIRST + rank, points.get(index), total, total - previous, heading));
+      final Optional<Junction> junction = junctions.apply(rank);
+      final int departure = Math.min(index + junction.map(Junction::departure).orElse(0), points.size() - 2);
+      final OptionalInt heading = rank == places.size() - 1 ? OptionalInt.empty()
+                                                            : heading(points, along, departure);
+      boxes.add(new Box(Box.FIRST + rank, points.get(index), total, total - previous, heading,
+                        junction.map(TulipGenerator::tulip)));
       previous = total;
     }
     return new Roadbook(route, boxes);

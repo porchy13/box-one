@@ -1,5 +1,6 @@
 package ch.varani.boxone.export;
 
+import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Roadbook;
@@ -21,6 +22,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -35,6 +37,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * too large, malformed, of a newer version or invalid are refused with their reason.
  */
 final class OpenRallyReaderTest {
+
+  /** The catalogue of the FIA, which draws the tulips and tells the headings shown. */
+  private static final Catalogue FIA = Catalogue.fia();
 
   /** The start: the station of Yverdon-les-Bains. */
   private static final GeoPoint START = new GeoPoint(46.7813, 6.641);
@@ -104,11 +109,11 @@ final class OpenRallyReaderTest {
    */
   private static byte[] exported(final Origin origin) throws IOException {
     final Roadbook roadbook = new Roadbook(ROUTE, List.of(
-        new Box(1, START, 0, 0, OptionalInt.of(1)),
-        new Box(2, JUNCTION, DISTANCE / 2, DISTANCE / 2, OptionalInt.of(2)),
-        new Box(3, FINISH, DISTANCE, DISTANCE / 2, OptionalInt.empty())));
+        new Box(1, START, 0, 0, OptionalInt.of(1), Optional.empty()),
+        new Box(2, JUNCTION, DISTANCE / 2, DISTANCE / 2, OptionalInt.of(2), Optional.empty()),
+        new Box(3, FINISH, DISTANCE, DISTANCE / 2, OptionalInt.empty(), Optional.empty())));
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(roadbook, origin, "Yverdon", "Indicative", output);
+    OpenRallyWriter.write(roadbook, origin, "Yverdon", "Indicative", FIA, output);
     return output.toByteArray();
   }
 
@@ -196,9 +201,10 @@ final class OpenRallyReaderTest {
   @DisplayName("Issue #5: a roadbook is read from its file; a missing file or one too large is refused")
   void fileTest(@TempDir final Path folder) throws Exception {
     final Path saved = folder.resolve("roadbook.gpx");
-    final Roadbook roadbook = new Roadbook(ROUTE, List.of(new Box(1, START, 0, 0, OptionalInt.of(1)),
-                                                          new Box(2, FINISH, DISTANCE, DISTANCE, OptionalInt.empty())));
-    OpenRallyWriter.save(roadbook, DETOUR, "Yverdon", "Indicative", saved);
+    final Roadbook roadbook = new Roadbook(ROUTE, List.of(
+        new Box(1, START, 0, 0, OptionalInt.of(1), Optional.empty()),
+        new Box(2, FINISH, DISTANCE, DISTANCE, OptionalInt.empty(), Optional.empty())));
+    OpenRallyWriter.save(roadbook, DETOUR, "Yverdon", "Indicative", FIA, saved);
     final Path large = folder.resolve("large.gpx");
     try (RandomAccessFile file = new RandomAccessFile(large.toFile(), "rw")) {
       file.setLength(OpenRallyReader.MAX_SIZE + 1);

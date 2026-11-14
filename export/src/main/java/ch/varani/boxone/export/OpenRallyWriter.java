@@ -1,9 +1,12 @@
 package ch.varani.boxone.export;
 
+import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.catalog.TulipRenderer;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -14,7 +17,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Base64;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -35,17 +40,18 @@ import java.util.stream.Collectors;
  *       fastest route;</li>
  *   <li>one waypoint ({@code wpt}) per box, at its place: its number as name, its total distance in kilometres with
  *       two decimals (OpenRally only carries the total distance, the reader computes the partial one), its heading
- *       ({@code cap}) when it has one; the box of the start opens the stage ({@code dss}), the box of the finish
- *       closes it ({@code ass}), as in the reference files read by Terra Pirata in phase 0;</li>
+ *       ({@code cap}) when the catalogue shows it (the FIA shows the necessary headings only, §5.11.1); the box of the
+ *       start opens the stage ({@code dss}), the box of the finish closes it ({@code ass}), as in the reference files
+ *       read by Terra Pirata in phase 0; the tulip of the box, drawn with the catalogue as a PNG image in base64
+ *       ({@value #PNG_DATA}…, the only drawing Terra Pirata shows, phase 0);</li>
  *   <li>the track ({@code trk}) of the route, point by point.</li>
  * </ol>
- * <p>The numbers are written with a dot, whatever the language of the application. The tulips and the notes, drawn
- * as PNG for Terra Pirata, come with phase 4. The file is written by the XML writer of the JDK, never by another one
- * found on the module path (Woodstox, brought by GraphHopper through Jackson, would be found first, and writes
- * differently).</p>
+ * <p>The numbers are written with a dot, whatever the language of the application. The notes come later. The file
+ * is written by the XML writer of the JDK, never by another one found on the module path (Woodstox, brought by
+ * GraphHopper through Jackson, would be found first, and writes differently).</p>
  *
- * <p><b>Saving</b>: {@link #save(Roadbook, Origin, String, String, Path)} writes a temporary file next to the file
- * chosen, then moves it in place, so that a failed export never leaves a damaged file (AGENTS.md §5).</p>
+ * <p><b>Saving</b>: {@link #save(Roadbook, Origin, String, String, Catalogue, Path)} writes a temporary file next to
+ * the file chosen, then moves it in place, so that a failed export never leaves a damaged file (AGENTS.md §5).</p>
  *
  * <p>Utility class without state, safe for concurrent use.</p>
  */
@@ -121,6 +127,8 @@ public final class OpenRallyWriter {
   static final String UNITS = "metric";
   /** The number of metres in a kilometre. */
   static final double METRES_PER_KILOMETRE = 1000;
+  /** The beginning of a drawing of OpenRally: a data URI of a PNG image in base64, the only one Terra Pirata shows. */
+  static final String PNG_DATA = "data:image/png;base64,";
   /** The format of the distances: kilometres with two decimals, the precision of a trip meter (10 m). */
   static final String DISTANCE_FORMAT = "%.2f";
   /** The format of the coordinates: degrees with six decimals, about 0.1 m. */
@@ -154,18 +162,19 @@ public final class OpenRallyWriter {
    * @param origin where the route of the roadbook comes from.
    * @param name the name of the roadbook, shown by the reader.
    * @param description the description of the roadbook: the reminder that the route is indicative.
+   * @param catalogue the catalogue of symbols that draws the tulips and tells the headings shown.
    * @param file the file.
    *
    * @throws IOException if the file cannot be written; it is then left as it was.
    */
   public static void save(final Roadbook roadbook, final Origin origin, final String name, final String description,
-                          final Path file) throws IOException {
+                          final Catalogue catalogue, final Path file) throws IOException {
     final Path target = file.toAbsolutePath();
     final Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(),
                                                 TEMPORARY_SUFFIX);
     try {
       try (OutputStream output = Files.newOutputStream(temporary)) {
-        write(roadbook, origin, name, description, output);
+        write(roadbook, origin, name, description, catalogue, output);
       }
       Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     } catch (final IOException e) {
@@ -181,12 +190,13 @@ public final class OpenRallyWriter {
    * @param origin where the route of the roadbook comes from.
    * @param name the name of the roadbook, shown by the reader.
    * @param description the description of the roadbook: the reminder that the route is indicative.
+   * @param catalogue the catalogue of symbols that draws the tulips and tells the headings shown.
    * @param output the stream.
    *
-   * @throws IOException if the stream cannot be written.
+   * @throws IOException if the stream cannot be written, or a tulip drawn.
    */
   public static void write(final Roadbook roadbook, final Origin origin, final String name, final String description,
-                           final OutputStream output) throws IOException {
+                           final Catalogue catalogue, final OutputStream output) throws IOException {
     try {
       final XMLStreamWriter stream = XMLOutputFactory.newDefaultFactory()
                                                      .createXMLStreamWriter(output, StandardCharsets.UTF_8.name());
@@ -203,7 +213,7 @@ public final class OpenRallyWriter {
       stream.writeAttribute("creator", CREATOR);
       metadata(xml, roadbook, origin, name, description);
       for (final Box box : roadbook.boxes()) {
-        waypoint(xml, box, box.number() == roadbook.boxes().size());
+        waypoint(xml, box, box.number() == roadbook.boxes().size(), catalogue);
       }
       track(xml, roadbook, name);
       xml.close();
@@ -286,23 +296,31 @@ public final class OpenRallyWriter {
    * @param xml the writer, inside the element {@code gpx}.
    * @param box the box.
    * @param last whether the box is the last one, the box of the finish.
+   * @param catalogue the catalogue of symbols that draws the tulip and tells whether the heading is shown.
    *
    * @throws XMLStreamException if the stream cannot be written.
+   * @throws IOException if the tulip cannot be drawn.
    */
-  private static void waypoint(final Indented xml, final Box box, final boolean last) throws XMLStreamException {
+  private static void waypoint(final Indented xml, final Box box, final boolean last, final Catalogue catalogue)
+      throws XMLStreamException, IOException {
     xml.open(GPX, "wpt");
     position(xml, box.position());
     xml.text(GPX, "name", Integer.toString(box.number()));
     xml.open(GPX, "extensions");
     xml.text(OPENRALLY, DISTANCE, kilometres(box.total()));
-    if (box.heading().isPresent()) {
-      xml.text(OPENRALLY, "cap", Integer.toString(box.heading().getAsInt()));
+    if (catalogue.headings().shows(box)) {
+      xml.text(OPENRALLY, "cap", Integer.toString(box.heading().orElseThrow()));
     }
     if (box.number() == Box.FIRST) {
       xml.empty(OPENRALLY, "dss");
     }
     if (last) {
       xml.empty(OPENRALLY, "ass");
+    }
+    final Optional<Tulip> tulip = box.tulip();
+    if (tulip.isPresent()) {
+      final byte[] png = TulipRenderer.png(tulip.get(), catalogue.tulip());
+      xml.cdata(OPENRALLY, "tulip", PNG_DATA + Base64.getEncoder().encodeToString(png));
     }
     xml.close();
     xml.close();
@@ -418,6 +436,23 @@ public final class OpenRallyWriter {
       newLine();
       stream.writeStartElement(namespace, name);
       stream.writeCharacters(value);
+      stream.writeEndElement();
+    }
+
+    /**
+     * Writes an element holding a text as a CDATA section, on a new line, as the reference files of the tulips read by
+     * Terra Pirata in phase 0.
+     *
+     * @param namespace the namespace of the element.
+     * @param name the name of the element.
+     * @param value the text, without {@code ]]>}.
+     *
+     * @throws XMLStreamException if the stream cannot be written.
+     */
+    private void cdata(final String namespace, final String name, final String value) throws XMLStreamException {
+      newLine();
+      stream.writeStartElement(namespace, name);
+      stream.writeCData(value);
       stream.writeEndElement();
     }
 

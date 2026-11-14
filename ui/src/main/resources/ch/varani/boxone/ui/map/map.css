@@ -50,3 +50,11 @@ html, body, #map {
     font-weight: 600;
     font-size: 14px;
 }
+
+/* The box selected in the roadbook: a circle in the accent around its place. */
+.box-place {
+    stroke: var(--c-accent);
+    stroke-width: 3;
+    fill: var(--c-accent);
+    fill-opacity: 0.2;
+}

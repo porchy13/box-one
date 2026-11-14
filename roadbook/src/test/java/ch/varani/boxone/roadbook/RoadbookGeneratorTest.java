@@ -1,23 +1,30 @@
 package ch.varani.boxone.roadbook;
 
 import ch.varani.boxone.core.Box;
+import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Junction;
+import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.Route;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests of {@link RoadbookGenerator} (development plan, phase 2) on small lines drawn in Yverdon-les-Bains: a box at
  * the start, at each maneuver and at the finish; the total and partial distances along the line; the heading read
- * {@value RoadbookGenerator#HEADING_DISTANCE} metres down the road, rounded to the degree; no heading at the finish.
+ * {@value RoadbookGenerator#HEADING_DISTANCE} metres down the road, rounded to the degree; no heading at the finish;
+ * the tulip of each maneuver, from the geometry of its junction (phase 4).
  */
 final class RoadbookGeneratorTest {
 
@@ -37,6 +44,8 @@ final class RoadbookGeneratorTest {
   private static final int WEST = 270;
   /** The duration of the routes, unused by the roadbook. */
   private static final Duration DURATION = Duration.ofMinutes(1);
+  /** The bearings of the branches of the junction at {@link #NORTH}: the north, the east and the south. */
+  private static final List<Double> TEE = List.of(0.0, 90.0, 180.0);
   /** The tolerance of the distances, in metres. */
   private static final double TOLERANCE = 1e-6;
 
@@ -137,6 +146,65 @@ final class RoadbookGeneratorTest {
         () -> assertEquals(2, boxes.size()),
         () -> assertEquals(0, boxes.getLast().total()),
         () -> assertEquals(OptionalInt.empty(), boxes.getFirst().heading()));
+  }
+
+  /**
+   * With the geometry of its junctions, the box of each maneuver has the tulip of its junction; the boxes of the start
+   * and of the finish have none.
+   */
+  @Test
+  @DisplayName("Phase 4: the box of each maneuver has the tulip of its junction, the start and the finish none")
+  void tulipsTest() {
+    final Route route = route(List.of(START, NORTH, NORTH_EAST, FINISH), List.of(1));
+    final Junction tee = new Junction(JunctionShape.CROSSING, TEE, List.of(BranchKind.TARMAC, BranchKind.TRACK,
+                                                                          BranchKind.TARMAC), 2, 1, 0);
+    final List<Box> boxes = RoadbookGenerator.generate(route, List.of(tee)).boxes();
+    assertAll(
+        () -> assertEquals(Optional.empty(), boxes.getFirst().tulip()),
+        () -> assertEquals(Optional.of(TulipGenerator.tulip(tee)), boxes.get(1).tulip()),
+        () -> assertEquals(Optional.empty(), boxes.getLast().tulip()),
+        () -> assertEquals(Optional.empty(), RoadbookGenerator.generate(route).boxes().get(1).tulip()));
+  }
+
+  /**
+   * The heading of the box of a junction is read from where the route leaves it, its departure: for a roundabout, the
+   * point where the route leaves the ring, not its entry — on a line going east, then back west, the west; a departure
+   * beyond the last stretch of the line is read from that stretch; a departure of 0 reads it from the box.
+   */
+  @Test
+  @DisplayName("Phase 4: the CAP of a roundabout is read where the route leaves its ring")
+  void departureTest() {
+    final Route route = route(List.of(START, NORTH, NORTH_EAST, NORTH), List.of(1));
+    final OptionalInt west = OptionalInt.of(WEST);
+    assertAll(
+        () -> assertEquals(west, RoadbookGenerator.generate(route, List.of(roundabout(1))).boxes().get(1).heading()),
+        () -> assertEquals(west, RoadbookGenerator.generate(route, List.of(roundabout(route.points().size())))
+                                                  .boxes().get(1).heading()),
+        () -> assertEquals(OptionalInt.of(EAST),
+                           RoadbookGenerator.generate(route, List.of(roundabout(0))).boxes().get(1).heading()));
+  }
+
+  /**
+   * The geometry of the junctions must give one junction per maneuver.
+   */
+  @Test
+  @DisplayName("Phase 4: a roadbook needs one junction per maneuver")
+  void junctionsCountTest() {
+    final Route route = route(List.of(START, NORTH, NORTH_EAST, FINISH), List.of(1));
+    final List<Junction> none = List.of();
+    assertThrows(IllegalArgumentException.class, () -> RoadbookGenerator.generate(route, none));
+  }
+
+  /**
+   * Creates a roundabout of three roads, entered from the south, left by the north.
+   *
+   * @param departure the number of points of the route from its entry to the point where the route leaves its ring.
+   *
+   * @return the roundabout.
+   */
+  private static Junction roundabout(final int departure) {
+    return new Junction(JunctionShape.COUNTERCLOCKWISE_ROUNDABOUT, TEE,
+                        Collections.nCopies(TEE.size(), BranchKind.TARMAC), 2, 1, departure);
   }
 
 }

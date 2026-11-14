@@ -1,6 +1,8 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Route;
 import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
 import ch.varani.boxone.export.Origin;
@@ -127,7 +129,8 @@ final class SmokeTest {
 
   /**
    * Imports the extract of the smoke test into a temporary folder, computes a route on it, writes its roadbook into
-   * the folder and reads it back (issue #5 of GitLab: the parser of XML of the JDK); the folder is deleted
+   * the folder, its tulips drawn as PNG by the catalogue of the FIA (phase 4: its JSON file, Java 2D and Image I/O of
+   * the JDK), and reads it back (issue #5 of GitLab: the parser of XML of the JDK); the folder is deleted
    * afterwards. The folder is made in the data folder of the user ({@link DataFolder}), private to the user, rather
    * than in the shared temporary folder of the system.
    *
@@ -146,8 +149,10 @@ final class SmokeTest {
       final Origin origin = new Origin.Fastest(STATION, CASTLE);
       final Path roadbook = folder.resolve("roadbook.gpx");
       try (GraphHopperRouter router = GraphHopperRouter.importMap(extract, folder.resolve(DataFolder.GRAPH))) {
-        OpenRallyWriter.save(RoadbookGenerator.generate(router.route(STATION, CASTLE)), origin, SMOKE_FOLDER,
-                             Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE), roadbook);
+        final Route route = router.route(STATION, CASTLE);
+        OpenRallyWriter.save(RoadbookGenerator.generate(route, router.junctions(route)), origin, SMOKE_FOLDER,
+                             Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE),
+                             Catalogue.fia(), roadbook);
       }
       check(readsBack(roadbook, origin), "The roadbook exported cannot be opened again");
     } finally {

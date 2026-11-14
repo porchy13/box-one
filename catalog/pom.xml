@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- The catalogues of symbols (AGENTS.md, 3; development plan, phase 4): one catalogue = one JSON file with SVG
+         paths, the FIA first, and the drawing of the tulips with them, as PNG for Terra Pirata. Pure Java: the domain
+         model, Java 2D of the JDK and the JSON parser of Jackson, already a library of the application. -->
+    <parent>
+        <groupId>ch.varani.boxone</groupId>
+        <artifactId>box-one</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>box-one-catalog</artifactId>
+    <name>Box One catalog</name>
+
+    <properties>
+        <root.dir>${project.basedir}/..</root.dir>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-core</artifactId>
+        </dependency>
+
+        <!-- The JSON of the catalogues, read as a tree: Jackson, Apache-2.0, already on the module path of the
+             application through GraphHopper, at the version of the parent. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

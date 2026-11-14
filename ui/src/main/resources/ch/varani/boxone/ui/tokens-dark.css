@@ -7,5 +7,8 @@
     -c-danger: #E0787B;
     -c-warning: #D9A24F;
     -c-success: #6CC08B;
+    /* The roadbook, drawn as on paper in both themes (DESIGN.md §14; FIA: "in colour on white background"). */
+    -c-paper: #FFFFFF;
+    -c-ink: #000000;
     -c-shadow: rgba(0, 0, 0, 0.40);
 }
