@@ -2,10 +2,13 @@ package ch.varani.boxone.export;
 
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
+import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Roadbook;
+import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
 import org.junit.jupiter.api.DisplayName;
@@ -96,6 +99,18 @@ final class OpenRallyWriterTest {
   /** The roadbook of the tests as a detour avoiding the toll roads and the motorways. */
   private static final Origin DETOUR = new Origin.Detour(CLICKED_START, CLICKED_FINISH, SEED, "PERCENT", PERCENT,
                                                          Set.of("TOLL", "MOTORWAY"), FASTEST_DURATION);
+  /** The shift of the total distance of the box corrected, in metres. */
+  private static final double SHIFT = 12.5;
+  /** The heading typed for the box corrected, in degrees. */
+  private static final int TYPED_HEADING = 45;
+  /**
+   * The changes of the user: a box added at the bend, the box of the junction corrected, and the heading of the start
+   * hidden.
+   */
+  private static final RoadbookEdits EDITS = new RoadbookEdits(
+      List.of(BEND), List.of(JUNCTION),
+      List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(TYPED_HEADING), HeadingDisplay.SHOWN),
+              new BoxEdit(START).withDisplay(HeadingDisplay.HIDDEN)));
   /** The roadbook of the tests: three boxes on a line of four points. */
   private static final Roadbook ROADBOOK = new Roadbook(
       new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1), LENGTH, Duration.ofMinutes(3)),
@@ -112,7 +127,7 @@ final class OpenRallyWriterTest {
    */
   private static byte[] written() throws IOException {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, output);
+    OpenRallyWriter.write(ROADBOOK, DETOUR, EDITS, NAME, DESCRIPTION, FIA, output);
     return output.toByteArray();
   }
 
@@ -125,7 +140,7 @@ final class OpenRallyWriterTest {
    */
   private static byte[] writtenFastest() throws IOException {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(ROADBOOK, FASTEST, NAME, DESCRIPTION, FIA, output);
+    OpenRallyWriter.write(ROADBOOK, FASTEST, RoadbookEdits.NONE, NAME, DESCRIPTION, FIA, output);
     return output.toByteArray();
   }
 
@@ -168,7 +183,7 @@ final class OpenRallyWriterTest {
                 new Box(3, BEND, JUNCTION_TOTAL, 0, OptionalInt.of(JUNCTION_HEADING), Optional.of(crossroads)),
                 new Box(4, FINISH, LENGTH, LENGTH - JUNCTION_TOTAL, OptionalInt.empty(), Optional.empty())));
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(roadbook, DETOUR, NAME, DESCRIPTION, FIA, output);
+    OpenRallyWriter.write(roadbook, DETOUR, RoadbookEdits.NONE, NAME, DESCRIPTION, FIA, output);
     final Document document = parse(output.toByteArray());
     final NodeList tulips = document.getElementsByTagNameNS(OpenRallyWriter.OPENRALLY, "tulip");
     final NodeList caps = document.getElementsByTagNameNS(OpenRallyWriter.OPENRALLY, "cap");
@@ -295,7 +310,8 @@ final class OpenRallyWriterTest {
   void fastestOriginTest() throws Exception {
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
     OpenRallyWriter.write(ROADBOOK, new Origin.Detour(CLICKED_START, CLICKED_FINISH, SEED, "MINUTES", 0, Set.of(),
-                                                      FASTEST_DURATION), NAME, DESCRIPTION, FIA, output);
+                                                      FASTEST_DURATION), RoadbookEdits.NONE, NAME, DESCRIPTION,
+                          FIA, output);
     final Document avoidingNothing = parse(output.toByteArray());
     assertAll(
         () -> assertEquals(List.of(), boxOne(parse(writtenFastest()), OpenRallyWriter.DETOUR)),
@@ -303,6 +319,33 @@ final class OpenRallyWriterTest {
                               .hasAttribute(OpenRallyWriter.AVOIDED)),
         () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
             new StreamSource(new ByteArrayInputStream(output.toByteArray())))));
+  }
+
+  /**
+   * The route of Box One holds the changes of the user: the places of the boxes added and removed, and the
+   * corrections of the boxes, the heading typed only when there is one; a roadbook without change holds none.
+   *
+   * @throws Exception if the file cannot be written or read.
+   */
+  @Test
+  @DisplayName("Phase 5: the roadbook exported holds the boxes added, removed and corrected by the user")
+  void editsTest() throws Exception {
+    final Document document = parse(written());
+    final List<Element> added = boxOne(document, OpenRallyWriter.ADDED);
+    final List<Element> removed = boxOne(document, OpenRallyWriter.REMOVED);
+    final List<Element> boxes = boxOne(document, OpenRallyWriter.BOX);
+    assertAll(
+        () -> assertEquals(1, boxOne(document, OpenRallyWriter.EDITS).size()),
+        () -> assertEquals("46.779000", added.getFirst().getAttribute(OpenRallyWriter.LATITUDE)),
+        () -> assertEquals(1, removed.size()),
+        () -> assertEquals("6.643457", removed.getFirst().getAttribute(OpenRallyWriter.LONGITUDE)),
+        () -> assertEquals("12.5", boxes.getFirst().getAttribute(OpenRallyWriter.SHIFT)),
+        () -> assertEquals("45", boxes.getFirst().getAttribute(OpenRallyWriter.HEADING)),
+        () -> assertEquals("SHOWN", boxes.getFirst().getAttribute(OpenRallyWriter.DISPLAY)),
+        () -> assertEquals("0.0", boxes.getLast().getAttribute(OpenRallyWriter.SHIFT)),
+        () -> assertFalse(boxes.getLast().hasAttribute(OpenRallyWriter.HEADING)),
+        () -> assertEquals("HIDDEN", boxes.getLast().getAttribute(OpenRallyWriter.DISPLAY)),
+        () -> assertEquals(List.of(), boxOne(parse(writtenFastest()), OpenRallyWriter.EDITS)));
   }
 
   /**
@@ -401,7 +444,8 @@ final class OpenRallyWriterTest {
         throw new IOException("full");
       }
     };
-    assertThrows(IOException.class, () -> OpenRallyWriter.write(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, broken));
+    assertThrows(IOException.class,
+                 () -> OpenRallyWriter.write(ROADBOOK, DETOUR, EDITS, NAME, DESCRIPTION, FIA, broken));
   }
 
   /**
@@ -415,7 +459,7 @@ final class OpenRallyWriterTest {
   @DisplayName("Phase 2: the roadbook is saved in place of the file chosen")
   void saveTest(@TempDir final Path folder) throws IOException {
     final Path file = Files.writeString(folder.resolve("roadbook.gpx"), "former");
-    OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, file);
+    OpenRallyWriter.save(ROADBOOK, DETOUR, EDITS, NAME, DESCRIPTION, FIA, file);
     try (Stream<Path> files = Files.list(folder)) {
       assertAll(
           () -> assertArrayEquals(written(), Files.readAllBytes(file)),
@@ -438,9 +482,9 @@ final class OpenRallyWriterTest {
     Files.writeString(occupied.resolve("kept.txt"), "kept");
     assertAll(
         () -> assertThrows(IOException.class,
-                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, missing)),
+                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, EDITS, NAME, DESCRIPTION, FIA, missing)),
         () -> assertThrows(IOException.class,
-                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, NAME, DESCRIPTION, FIA, occupied)),
+                           () -> OpenRallyWriter.save(ROADBOOK, DETOUR, EDITS, NAME, DESCRIPTION, FIA, occupied)),
         () -> assertFalse(Files.exists(missing)),
         () -> assertTrue(Files.isDirectory(occupied)));
     try (Stream<Path> files = Files.list(folder)) {

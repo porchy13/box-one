@@ -183,6 +183,17 @@
     -fx-padding: 0;
 }
 
+/* A box hovered or selected stays on paper, in both themes: the rules of the lists (base.css) would put it on
+   -c-selection, dark in the dark theme, under the ink. The selection is the frame in the accent below. The last
+   selector matches the one of the focused list, and wins by coming later. */
+.roadbook-strip .box-cell:filled:hover,
+.roadbook-strip .box-cell:filled:selected,
+.roadbook-strip:focused .box-cell:filled:focused:selected {
+    -fx-background-color: -c-paper;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+}
+
 .roadbook-strip .box-paper {
     -fx-spacing: 12;
     -fx-padding: 8 12 8 12;
@@ -217,6 +228,19 @@
     -fx-alignment: top-right;
     -fx-font-weight: 700;
     -fx-text-fill: -c-ink;
+}
+
+/* The editor of the box selected, under the strip (phase 5, §6: the detail of the selected element): a form, its fields
+   one under the other in the narrow panel, separated from the strip by a hairline. */
+.roadbook-pane > .box-editor {
+    -fx-spacing: 4;
+    -fx-padding: 12;
+    -fx-border-color: -c-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.roadbook-pane > .box-editor > .field-label {
+    -fx-padding: 4 0 0 0;
 }
 
 .roadbook-empty {

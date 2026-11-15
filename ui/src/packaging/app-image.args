@@ -11,3 +11,4 @@
 --java-options "--add-modules=ALL-MODULE-PATH"
 --java-options "-Djava.library.path=$APPDIR/../native"
 --java-options "-XX:MaxRAMPercentage=50"
+--java-options "-Djava.locale.providers=HOST,CLDR"

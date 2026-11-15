@@ -7,6 +7,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.Spinner;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +17,7 @@ import org.testfx.api.FxRobot;
 import org.testfx.framework.junit5.ApplicationExtension;
 
 import java.util.ArrayList;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,6 +33,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 @ExtendWith(ApplicationExtension.class)
 final class SettingsDialogTest {
+
+  /** The number of recent roadbooks kept of the tests. */
+  private static final int KEPT = 8;
+  /** The recent roadbooks of the tests, kept by the dialog. */
+  private static final List<Path> RECENT = List.of(Path.of("recent.gpx"));
 
   /**
    * The rules of the fields, as the user changes the provider, types the key and chooses the sensitivity of the zoom.
@@ -82,7 +89,7 @@ final class SettingsDialogTest {
    * @param robot the TestFX robot.
    */
   @Test
-  @DisplayName("Phase 1: the settings show the current provider and key")
+  @DisplayName("Phase 1: the settings show the current provider, key and number of recent roadbooks")
   void currentTest(final FxRobot robot) {
     final AtomicReference<Dialog<Settings>> shown = new AtomicReference<>();
     robot.interact(() -> {
@@ -90,8 +97,8 @@ final class SettingsDialogTest {
       owner.setScene(new Scene(new StackPane()));
       owner.show();
       shown.set(new SettingsDialog(owner, Languages.bundle(Languages.FRENCH),
-                                   new Settings(TileProvider.MAPTILER, "kept", ZoomSensitivity.VERY_HIGH, Set.of()),
-                                   List.of()).getDialog());
+                                   new Settings(TileProvider.MAPTILER, "kept", ZoomSensitivity.VERY_HIGH, Set.of(),
+                                                KEPT, RECENT), List.of()).getDialog());
     });
     final Dialog<Settings> dialog = shown.get();
     @SuppressWarnings("unchecked")
@@ -100,6 +107,8 @@ final class SettingsDialogTest {
     final ComboBox<String> zoom = (ComboBox<String>) dialog.getDialogPane().lookup("#" + SettingsDialog.ZOOM_ID);
     final PasswordField key = (PasswordField) dialog.getDialogPane().lookup(".password-field");
     final ButtonType cancel = dialog.getDialogPane().getButtonTypes().getLast();
+    final Spinner<?> recent = (Spinner<?>) dialog.getDialogPane().lookup("#" + SettingsDialog.RECENT_ID);
+    final Settings result = dialog.getResultConverter().call(dialog.getDialogPane().getButtonTypes().getFirst());
     assertAll(
         () -> assertEquals("Réglages", dialog.getTitle()),
         () -> assertEquals(List.of("Cartes nationales (swisstopo)", "MapTiler (OpenStreetMap)"), tiles.getItems()),
@@ -108,6 +117,9 @@ final class SettingsDialogTest {
         () -> assertEquals(List.of("Faible", "Moyenne", "Forte", "Très forte"), zoom.getItems()),
         () -> assertEquals(ZoomSensitivity.VERY_HIGH.ordinal(), zoom.getSelectionModel().getSelectedIndex()),
         () -> assertFalse(key.isDisable()),
+        () -> assertEquals(KEPT, recent.getValue()),
+        () -> assertEquals(KEPT, result.recentCount()),
+        () -> assertEquals(RECENT, result.recent()),
         () -> assertNull(dialog.getResultConverter().call(cancel)));
   }
 

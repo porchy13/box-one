@@ -14,6 +14,10 @@
 
     <properties>
         <root.dir>${project.basedir}/..</root.dir>
+        <!-- The only library of the module is the JDK. The plugin of SonarQube sets sonar.java.libraries from the
+             dependencies of a module, never for a module without any, and the Java analyser then warns that the
+             property is missing: it is given the jar through which SonarQube reads the classes of the JDK. -->
+        <sonar.java.libraries>${java.home}/lib/jrt-fs.jar</sonar.java.libraries>
     </properties>
 
     <dependencies>

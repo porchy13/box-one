@@ -53,8 +53,9 @@ mvn -pl ui javafx:run
 ```
 
 The application speaks the language of the system: French (formats of `fr-CH`), or English (`en-GB`) for any other
-language. Its interface follows [`DESIGN.md`](DESIGN.md): native menus (the global menu bar on macOS), light or dark
-theme, accent and colours following the system.
+language. The numbers follow the format chosen in the settings of macOS or Windows (e.g. a decimal point in Swiss
+French) when the system is in the language of the application. Its interface follows [`DESIGN.md`](DESIGN.md):
+native menus (the global menu bar on macOS), light or dark theme, accent and colours following the system.
 
 ## Features
 
@@ -93,7 +94,9 @@ theme, accent and colours following the system.
   the roadbook has many tulips to read; no waypoint lies on them nor on a service road (driveway, parking aisle). It is drawn as a solid line over the fastest route, with its distance
   and duration in the card, and its seed at the right of the status bar, where it can be selected and copied: the
   same seed, with the same start, finish, budget, kinds avoided and map, gives the same detour again. The roadbook exported is then the one of the detour.
-- **Roadbook for Terra Pirata**: File › Export the roadbook… (Shortcut+E) writes the roadbook of the route shown (the
+  Its start or its finish moved, the detour is generated again between them with its budget, its kinds avoided and
+  its seed; if none is found, the fastest route is shown, and the status bar says why.
+- **Roadbook for Terra Pirata**: File › Save the roadbook as… (Shortcut+Shift+S) writes the roadbook of the route shown (the
   fastest route or the detour) as a GPX file with the extensions of OpenRally, the format read by Terra Pirata: one
   box at the start, one at each instruction of the route (turn, roundabout, road of another name…) and one at the
   finish, each with its total distance (OpenRally carries no partial distance: the reader computes it), and the
@@ -116,6 +119,22 @@ theme, accent and colours following the system.
   proposed for the next detour. It can be exported again, and once a map is open, Route › Generate a detour… with its
   seed, budget and kinds of road generates the same detour again. Only the roadbooks exported by Box One can be
   opened; a file that cannot be opened is reported in a dialog saying why, and the route shown stays.
+- **Save, recent roadbooks**: File › Save the roadbook (Shortcut+S) writes the roadbook again into its file, the
+  one opened or saved last, without asking; Save the roadbook as… (Shortcut+Shift+S) chooses another file. The title
+  of the window gives the name of the file and says "(modified)" while the roadbook differs from it. Closing with
+  changes not saved asks whether to save them (Save, Don't Save, Cancel), and a roadbook being saved is saved before
+  Box One closes. File › Open a recent roadbook opens one of the roadbooks opened or saved last: 5 by default, up to
+  20 in the settings (Roadbooks section); a roadbook moved or deleted since is removed from the list, with a message.
+- **Correct the roadbook**: the box selected in the roadbook is corrected under it: its total distance (empty for the
+  distance computed; between the box before and the box after), its heading (empty for the heading computed) and
+  whether the heading is shown (where the FIA asks for it, always or never); Reset the box removes its corrections,
+  Remove the box, or the key Delete (Backspace on macOS) in the roadbook, removes it (not the start nor the finish). A right-click on the route, Add a box here, adds a box at
+  the nearest point of the route, within 25 m of the click. The box selected, but the start and the finish, is moved
+  by dragging its circle on the map: the circle follows the route, and where it is dropped, the box takes the
+  distances, the tulip and the heading of its new place (its distance and heading typed are dropped, the display of
+  its heading kept). Each change can be undone with Edit › Undo, the map staying where it is. The changes
+  are kept by their places when the start or the finish moves or a detour is generated, wherever the new route still
+  passes; they are exported with the roadbook and opened with it.
 
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.
@@ -140,11 +159,11 @@ page of the map) with:
 
 | Module | Role |
 |--------|------|
-| `core` | Domain model (geographic points, routes and their maneuvers, the geometry of their junctions, roadbooks, their boxes and their tulips; then the waypoints and the speed zones). No dependency outside the JDK. |
+| `core` | Domain model (geographic points, routes and their maneuvers, the geometry of their junctions, roadbooks, their boxes and their tulips, the changes of the user to a roadbook; then the waypoints and the speed zones). No dependency outside the JDK. |
 | `graphhopper` | GraphHopper as one JPMS module (`graphhopper-core`, `graphhopper-web-api` and `osm-legal-default-speeds-jvm` regrouped, as they cannot go on the module path apart). No code of its own. |
 | `routing` | The fastest route by car between two points, possibly through waypoints, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers and the roads of the junction of each (roundabouts included). |
 | `detour` | Detours: routes through random waypoints drawn in an ellipse around the start and the finish, within a budget of time, reproducible from their seed. |
-| `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry. |
+| `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry; the changes of the user applied to it, and kept by their places when the route changes. |
 | `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first), and the drawing of the tulips with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
 | `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips as PNG); later the PDF strip and the plain GPX. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |

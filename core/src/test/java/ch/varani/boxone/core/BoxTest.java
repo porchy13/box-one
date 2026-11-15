@@ -11,12 +11,15 @@ import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of {@link Box}: a box keeps its number, its place, its distances and its heading, the box of the finish has
- * no heading, the box of a junction keeps its tulip, and a box rejects a number below 1, an invalid distance and a
- * heading beyond 0–359 degrees.
+ * no heading, the box of a junction keeps its tulip, a box generated shows its heading as the catalogue decides and a
+ * box corrected as the user chose, and a box rejects a number below 1, an invalid distance and a heading beyond 0–359
+ * degrees.
  */
 final class BoxTest {
 
@@ -122,16 +125,43 @@ final class BoxTest {
   }
 
   /**
-   * A missing place, heading or tulip is a programming error.
+   * A box generated shows its heading as the catalogue decides; a box corrected keeps the display chosen.
    */
   @Test
-  @DisplayName("A box without its place, its heading or its tulip is a programming error")
+  @DisplayName("Phase 5: a box generated shows its heading as the catalogue decides, a box corrected as chosen")
+  void displayTest() {
+    final Optional<Tulip> none = Optional.empty();
+    assertAll(
+        () -> assertEquals(HeadingDisplay.RULE, new Box(1, STATION, TOTAL, PARTIAL, EAST, none).display()),
+        () -> assertEquals(HeadingDisplay.HIDDEN,
+                           new Box(1, STATION, TOTAL, PARTIAL, EAST, none, HeadingDisplay.HIDDEN).display()));
+  }
+
+  /**
+   * The headings from 0 to 359 degrees are valid, the others not.
+   */
+  @Test
+  @DisplayName("Phase 2: a heading is a whole number of degrees from 0 to 359")
+  void isHeadingTest() {
+    assertAll(
+        () -> assertTrue(Box.isHeading(Box.MIN_HEADING)),
+        () -> assertTrue(Box.isHeading(Box.MAX_HEADING)),
+        () -> assertFalse(Box.isHeading(-1)),
+        () -> assertFalse(Box.isHeading(FULL_TURN)));
+  }
+
+  /**
+   * A missing place, heading, tulip or display is a programming error.
+   */
+  @Test
+  @DisplayName("A box without its place, its heading, its tulip or its display is a programming error")
   void nullTest() {
     final Optional<Tulip> none = Optional.empty();
     assertAll(
         () -> assertThrows(NullPointerException.class, () -> new Box(1, null, TOTAL, PARTIAL, EAST, none)),
         () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, null, none)),
-        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, null)));
+        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, null)),
+        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, none, null)));
   }
 
 }

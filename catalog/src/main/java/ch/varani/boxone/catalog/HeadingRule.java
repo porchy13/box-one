@@ -11,7 +11,8 @@ import ch.varani.boxone.core.Tulip;
  * <p><b>Rule</b>: a box shows its heading if it has one and either has no tulip (the box of the start, where the
  * heading to take is given, §5.11.3), or its tulip has at least {@code branches} branches besides the entry (a
  * complicated crossing), or, if {@code tracks}, its exit is a track. Confirmed by the maintainer (2026-11-14), with 3
- * branches.
+ * branches. The user may show or hide the heading of a box in the editor of the roadbook (phase 5,
+ * {@link ch.varani.boxone.core.HeadingDisplay}): that choice prevails over the rule.
  * </p>
  *
  * <p>Immutable, safe for concurrent use.</p>
@@ -30,10 +31,15 @@ public record HeadingRule(int branches, boolean tracks) {
    *
    * @param box the box.
    *
-   * @return {@code true} if the box has a heading and the rule asks for it.
+   * @return {@code true} if the box has a heading and the user chose to show it, or left it to the rule and the rule
+   *         asks for it.
    */
   public boolean shows(final Box box) {
-    return box.heading().isPresent() && box.tulip().map(this::needs).orElse(true);
+    return box.heading().isPresent() && switch (box.display()) {
+      case SHOWN -> true;
+      case HIDDEN -> false;
+      case RULE -> box.tulip().map(this::needs).orElse(true);
+    };
   }
 
   /**

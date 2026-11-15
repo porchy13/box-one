@@ -1,7 +1,9 @@
 package ch.varani.boxone.ui;
 
 import javafx.concurrent.Worker;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.web.WebView;
+import javafx.stage.Window;
 import org.testfx.api.FxRobot;
 import org.testfx.util.WaitForAsyncUtils;
 
@@ -11,7 +13,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Helpers of the tests of the page of the map: wait for the page, run a script in it, click on it.
+ * Helpers of the tests of the page of the map: wait for the page, run a script in it, click on it, read its state
+ * (the box shown, its centre and zoom, its colours) and its context menu.
  *
  * <p>Utility class without state.</p>
  */
@@ -108,6 +111,57 @@ final class MapPages {
    */
   static int count(final FxRobot robot, final WebView view, final String selector) {
     return ((Number) script(robot, view, "document.querySelectorAll('" + selector + "').length")).intValue();
+  }
+
+  /**
+   * Tells whether the box shown on the map can be dragged.
+   *
+   * @param robot the TestFX robot.
+   * @param view the view of the map.
+   *
+   * @return {@code true} if the circle of the box is draggable.
+   */
+  static boolean draggableBox(final FxRobot robot, final WebView view) {
+    return (Boolean) script(robot, view, "document.querySelector('.box-place')"
+                                         + ".classList.contains('leaflet-marker-draggable')");
+  }
+
+  /**
+   * Returns the centre and the zoom of the map.
+   *
+   * @param robot the TestFX robot.
+   * @param view the view of the map.
+   *
+   * @return the latitude and the longitude of the centre, rounded to 4 decimals, and the zoom.
+   */
+  static String mapView(final FxRobot robot, final WebView view) {
+    return (String) script(robot, view, "boxOne.map.getCenter().lat.toFixed(4) + ' '"
+                                         + " + boxOne.map.getCenter().lng.toFixed(4) + ' '"
+                                         + " + boxOne.map.getZoom()");
+  }
+
+  /**
+   * Returns a colour token of the page of the map.
+   *
+   * @param robot the TestFX robot.
+   * @param view the view of the map.
+   * @param token the name of the token, without its prefix ({@code accent} for {@code --c-accent}).
+   *
+   * @return the value of the variable {@code --c-<token>} of the page.
+   */
+  static String color(final FxRobot robot, final WebView view, final String token) {
+    return String.valueOf(script(robot, view, "document.documentElement.style.getPropertyValue('--c-"
+                                             + token + "').trim()"));
+  }
+
+  /**
+   * Returns the context menu of the map, shown or hidden.
+   *
+   * @return the context menu.
+   */
+  static ContextMenu menu() {
+    return Window.getWindows().stream().filter(ContextMenu.class::isInstance).map(ContextMenu.class::cast)
+                 .findFirst().orElseThrow();
   }
 
 }

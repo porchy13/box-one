@@ -1,0 +1,106 @@
+package ch.varani.boxone.core;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.OptionalInt;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Tests of {@link BoxEdit}: a correction keeps its place, its shift, its heading and its display, changes one of them
+ * at a time, moves to another place, tells when it changes nothing, and rejects a shift that is not finite and a
+ * heading beyond 0–359 degrees.
+ */
+final class BoxEditTest {
+
+  /** The place of the box: the station of Yverdon-les-Bains. */
+  private static final GeoPoint STATION = new GeoPoint(46.7813, 6.6410);
+  /** Another place: the castle of Yverdon-les-Bains. */
+  private static final GeoPoint CASTLE = new GeoPoint(46.7785, 6.6413);
+  /** A shift of the total distance, in metres. */
+  private static final double SHIFT = -40;
+  /** A heading typed, in degrees: west. */
+  private static final OptionalInt WEST = OptionalInt.of(270);
+  /** A full turn, in degrees: written 0, never 360. */
+  private static final int FULL_TURN = 360;
+
+  /**
+   * A correction keeps its values, and changes one of them at a time.
+   */
+  @Test
+  @DisplayName("Phase 5: a correction keeps its place, its shift, its heading and its display")
+  void valuesTest() {
+    final BoxEdit edit = new BoxEdit(STATION).withShift(SHIFT).withHeading(WEST).withDisplay(HeadingDisplay.SHOWN);
+    final BoxEdit moved = edit.at(CASTLE);
+    assertAll(
+        () -> assertEquals(STATION, edit.place()),
+        () -> assertEquals(SHIFT, edit.shift()),
+        () -> assertEquals(WEST, edit.heading()),
+        () -> assertEquals(HeadingDisplay.SHOWN, edit.display()),
+        () -> assertEquals(new BoxEdit(CASTLE, SHIFT, WEST, HeadingDisplay.SHOWN), moved));
+  }
+
+  /**
+   * A correction without shift, heading nor display changes nothing; any of them changes the box.
+   */
+  @Test
+  @DisplayName("Phase 5: a correction changes nothing without shift, heading typed nor display chosen")
+  void emptyTest() {
+    final BoxEdit none = new BoxEdit(STATION);
+    assertAll(
+        () -> assertTrue(none.isEmpty()),
+        () -> assertFalse(none.withShift(SHIFT).isEmpty()),
+        () -> assertFalse(none.withHeading(WEST).isEmpty()),
+        () -> assertFalse(none.withDisplay(HeadingDisplay.HIDDEN).isEmpty()));
+  }
+
+  /**
+   * A shift that is not a finite number is rejected.
+   *
+   * @param shift the invalid shift.
+   */
+  @ParameterizedTest
+  @ValueSource(doubles = {Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY})
+  @DisplayName("Phase 5: a shift of the total distance that is not finite is rejected")
+  void invalidShiftTest(final double shift) {
+    final BoxEdit edit = new BoxEdit(STATION);
+    final DomainException rejected = assertThrows(DomainException.class, () -> edit.withShift(shift));
+    assertEquals(ValidationError.INVALID_DISTANCE, rejected.getError());
+  }
+
+  /**
+   * A heading below 0 or beyond 359 degrees is rejected.
+   *
+   * @param heading the invalid heading, in degrees.
+   */
+  @ParameterizedTest
+  @ValueSource(ints = {-1, FULL_TURN})
+  @DisplayName("Phase 5: a heading typed beyond 0–359 degrees is rejected")
+  void invalidHeadingTest(final int heading) {
+    final BoxEdit edit = new BoxEdit(STATION);
+    final OptionalInt invalid = OptionalInt.of(heading);
+    final DomainException rejected = assertThrows(DomainException.class, () -> edit.withHeading(invalid));
+    assertEquals(ValidationError.INVALID_HEADING, rejected.getError());
+  }
+
+  /**
+   * A missing place, heading or display is a programming error.
+   */
+  @Test
+  @DisplayName("A correction without its place, its heading or its display is a programming error")
+  void nullTest() {
+    final OptionalInt none = OptionalInt.empty();
+    assertAll(
+        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(null)),
+        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, null, HeadingDisplay.RULE)),
+        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, null)));
+  }
+
+}

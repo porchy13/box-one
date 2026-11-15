@@ -2,6 +2,7 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
@@ -23,6 +24,7 @@ import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
@@ -112,8 +114,9 @@ final class SmokeTest {
     // The page holds its bridge by a weak reference only: the map is kept until its events, or a collection drops it.
     final AtomicReference<MapView> kept = new AtomicReference<>();
     Platform.runLater(() -> {
-      final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), place -> events.countDown(),
-                                       (end, place) -> events.countDown());
+      final Consumer<GeoPoint> counted = place -> events.countDown();
+      final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), counted,
+                                       (end, place) -> events.countDown(), counted, counted);
       kept.set(map);
       map.setPlaces(STATION, null);
       map.setOnLoaded(() -> {
@@ -150,7 +153,8 @@ final class SmokeTest {
       final Path roadbook = folder.resolve("roadbook.gpx");
       try (GraphHopperRouter router = GraphHopperRouter.importMap(extract, folder.resolve(DataFolder.GRAPH))) {
         final Route route = router.route(STATION, CASTLE);
-        OpenRallyWriter.save(RoadbookGenerator.generate(route, router.junctions(route)), origin, SMOKE_FOLDER,
+        OpenRallyWriter.save(RoadbookGenerator.generate(route, router.junctions(route)), origin, RoadbookEdits.NONE,
+                             SMOKE_FOLDER,
                              Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE),
                              Catalogue.fia(), roadbook);
       }

@@ -22,7 +22,7 @@ All notable changes of the project are documented in this file.
   laws are binding, the user alone is responsible for the routes and the roadbooks, shared ones included, and the
   development team accepts no liability; "I accept", or "Refuse and quit". The roadbooks exported carry the terms
   in short in their description, and the README in full.
-- **Roadbook for Terra Pirata**: File › Export the roadbook… writes the roadbook of the route as an OpenRally GPX
+- **Roadbook for Terra Pirata**: File › Save the roadbook as… writes the roadbook of the route as an OpenRally GPX
   file (GPX 1.1, extensions of OpenRally v1.0.3), to import into RDS for Terra Pirata: a box at the start, at each
   instruction of the route and at the finish, with its total distance and its heading (CAP), the track of the route
   and the attribution of OpenStreetMap; no tulip yet.
@@ -47,12 +47,26 @@ All notable changes of the project are documented in this file.
   whose icons are provided by rallynavigator.com.
 - **Roadbook beside the map**: the roadbook of the route shown is drawn at the right of the map, its boxes as on
   paper (number, distances, tulip, heading); the box selected, with the mouse or the arrows of the keyboard, is shown on the
-  map.
+  map, and stays black on white in the dark theme, framed in the accent.
 - **Headings where needed**: as the FIA asks, the roadbook exported gives the heading (CAP) only at the start, at
   junctions of four roads or more, and where the road taken is a track. At a roundabout, the heading is the one of
   the road taken out of it, no longer the direction of the ring at its entry. Open a map again to tell the gravel roads
   from the tarmac roads.
+- **Numbers as the system writes them**: the distances and the durations follow the number format chosen in the
+  settings of macOS or Windows, e.g. a decimal point in Swiss French.
+- **Save and recent roadbooks**: File › Save the roadbook writes the roadbook again into its file without asking,
+  Save the roadbook as… chooses another one (it replaces Export the roadbook…); the title of the window names the
+  file and says when the roadbook is modified; closing with changes not saved asks whether to save them, and waits
+  for a roadbook being saved. File › Open a recent roadbook opens the roadbooks opened or saved last, 5 by default
+  and up to 20 in the settings; one moved or deleted since is removed from the list, with a message.
+- **Correct the roadbook**: the box selected in the roadbook beside the map is corrected under it: its total
+  distance, its heading and whether the heading is shown (where the FIA asks for it, always or never); a box is
+  removed (Delete, or Backspace on macOS), or added with a right-click on the route (Add a box here), and selected
+  then; the box selected is moved by dragging its circle on the map, which follows the route, its distances, its
+  tulip and its heading computed again where it is dropped. Each change can be undone, the map staying where it is and at its zoom, is kept where the route still passes
+  when the start or the finish moves or a detour is generated, and is exported with the roadbook and opened with it.
 - **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the
   start and the finish are moved by dragging their marker, or by the context menu of the map (right-click, "Place the
-  start here", "Place the finish here"). Edit › Undo and Edit › Redo bring back the itineraries, the routes and the
-  detours shown before (the last 50 changes).
+  start here", "Place the finish here"); the start or the finish of a detour moved generates the detour again, with
+  its budget, its kinds of road avoided and its seed, or gives the fastest route if no detour is found. Edit › Undo
+  and Edit › Redo bring back the itineraries, the routes and the detours shown before (the last 50 changes).

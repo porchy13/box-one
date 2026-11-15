@@ -12,8 +12,10 @@
   var MARKER = 28;
   /** The smallest zoom at which the box selected in the roadbook is shown: the junction and its roads. */
   var BOX_ZOOM = 17;
-  /** The radius of the circle of the box selected, in pixels. */
-  var BOX_RADIUS = 12;
+  /** The size of the circle of the box selected, in pixels. */
+  var BOX_SIZE = 24;
+  /** The box selected over the markers of the start and the finish, so that it can be dragged from them. */
+  var BOX_ABOVE = 1000;
   /** The margin around the route when the map shows it whole, in pixels. */
   var MARGIN = 48;
   /** The scroll that changes the zoom by one level until Java sets it, in pixels (ZoomSensitivity.MEDIUM). */
@@ -57,6 +59,47 @@
           }
         }
       });
+  }
+
+  /**
+   * The point of the route shown nearest to a place, so that a box dragged stays on the route: the line drawn last
+   * (the detour, over the fastest route), measured in the pixels of the map.
+   */
+  function onRoute(place) {
+    var point = map.latLngToLayerPoint(place);
+    var line = routes[routes.length - 1].getLatLngs().map(function (each) {
+      return map.latLngToLayerPoint(each);
+    });
+    var nearest = line[0];
+    for (var i = 0; i + 1 < line.length; i++) {
+      var candidate = L.LineUtil.closestPointOnSegment(point, line[i], line[i + 1]);
+      if (candidate.distanceTo(point) < nearest.distanceTo(point)) {
+        nearest = candidate;
+      }
+    }
+    return map.layerPointToLatLng(nearest);
+  }
+
+  /**
+   * The circle of the box selected; a box that can move is dragged along the route, and where it is dropped goes to
+   * the bridge.
+   */
+  function boxMarker(latitude, longitude, movable) {
+    var icon = L.divIcon({className: 'box-place', iconSize: [BOX_SIZE, BOX_SIZE]});
+    var dragged = movable && routes.length > 0;
+    var marker = L.marker([latitude, longitude], {icon: icon, keyboard: false, interactive: dragged,
+                                                  draggable: dragged, zIndexOffset: BOX_ABOVE});
+    if (dragged) {
+      marker.on('drag', function (event) {
+        event.target.setLatLng(onRoute(event.target.getLatLng()));
+      }).on('dragend', function (event) {
+        var place = event.target.getLatLng().wrap();
+        if (window.bridge) {
+          window.bridge.boxMoved(place.lat, place.lng);
+        }
+      });
+    }
+    return marker;
   }
 
   window.boxOne = {
@@ -109,12 +152,16 @@
       shown.addLayer(route);
     },
 
-    /** Shows the box selected in the roadbook: a circle at its place, centred, the junction close enough to read. */
-    showBox: function (latitude, longitude) {
+    /**
+     * Shows the box selected in the roadbook: a circle at its place, centred, the junction close enough to read, unless
+     * it is seen already; a box that can move (movable) is dragged along the route.
+     */
+    showBox: function (latitude, longitude, movable) {
       box.clearLayers();
-      box.addLayer(L.circleMarker([latitude, longitude], {className: 'box-place', radius: BOX_RADIUS,
-                                                          interactive: false}));
-      map.setView([latitude, longitude], Math.max(map.getZoom(), BOX_ZOOM));
+      box.addLayer(boxMarker(latitude, longitude, movable));
+      if (map.getZoom() < BOX_ZOOM || !map.getBounds().contains([latitude, longitude])) {
+        map.setView([latitude, longitude], Math.max(map.getZoom(), BOX_ZOOM));
+      }
     },
 
     /** Hides the box selected. */
@@ -152,6 +199,15 @@
       window.bridge.clicked(place.lat, place.lng);
     }
   });
+
+  /*
+   * The context menu of WebKit is never shown, in the map or over its controls: it is prevented here, while the event
+   * goes on to Leaflet (WebView.setContextMenuEnabled(false) would stop the event itself, so that the page never sees
+   * a right-click). Captured on the document, before the controls stop it.
+   */
+  document.addEventListener('contextmenu', function (event) {
+    event.preventDefault();
+  }, true);
 
   /* A right-click asks Java for the context menu of the place, shown where the pointer is. */
   map.on('contextmenu', function (event) {

@@ -11,6 +11,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.Spinner;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
@@ -22,7 +23,8 @@ import java.util.ResourceBundle;
 
 /**
  * The settings of the user (DESIGN.md §7, §14): the provider of the background map, the key of MapTiler and the
- * sensitivity of the zoom to the mouse wheel and to the trackpad.
+ * sensitivity of the zoom to the mouse wheel and to the trackpad, and how many roadbooks opened last File › Open a
+ * recent roadbook offers ({@value Settings#MIN_RECENT} to {@value Settings#MAX_RECENT}).
  *
  * <p><b>Rules</b>: the field of the key is enabled only for a provider that needs a key, and the button Save is
  * disabled while such a provider has no key, so that the settings saved always show a map. The key is typed in a
@@ -66,6 +68,14 @@ final class SettingsDialog {
   static final String TILES_ID = "tilesChoice";
   /** The identifier of the choice of the sensitivity of the zoom. */
   static final String ZOOM_ID = "zoomChoice";
+  /** The key of the title of the section of the roadbooks. */
+  static final String ROADBOOKS_SECTION = "settings.roadbooksSection";
+  /** The key of the label of how many roadbooks opened last are kept. */
+  static final String RECENT_LABEL = "settings.recent";
+  /** The key of the caption under how many roadbooks opened last are kept. */
+  static final String RECENT_HINT = "settings.recentHint";
+  /** The identifier of the choice of how many roadbooks opened last are kept. */
+  static final String RECENT_ID = "recentChoice";
   /** The beginning of the keys of the names of the sensitivities ({@code zoom.<sensitivity>}). */
   static final String SENSITIVITY = "zoom.";
 
@@ -85,6 +95,8 @@ final class SettingsDialog {
   private final List<ZoomSensitivity> sensitivities = Arrays.asList(ZoomSensitivity.values());
   /** The choice of the sensitivity of the zoom, by name. */
   private final ComboBox<String> zoom = new ComboBox<>();
+  /** The choice of how many roadbooks opened last are kept, from {@value Settings#MIN_RECENT} to its maximum. */
+  private final Spinner<Integer> recent = new Spinner<>(Settings.MIN_RECENT, Settings.MAX_RECENT, Settings.MIN_RECENT);
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -114,6 +126,8 @@ final class SettingsDialog {
     key.setText(current.mapTilerKey());
     sensitivities.forEach(sensitivity -> zoom.getItems().add(texts.getString(SENSITIVITY + sensitivity.name())));
     zoom.getSelectionModel().select(sensitivities.indexOf(current.zoom()));
+    recent.setId(RECENT_ID);
+    recent.getValueFactory().setValue(current.recentCount());
     key.disableProperty().bind(Bindings.createBooleanBinding(() -> !provider().isKeyRequired(),
                                                              tiles.getSelectionModel().selectedIndexProperty()));
     pane.setContent(form(texts));
@@ -122,7 +136,8 @@ final class SettingsDialog {
         () -> provider().isKeyRequired() && key.getText().isBlank(),
         tiles.getSelectionModel().selectedIndexProperty(), key.textProperty()));
     dialog.setResultConverter(button -> button == save ? new Settings(provider(), key.getText().strip(),
-        sensitivities.get(zoom.getSelectionModel().getSelectedIndex()), current.avoided()) : null);
+        sensitivities.get(zoom.getSelectionModel().getSelectedIndex()), current.avoided(), recent.getValue(),
+        current.recent()) : null);
   }
 
   // *******************************************************************************************************************
@@ -152,8 +167,8 @@ final class SettingsDialog {
   }
 
   /**
-   * Lays out the fields in two sections, the background map and the navigation on the map: each field at the right of
-   * its label, its caption under it.
+   * Lays out the fields in three sections, the background map, the navigation on the map and the roadbooks: each field
+   * at the right of its label, its caption under it.
    *
    * @param texts the texts of the user interface.
    *
@@ -174,7 +189,9 @@ final class SettingsDialog {
     row = field(form, row, texts.getString(TILES_LABEL), tiles, null);
     row = field(form, row, texts.getString(KEY_LABEL), key, texts.getString(KEY_HINT));
     form.add(section(texts.getString(MAP_SECTION), false), 0, row++, 2, 1);
-    field(form, row, texts.getString(ZOOM_LABEL), zoom, texts.getString(ZOOM_HINT));
+    row = field(form, row, texts.getString(ZOOM_LABEL), zoom, texts.getString(ZOOM_HINT));
+    form.add(section(texts.getString(ROADBOOKS_SECTION), false), 0, row++, 2, 1);
+    field(form, row, texts.getString(RECENT_LABEL), recent, texts.getString(RECENT_HINT));
     return form;
   }
 

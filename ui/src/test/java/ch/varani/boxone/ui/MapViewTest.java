@@ -2,19 +2,30 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import javafx.event.Event;
+import javafx.event.EventType;
+import javafx.geometry.Point2D;
 import javafx.scene.Scene;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.testfx.api.FxRobot;
 import org.testfx.framework.junit5.ApplicationExtension;
+import org.testfx.util.WaitForAsyncUtils;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -22,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -50,6 +62,28 @@ final class MapViewTest {
   private static final double DETOUR_LENGTH = 900;
   /** The duration of the detour of the tests. */
   private static final Duration DETOUR_DURATION = Duration.ofMinutes(3);
+  /** The distance from the bottom right corner of the map to its attribution, in pixels. */
+  private static final double CORNER = 5;
+  /** The script returning the centre of the map, as text. */
+  private static final String CENTRE = "boxOne.map.getCenter().toString()";
+  /**
+   * The script dragging the box shown to a place, its {@code drag} then its {@code dragend}, as Leaflet fires them
+   * while the mouse moves and when it is released.
+   */
+  private static final String DRAG = "boxOne.map.eachLayer(function (layer) { if (layer.dragging) {"
+                                     + " layer.setLatLng([%s, %s]); layer.fire('drag'); layer.fire('dragend'); } })";
+  /** The script centring the map on a place at the zoom of a box, without animation. */
+  private static final String STILL = "boxOne.map.setView([%s, %s], 17, {animate: false})";
+  /** The latitude halfway along the route of the tests. */
+  private static final double MIDDLE_LATITUDE = (SmokeTest.STATION.latitude() + SmokeTest.CASTLE.latitude()) / 2;
+  /** The longitude halfway along the route of the tests. */
+  private static final double MIDDLE_LONGITUDE = (SmokeTest.STATION.longitude() + SmokeTest.CASTLE.longitude()) / 2;
+  /** A distance from the route, in degrees of longitude: about 15 m. */
+  private static final double OFF_ROUTE = 0.0002;
+  /** The precision of a place on the route, in degrees: the pixels of the map at its zoom. */
+  private static final double ON_ROUTE = 0.00002;
+  /** A distance far out of the map at the zoom of a box, in degrees of latitude: about 11 km. */
+  private static final double FAR_AWAY = 0.1;
   /** A full turn of longitude, in degrees: the page wraps the longitudes beyond the antimeridian. */
   private static final double TURN = 360;
   /** The precision of the coordinates of a click, in degrees. */
@@ -71,7 +105,8 @@ final class MapViewTest {
   private static MapView show(final FxRobot robot, final List<GeoPoint> clicks, final List<Boolean> loaded) {
     final AtomicReference<MapView> map = new AtomicReference<>();
     robot.interact(() -> {
-      final MapView view = new MapView(Languages.bundle(Languages.ENGLISH), clicks::add, (end, place) -> { });
+      final MapView view = new MapView(Languages.bundle(Languages.ENGLISH), clicks::add, (end, place) -> { },
+                                       place -> { }, place -> { });
       view.setColors(Map.of("-c-accent", "#2D6A57"));
       view.setTiles(TILES);
       view.setZoom(ZoomSensitivity.LOW);
@@ -197,19 +232,20 @@ final class MapViewTest {
   void boxTest(final FxRobot robot) throws TimeoutException {
     final AtomicBoolean loadedBefore = new AtomicBoolean();
     robot.interact(() -> {
-      final MapView fresh = new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { });
-      fresh.setBox(SmokeTest.STATION);
+      final MapView fresh = new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { },
+                                        place -> { }, place -> { });
+      fresh.setBox(SmokeTest.STATION, false);
       loadedBefore.set(fresh.isLoaded());
     });
     final MapView map = show(robot, new ArrayList<>(), new ArrayList<>());
     final WebView view = map.getNode();
     MapPages.waitLoaded(view);
     final int beforeBox = MapPages.count(robot, view, ".box-place");
-    robot.interact(() -> map.setBox(SmokeTest.CASTLE));
+    robot.interact(() -> map.setBox(SmokeTest.CASTLE, false));
     final int shown = MapPages.count(robot, view, ".box-place");
-    robot.interact(() -> map.setBox(null));
+    robot.interact(() -> map.setBox(null, false));
     final int hidden = MapPages.count(robot, view, ".box-place");
-    robot.interact(() -> map.setBox(SmokeTest.CASTLE));
+    robot.interact(() -> map.setBox(SmokeTest.CASTLE, false));
     robot.interact(() -> map.setRoute(ROUTE));
     assertAll(
         () -> assertFalse(loadedBefore.get()),
@@ -217,6 +253,60 @@ final class MapViewTest {
         () -> assertEquals(1, shown),
         () -> assertEquals(0, hidden),
         () -> assertEquals(0, MapPages.count(robot, view, ".box-place")));
+  }
+
+  /**
+   * The box selected that can move is dragged along the route: dragged away from it, it stays on its line, and where
+   * it is dropped comes back as a point of the route; the start and the finish cannot be dragged, nor a box without
+   * route. A box seen already, close enough, does not move the map; a box out of sight centres it.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 5: the box selected is dragged along the route, and dropped on it")
+  void dragBoxTest(final FxRobot robot) throws TimeoutException {
+    final List<GeoPoint> dropped = new ArrayList<>();
+    final AtomicReference<MapView> created = new AtomicReference<>();
+    robot.interact(() -> {
+      final MapView view = new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { },
+                                       place -> { }, dropped::add);
+      final Stage stage = new Stage();
+      stage.setScene(new Scene(view.getNode(), WIDTH, HEIGHT));
+      stage.show();
+      created.set(view);
+    });
+    final MapView map = created.get();
+    final WebView view = map.getNode();
+    MapPages.waitLoaded(view);
+    robot.interact(() -> map.setBox(SmokeTest.STATION, true));
+    final boolean withoutRoute = MapPages.draggableBox(robot, view);
+    robot.interact(() -> {
+      map.setRoute(ROUTE);
+      map.setBox(SmokeTest.CASTLE, false);
+    });
+    final boolean finish = MapPages.draggableBox(robot, view);
+    robot.interact(() -> map.setBox(SmokeTest.STATION, true));
+    final boolean movable = MapPages.draggableBox(robot, view);
+    MapPages.script(robot, view, String.format(Locale.ROOT, DRAG, MIDDLE_LATITUDE, MIDDLE_LONGITUDE + OFF_ROUTE));
+    final GeoPoint middle = new GeoPoint(MIDDLE_LATITUDE, MIDDLE_LONGITUDE);
+    MapPages.script(robot, view, String.format(Locale.ROOT, STILL, SmokeTest.STATION.latitude(),
+                                               SmokeTest.STATION.longitude()));
+    final String centre = MapPages.script(robot, view, CENTRE).toString();
+    robot.interact(() -> map.setBox(middle, true));
+    final String kept = MapPages.script(robot, view, CENTRE).toString();
+    final GeoPoint far = new GeoPoint(SmokeTest.STATION.latitude() + FAR_AWAY, SmokeTest.STATION.longitude());
+    robot.interact(() -> map.setBox(far, true));
+    assertAll(
+        () -> assertFalse(withoutRoute),
+        () -> assertFalse(finish),
+        () -> assertTrue(movable),
+        () -> assertEquals(1, dropped.size()),
+        () -> assertTrue(Math.abs(dropped.getFirst().latitude() - middle.latitude()) < ON_ROUTE, dropped::toString),
+        () -> assertTrue(Math.abs(dropped.getFirst().longitude() - middle.longitude()) < ON_ROUTE, dropped::toString),
+        () -> assertEquals(centre, kept),
+        () -> assertNotEquals(kept, MapPages.script(robot, view, CENTRE).toString()));
   }
 
   /**
@@ -251,7 +341,8 @@ final class MapViewTest {
   void noTilesTest(final FxRobot robot) throws TimeoutException {
     final AtomicReference<MapView> map = new AtomicReference<>();
     robot.interact(() -> {
-      map.set(new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { }));
+      map.set(new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { }, place -> { },
+                                place -> { }));
       map.get().setPlaces(SmokeTest.STATION, null);
       final Stage stage = new Stage();
       stage.setScene(new Scene(map.get().getNode(), WIDTH, HEIGHT));
@@ -339,6 +430,68 @@ final class MapViewTest {
   @DisplayName("Phase 1: the route goes to the page as a JSON array of numbers")
   void jsonTest() {
     assertEquals("[[46.7813,6.641],[46.7784,6.6413]]", MapView.json(ROUTE));
+  }
+
+  /**
+   * A right-click of the mouse, as macOS gives it (the press is the trigger of the context menu), reaches the page and
+   * shows the context menu of the map, with its three items; over a control of the page (the attribution), the context
+   * menu of WebKit is not shown either. The other tests fire the event in the page: this one goes through WebKit.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 5: a right-click of the mouse shows the context menu of the map, never the one of WebKit")
+  void rightClickTest(final FxRobot robot) throws TimeoutException {
+    final MapView map = show(robot, new ArrayList<>(), new ArrayList<>());
+    MapPages.waitLoaded(map.getNode());
+    final WebView view = map.getNode();
+    rightClick(robot, view, view.getWidth() - CORNER, view.getHeight() - CORNER);
+    final List<ContextMenu> overControl = menus();
+    rightClick(robot, view, view.getWidth() / 2, view.getHeight() / 2);
+    final List<ContextMenu> overMap = menus();
+    final ResourceBundle texts = Languages.bundle(Languages.ENGLISH);
+    assertAll(
+        () -> assertEquals(List.of(), overControl),
+        () -> assertEquals(1, overMap.size()),
+        () -> assertEquals(List.of(texts.getString(MapView.PLACE_START), texts.getString(MapView.PLACE_FINISH),
+                                   texts.getString(MapView.ADD_BOX)),
+                           overMap.getFirst().getItems().stream().map(MenuItem::getText).toList()),
+        () -> assertFalse(overMap.getFirst().getItems().getLast().isDisable()));
+  }
+
+  /**
+   * Presses and releases the secondary button of the mouse on the view, the press being the trigger of the context
+   * menu, as on macOS; the context menus shown are hidden first.
+   *
+   * @param robot the TestFX robot.
+   * @param view the view.
+   * @param x where, from the left of the view, in pixels.
+   * @param y where, from the top of the view, in pixels.
+   */
+  private static void rightClick(final FxRobot robot, final WebView view, final double x, final double y) {
+    robot.interact(() -> {
+      menus().forEach(ContextMenu::hide);
+      final Point2D screen = view.localToScreen(x, y);
+      for (final EventType<MouseEvent> type : List.of(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED)) {
+        final boolean pressed = type == MouseEvent.MOUSE_PRESSED;
+        Event.fireEvent(view, new MouseEvent(type, x, y, screen.getX(), screen.getY(), MouseButton.SECONDARY, 1,
+                                             false, false, false, false, false, false, pressed, false, pressed,
+                                             false, null));
+      }
+    });
+    WaitForAsyncUtils.waitForFxEvents();
+  }
+
+  /**
+   * Returns the context menus shown.
+   *
+   * @return the context menus shown, in any window.
+   */
+  private static List<ContextMenu> menus() {
+    return Window.getWindows().stream().filter(ContextMenu.class::isInstance).map(ContextMenu.class::cast)
+                 .filter(ContextMenu::isShowing).toList();
   }
 
 }

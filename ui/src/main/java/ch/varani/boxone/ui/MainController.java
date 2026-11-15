@@ -3,6 +3,7 @@ package ch.varani.boxone.ui;
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Roadbook;
+import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.Detour;
@@ -14,6 +15,7 @@ import ch.varani.boxone.export.Origin;
 import ch.varani.boxone.export.ReadError;
 import ch.varani.boxone.export.ReadException;
 import ch.varani.boxone.export.RoadbookFile;
+import ch.varani.boxone.roadbook.RoadbookEditor;
 import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
@@ -45,12 +47,15 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.Set;
@@ -80,10 +85,14 @@ import java.util.stream.Collectors;
  * task after the other on the executor of the {@link Services}; the results come back on the JavaFX Application
  * Thread.</p>
  *
- * <p><b>Roadbook</b> (development plan, phase 2): once a route is shown, File › Export the roadbook… asks for a GPX
+ * <p><b>Roadbook</b> (development plan, phase 2): once a route is shown, File › Save the roadbook as… asks for a GPX
  * file ({@link RoadbookFiles}), then, in the background, generates the boxes of the route ({@link RoadbookGenerator})
  * and writes them for Terra Pirata ({@link OpenRallyWriter}); the status bar gives the number of boxes, or says why
- * the file could not be written. The item is disabled while no route is shown.</p>
+ * the file could not be written. The file saved, or opened, is then the file of the roadbook: File › Save the roadbook
+ * writes it again without asking. The title of the window gives its name, and says when the roadbook is modified since
+ * (another route, other changes of the user; a roadbook never saved, once the user changed it). The application asks
+ * whether to save such changes before it closes (Save, Don't Save, Cancel), and closes only once a roadbook being
+ * saved is saved. The items are disabled while no route is shown.</p>
  *
  * <p><b>Detour</b> (development plan, phase 3): once a route is shown, Route › Generate a detour… asks for the budget
  * and the seed ({@link DetourDialog}, a new seed proposed each time), then, in the background, generates a detour
@@ -101,7 +110,16 @@ import java.util.stream.Collectors;
  * its seed, its budget in the status bar; the budget is proposed for the next detour. It can be exported again, and a
  * detour generated from its start and finish once a graph is loaded; the graph loaded or imported meanwhile does not
  * replace it. A file that cannot be opened says why in a dialog ({@code error.read.<code>}). A start or a finish placed
- * cancels a file being read.</p>
+ * cancels a file being read. File › Open a recent roadbook opens one of the roadbooks opened or saved last (as many as
+ * the settings keep, {@value Settings#MIN_RECENT} by default); one that no longer exists is removed from the list, and
+ * the user told so.</p>
+ *
+ * <p><b>Editor</b> (development plan, phase 5): the box selected in the strip is corrected in the editor under it
+ * ({@link BoxEditor}): its total distance, its heading and whether it is shown; it can be removed, and a box added
+ * where the user right-clicks on the route (Add a box here, within {@value RoadbookEditor#NEAR_ROUTE} m of it). Each
+ * change can be undone (Edit › Undo), and the roadbook is drawn again with it, the box changed selected. The changes
+ * are kept by their places when the route changes ({@link RoadbookEditor#retain(RoadbookEdits, Route)}: the start or
+ * the finish moved, a detour generated), exported with the roadbook and opened with it.</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -189,6 +207,36 @@ final class MainController {
   static final String ROADBOOK_COUNT = "roadbook.count";
   /** The key of the failure to draw the roadbook of the route. */
   static final String ROADBOOK_ERROR = "error.roadbook";
+  /** The key of the title of the window showing a roadbook, with its name. */
+  static final String TITLE_DOCUMENT = "title.document";
+  /** The key of the title of the window showing a roadbook modified since it was saved or opened, with its name. */
+  static final String TITLE_MODIFIED = "title.modified";
+  /** The key of the name of a roadbook never saved. */
+  static final String TITLE_UNTITLED = "title.untitled";
+  /** The key of the status while the roadbook is saved before the application closes. */
+  static final String STATUS_CLOSING = "status.closing";
+  /** The key of the question asked when the application closes with changes not saved. */
+  static final String CLOSE_QUESTION = "close.question";
+  /** The key of the consequence of not saving, under the question. */
+  static final String CLOSE_TEXT = "close.text";
+  /** The key of the button saving the roadbook, then closing. */
+  static final String CLOSE_SAVE = "close.save";
+  /** The key of the button closing without saving. */
+  static final String CLOSE_DISCARD = "close.discard";
+  /** The key of the button cancelling the closing. */
+  static final String CLOSE_CANCEL = "close.cancel";
+  /** The key of an item of the roadbooks opened last: the name of the file and the name of its folder. */
+  static final String RECENT_ITEM = "recent.item";
+  /** The key of the heading of the dialog of a roadbook opened last that no longer exists, with its name. */
+  static final String RECENT_MISSING = "recent.missing";
+  /** The key of the text of the dialog of a roadbook opened last that no longer exists. */
+  static final String RECENT_MISSING_TEXT = "recent.missingText";
+  /** The keys of the strip removing the box selected (DESIGN.md §10: Del, ⌫ on macOS). */
+  static final Set<KeyCode> REMOVE_KEYS = Set.of(KeyCode.DELETE, KeyCode.BACK_SPACE);
+  /** The key of the status when a box is added too far from the route. */
+  static final String ADD_FAR = "status.addFar";
+  /** The key of the status when a box is dropped too far from the route. */
+  static final String MOVE_FAR = "status.moveFar";
   /** The position of the divider between the map and the roadbook, as a part of the width of the window. */
   static final double ROADBOOK_DIVIDER = 0.7;
   /** The other shortcut of Redo outside macOS, beside Shortcut+Shift+Z of its item (DESIGN.md §10: Ctrl+Y). */
@@ -246,6 +294,30 @@ final class MainController {
   private Origin origin;
   /** Whether the route shown was opened from a roadbook, kept when a graph is loaded or imported. */
   private boolean opened;
+  /** The changes of the user to the roadbook of the route shown, kept by their places when the route changes. */
+  private RoadbookEdits edits = RoadbookEdits.NONE;
+  /** The editor of the box selected, under the strip. */
+  private BoxEditor boxEditor;
+  /** The file of the roadbook, opened or saved last, written again by Save; {@code null} before the first. */
+  private Path file;
+  /** The roadbook as it was saved or opened last, or {@code null} if it was never. */
+  private Saved saved;
+  /** The roadbook being saved, or {@code null}. */
+  private Task<?> saving;
+  /** Whether the application closes once the roadbook being saved is saved. */
+  private boolean closing;
+  /** The place of the box to select once the roadbook is drawn again, or {@code null} for none. */
+  private GeoPoint toSelect;
+  /**
+   * Whether the strip is being filled again: its selection is cleared then restored, which must not move the map;
+   * the box is shown on the map once the strip is filled, if it is another one.
+   */
+  private boolean redrawing;
+  /**
+   * The detour to generate again instead of the fastest route, once its start or its finish has moved (decision of
+   * the maintainer, 2026-11-15: the same budget, the same kinds of road avoided, the same seed), or {@code null}.
+   */
+  private DetourDialog.Request again;
   /** The budget of the last detour asked, proposed for the next one. */
   private Budget budget = Budget.DEFAULT;
   /** The duration of the fastest route shown, alone or under a detour, of which a budget in percent is a share. */
@@ -277,9 +349,15 @@ final class MainController {
   /** The item Open a roadbook…, injected by the view. */
   @FXML
   private MenuItem openRoadbookItem;
-  /** The item Export the roadbook…, injected by the view. */
+  /** The menu Open a recent roadbook, injected by the view. */
   @FXML
-  private MenuItem exportItem;
+  private Menu recentMenu;
+  /** The item Save the roadbook, injected by the view. */
+  @FXML
+  private MenuItem saveItem;
+  /** The item Save the roadbook as…, injected by the view. */
+  @FXML
+  private MenuItem saveAsItem;
   /** The item Undo, injected by the view. */
   @FXML
   private MenuItem undoItem;
@@ -386,7 +464,8 @@ final class MainController {
     }
     final Theme theme = new Theme(scene, colors);
     settings = store.load();
-    map = new MapView(texts, this::clicked, this::moved);
+    updateRecent();
+    map = new MapView(texts, this::clicked, this::moved, this::addBox, this::moveBox);
     map.setColors(theme.tokens());
     map.setTiles(settings.source());
     map.setZoom(settings.zoom());
@@ -404,10 +483,29 @@ final class MainController {
     boxList.setCellFactory(list -> new BoxCell());
     boxList.setAccessibleText(texts.getString(ROADBOOK_TITLE));
     roadbookEmpty.visibleProperty().bind(Bindings.isEmpty(boxList.getItems()));
-    boxList.getSelectionModel().selectedItemProperty().addListener(
-        (property, before, selected) -> map.setBox(selected == null ? null : selected.place()));
+    boxEditor = new BoxEditor(texts, locale, edit -> changeEdits(edits.with(edit), edit.place()),
+                              place -> changeEdits(edits.withRemoved(place), null));
+    roadbookPane.getChildren().add(boxEditor.getNode());
+    boxList.getSelectionModel().selectedItemProperty().addListener((property, before, selected) -> {
+      if (!redrawing) {
+        showBox(selected);
+      }
+      showEditor();
+    });
+    boxList.setOnKeyPressed(event -> {
+      if (REMOVE_KEYS.contains(event.getCode()) && !event.isShortcutDown() && !event.isShiftDown()
+          && !event.isAltDown()) {
+        removeSelected();
+        event.consume();
+      }
+    });
     showRoadbook(List.of());
-    stage.setTitle(texts.getString(TITLE));
+    stage.setOnCloseRequest(event -> {
+      if (!mayClose()) {
+        event.consume();
+      }
+    });
+    updateTitle();
     stage.getIcons().setAll(icons());
     stage.setMinWidth(MIN_WIDTH);
     stage.setMinHeight(MIN_HEIGHT);
@@ -461,12 +559,15 @@ final class MainController {
 
   /**
    * Receives the start or the finish moved by the user, its marker dropped or by the context menu of the map, and
-   * computes the route once both are placed (issue #4 of GitLab).
+   * computes the route once both are placed (issue #4 of GitLab): the detour shown, if any, is generated again between
+   * the new ends, with its budget, its kinds of road avoided and its seed, once a map is loaded.
    *
    * @param end the end moved.
    * @param place its new place.
    */
   private void moved(final Itinerary.End end, final GeoPoint place) {
+    again = origin instanceof final Origin.Detour detour && router != null
+            ? new DetourDialog.Request(budget(detour), kinds(detour), detour.seed()) : null;
     edit(() -> itinerary.move(end, place));
   }
 
@@ -480,7 +581,82 @@ final class MainController {
     cancelRouting();
     history.remember(current());
     change.run();
-    display(new View(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null), null, null, null, false));
+    display(new View(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null), null, null, null, false,
+                     edits));
+  }
+
+  /**
+   * Adds a box to the roadbook where the user asked it, by the context menu of the map: at the nearest point of the
+   * route shown, if it is near enough; otherwise the status bar says so.
+   *
+   * @param place the place asked.
+   */
+  private void addBox(final GeoPoint place) {
+    final Optional<GeoPoint> onRoute = RoadbookEditor.project(route, place);
+    if (onRoute.isEmpty()) {
+      setStatus(ADD_FAR);
+      return;
+    }
+    changeEdits(edits.withAdded(onRoute.get()), onRoute.get());
+  }
+
+  /**
+   * Moves the box selected where it is dropped on the map, dragged along the route: at the nearest point of the route,
+   * if it is near enough, its distances, its tulip and its heading computed again there; otherwise the status bar says
+   * so and the box goes back to its place.
+   *
+   * @param place the place where the box is dropped.
+   */
+  private void moveBox(final GeoPoint place) {
+    final BoxRow selected = boxList.getSelectionModel().getSelectedItem();
+    final Optional<GeoPoint> onRoute = RoadbookEditor.project(route, place);
+    if (onRoute.isEmpty()) {
+      setStatus(MOVE_FAR);
+      showBox(selected);
+      return;
+    }
+    if (!onRoute.get().equals(selected.place())) {
+      changeEdits(edits.withMoved(selected.place(), onRoute.get()), onRoute.get());
+    }
+  }
+
+  /**
+   * Changes the roadbook of the route shown, the state shown before being recorded for Undo (which forgets the states
+   * undone), and draws it again.
+   *
+   * @param changed the new changes of the user.
+   * @param select the place of the box to select once drawn, or {@code null} for none (a box removed).
+   */
+  private void changeEdits(final RoadbookEdits changed, final GeoPoint select) {
+    if (changed.equals(edits)) {
+      return;
+    }
+    history.remember(current());
+    edits = changed;
+    undoItem.setDisable(false);
+    redoItem.setDisable(true);
+    toSelect = select;
+    updateTitle();
+    drawRoadbook(route, true);
+  }
+
+  /**
+   * Removes the box selected in the strip, unless it is the start or the finish: the keys Delete and Backspace of the
+   * strip (DESIGN.md §10: Del, ⌫ on macOS), as the button of its editor.
+   */
+  private void removeSelected() {
+    final int index = boxList.getSelectionModel().getSelectedIndex();
+    if (index > 0 && index < boxList.getItems().size() - 1) {
+      changeEdits(edits.withRemoved(boxList.getItems().get(index).place()), null);
+    }
+  }
+
+  /**
+   * Shows the box selected in the strip in its editor, or hides the editor.
+   */
+  private void showEditor() {
+    final int index = boxList.getSelectionModel().getSelectedIndex();
+    boxEditor.show(index < 0 ? null : BoxEditor.Selection.of(boxList.getItems(), index, edits));
   }
 
   /**
@@ -518,23 +694,42 @@ final class MainController {
    */
   private View current() {
     return new View(itinerary.getStart().orElse(null), itinerary.getFinish().orElse(null), under, route, origin,
-                    opened);
+                    opened, edits);
   }
 
   /**
    * Shows a state: its start and its finish, and its route, the fastest one or a detour, with its card, its seed and
    * its status; without route, the next step of the itinerary is done (the route computed if it is complete). The
-   * items Undo and Redo are enabled when there is a state to bring back.
+   * items Undo and Redo are enabled when there is a state to bring back. A state of the route shown, only the changes
+   * of its roadbook differing (Undo or Redo of the editor), draws the roadbook again only: the map stays where it is,
+   * at its zoom, and the box selected stays selected.
    *
    * @param view the state to show.
    */
   private void display(final View view) {
+    enableHistory();
+    showState(view);
+    updateTitle();
+  }
+
+  /**
+   * Shows a state, the items of the history and the title of the window excepted: {@link #display(View)}.
+   *
+   * @param view the state to show.
+   */
+  private void showState(final View view) {
+    if (view.route() != null && view.route() == route) {
+      edits = view.edits();
+      final BoxRow selected = boxList.getSelectionModel().getSelectedItem();
+      toSelect = selected == null ? null : selected.place();
+      drawRoadbook(route, true);
+      return;
+    }
     itinerary.set(view.start(), view.finish());
     opened = view.opened();
+    edits = view.edits();
     under = view.under();
     map.setPlaces(view.start(), view.finish());
-    undoItem.setDisable(!history.canUndo());
-    redoItem.setDisable(!history.canRedo());
     if (view.route() == null) {
       showRoute(null, null);
       next();
@@ -553,9 +748,20 @@ final class MainController {
   }
 
   /**
-   * Does the next step of the itinerary: waits for a graph, for the start or for the finish, or computes the route.
+   * Enables the items Undo and Redo when there is a state to bring back.
+   */
+  private void enableHistory() {
+    undoItem.setDisable(!history.canUndo());
+    redoItem.setDisable(!history.canRedo());
+  }
+
+  /**
+   * Does the next step of the itinerary: waits for a graph, for the start or for the finish, or computes the route,
+   * or the detour to generate again once its start or its finish has moved.
    */
   private void next() {
+    final DetourDialog.Request request = again;
+    again = null;
     if (router == null) {
       if (!busy) {
         setStatus(STATUS_NO_MAP);
@@ -566,11 +772,32 @@ final class MainController {
       setStatus(itinerary.getStart().isPresent() ? STATUS_PICK_FINISH : STATUS_PICK_START);
       return;
     }
+    if (request != null) {
+      generate(request, this::fastestInstead);
+      return;
+    }
     final Router current = router;
     final GeoPoint start = itinerary.getStart().orElseThrow();
     final GeoPoint finish = itinerary.getFinish().orElseThrow();
     setStatus(STATUS_ROUTING);
     routing = run(() -> current.route(start, finish), this::routed, this::failed);
+  }
+
+  /**
+   * Shows the fastest route when the detour generated again between the ends moved fails, with the reason of the
+   * failure in the status bar.
+   *
+   * @param failure the failure of the detour.
+   */
+  private void fastestInstead(final Throwable failure) {
+    final String error = error(failure);
+    final Router current = router;
+    final GeoPoint start = itinerary.getStart().orElseThrow();
+    final GeoPoint finish = itinerary.getFinish().orElseThrow();
+    routing = run(() -> current.route(start, finish), shown -> {
+      routed(shown);
+      setStatus(error);
+    }, this::failed);
   }
 
   /**
@@ -582,7 +809,8 @@ final class MainController {
     routing = null;
     final GeoPoint start = itinerary.getStart().orElseThrow();
     final GeoPoint finish = itinerary.getFinish().orElseThrow();
-    display(new View(start, finish, null, route, new Origin.Fastest(start, finish), false));
+    display(new View(start, finish, null, route, new Origin.Fastest(start, finish), false,
+                     RoadbookEditor.retain(edits, route)));
   }
 
   /**
@@ -594,11 +822,13 @@ final class MainController {
     routing = null;
     final GeoPoint start = itinerary.getStart().orElseThrow();
     final GeoPoint finish = itinerary.getFinish().orElseThrow();
-    history.remember(current());
+    if (route != null) {
+      history.remember(current());
+    }
     display(new View(start, finish, detour.fastest(), detour.route(), new Origin.Detour(
         start, finish, detour.seed(), detour.budget().unit().name(), detour.budget().amount(),
         detour.avoided().stream().map(RoadKind::name).collect(Collectors.toSet()), detour.fastest().duration()),
-                     false));
+                     false, RoadbookEditor.retain(edits, detour.route())));
   }
 
   /**
@@ -629,50 +859,96 @@ final class MainController {
       routeTitle.setText(texts.getString(ROUTE_TITLE));
       seed.setText("");
     }
-    exportItem.setDisable(shown == null);
+    saveItem.setDisable(shown == null);
+    saveAsItem.setDisable(shown == null);
     enableDetour();
-    drawRoadbook(shown);
+    drawRoadbook(shown, false);
   }
 
   /**
-   * Draws, in the background, the roadbook of the route shown in the strip at the right of the map: its boxes, the
-   * tulips of its junctions read on the map loaded, if any, drawn by the catalogue. The roadbook drawn before is
-   * removed at once, and the drawing of a route no longer shown is cancelled.
+   * Draws, in the background, the roadbook of the route shown in the strip at the right of the map: its boxes, with
+   * the changes of the user, the tulips of its junctions read on the map loaded, if any, drawn by the catalogue. The
+   * drawing of a roadbook no longer shown is cancelled. For a new route, the roadbook drawn before is removed at once;
+   * for a change of the user, it stays until the new one is drawn, and the box to select is selected then.
    *
    * @param shown the route shown, or {@code null} for none.
+   * @param changed whether the route is the same, the changes of the user changed.
    */
-  private void drawRoadbook(final Route shown) {
+  private void drawRoadbook(final Route shown, final boolean changed) {
     if (drawing != null) {
       drawing.cancel();
       drawing = null;
     }
-    showRoadbook(List.of());
+    if (!changed) {
+      toSelect = null;
+      showRoadbook(List.of());
+    }
     if (shown == null) {
       return;
     }
     final Router on = router;
-    drawing = run(() -> BoxRow.rows(on == null ? RoadbookGenerator.generate(shown)
-                                               : RoadbookGenerator.generate(shown, on.junctions(shown)),
-                                    CATALOGUE, locale, texts),
-        rows -> {
-          drawing = null;
-          showRoadbook(rows);
-        },
-        failure -> {
-          drawing = null;
-          setStatus(ROADBOOK_ERROR);
-        });
+    final RoadbookEdits drawn = edits;
+    drawing = run(() -> {
+      final Roadbook generated = generate(shown, drawn, on);
+      return BoxRow.rows(generated, RoadbookEditor.roadbook(generated, drawn), CATALOGUE, locale, texts);
+    }, rows -> {
+      drawing = null;
+      showRoadbook(rows);
+    }, failure -> {
+      drawing = null;
+      setStatus(ROADBOOK_ERROR);
+    });
   }
 
   /**
-   * Shows the boxes of a roadbook in the strip, and their number.
+   * Generates the roadbook of a route with the boxes added and removed by the user, the tulips of its junctions read
+   * on the map, if any; the corrections of the boxes are applied to it by {@link RoadbookEditor#roadbook}.
+   *
+   * @param shown the route, as computed or opened.
+   * @param changes the changes of the user.
+   * @param on the router of the map, or {@code null} without map: the roadbook has no tulips.
+   *
+   * @return the roadbook generated from the route with its boxes added and removed.
+   */
+  static Roadbook generate(final Route shown, final RoadbookEdits changes, final Router on) {
+    final Route changed = RoadbookEditor.route(shown, changes);
+    return on == null ? RoadbookGenerator.generate(changed)
+                      : RoadbookGenerator.generate(changed, on.junctions(changed));
+  }
+
+  /**
+   * Shows the boxes of a roadbook in the strip, and their number; the box to select, if any, is selected.
    *
    * @param rows the boxes, empty for none.
    */
   private void showRoadbook(final List<BoxRow> rows) {
+    final BoxRow before = boxList.getSelectionModel().getSelectedItem();
+    redrawing = true;
     boxList.getItems().setAll(rows);
     roadbookCount.setText(new MessageFormat(texts.getString(ROADBOOK_COUNT), locale)
                               .format(new Object[] {rows.size()}));
+    final GeoPoint place = toSelect;
+    toSelect = null;
+    rows.stream().filter(row -> row.place().equals(place)).findFirst()
+        .ifPresent(row -> boxList.getSelectionModel().select(row));
+    redrawing = false;
+    final BoxRow after = boxList.getSelectionModel().getSelectedItem();
+    final GeoPoint was = before == null ? null : before.place();
+    final GeoPoint now = after == null ? null : after.place();
+    if (!Objects.equals(was, now)) {
+      showBox(after);
+    }
+  }
+
+  /**
+   * Shows a box of the strip on the map, or hides the box shown; the boxes but the start and the finish can be
+   * dragged along the route.
+   *
+   * @param row the box, or {@code null} for none.
+   */
+  private void showBox(final BoxRow row) {
+    final int index = boxList.getItems().indexOf(row);
+    map.setBox(row == null ? null : row.place(), index > 0 && index < boxList.getItems().size() - 1);
   }
 
   /**
@@ -704,8 +980,8 @@ final class MainController {
    */
   @FXML
   private void openMap() {
-    final Optional<Path> file = services.chooser().apply(stage);
-    if (file.isEmpty()) {
+    final Optional<Path> extract = services.chooser().apply(stage);
+    if (extract.isEmpty()) {
       return;
     }
     busy = true;
@@ -715,33 +991,148 @@ final class MainController {
     enableDetour();
     showBusy(BUSY_IMPORTING, BUSY_IMPORT_HINT);
     setStatus(STATUS_IMPORTING);
-    run(() -> services.importer().apply(file.get(), graph()), this::ready, this::failed);
+    run(() -> services.importer().apply(extract.get(), graph()), this::ready, this::failed);
   }
 
   /**
-   * Exports the roadbook of the route shown, for Terra Pirata, into the file chosen by the user: the item File ›
-   * Export the roadbook….
+   * Saves the roadbook of the route shown into its file, opened or saved last, without asking for it; the first time,
+   * asks for it as Save the roadbook as…: the item File › Save the roadbook.
    */
   @FXML
-  private void exportRoadbook() {
-    final Optional<Path> file = services.saver().apply(stage);
-    if (file.isEmpty()) {
-      return;
+  private void save() {
+    if (file == null) {
+      saveAs();
+    } else {
+      write(file);
     }
-    final Route exported = route;
-    final Origin exportedFrom = origin;
+  }
+
+  /**
+   * Saves the roadbook of the route shown into the file chosen by the user, which becomes its file: the item File ›
+   * Save the roadbook as….
+   */
+  @FXML
+  private void saveAs() {
+    services.saver().apply(stage).ifPresent(this::write);
+  }
+
+  /**
+   * Writes, in the background, the roadbook of the route shown into a file, for Terra Pirata and to open it again: its
+   * boxes, with the changes of the user, and its route as computed, the changes beside it ({@link OpenRallyWriter}),
+   * so that a box added can be moved or removed once the roadbook is opened again. Once written, the file is the one
+   * of the roadbook, the roadbook shown when it was asked is the one saved, and the status bar gives the number of
+   * boxes; the application then closes if it was asked meanwhile. A failure says so in the status bar, and the
+   * application does not close.
+   *
+   * @param target the file.
+   */
+  private void write(final Path target) {
+    final Saved written = new Saved(route, origin, edits);
     final Router exportedOn = router;
     final String notice = texts.getString(EXPORT_NOTICE);
     setStatus(STATUS_EXPORTING);
-    run(() -> {
-      final Roadbook roadbook = exportedOn == null
-                                ? RoadbookGenerator.generate(exported)
-                                : RoadbookGenerator.generate(exported, exportedOn.junctions(exported));
-      OpenRallyWriter.save(roadbook, exportedFrom, RoadbookFiles.name(file.get()), notice, CATALOGUE, file.get());
+    saving = run(() -> {
+      final Roadbook roadbook = RoadbookEditor.roadbook(generate(written.route(), written.edits(), exportedOn),
+                                                        written.edits());
+      OpenRallyWriter.save(new Roadbook(written.route(), roadbook.boxes()), written.origin(), written.edits(),
+                           RoadbookFiles.name(target), notice, CATALOGUE, target);
       return roadbook;
-    }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_EXPORTED), locale)
-                                      .format(new Object[] {roadbook.boxes().size()})),
-        _ -> setStatus(EXPORT_ERROR));
+    }, roadbook -> {
+      saving = null;
+      file = target;
+      saved = written;
+      remember(target);
+      updateTitle();
+      status.setText(new MessageFormat(texts.getString(STATUS_EXPORTED), locale)
+                         .format(new Object[] {roadbook.boxes().size()}));
+      if (closing) {
+        exit.run();
+      }
+    }, _ -> {
+      saving = null;
+      closing = false;
+      setStatus(EXPORT_ERROR);
+    });
+  }
+
+  /**
+   * Tells whether the roadbook shown has changes not saved: it differs from the roadbook saved or opened last (another
+   * route, other changes of the user); a roadbook never saved, only if the user changed it.
+   *
+   * @return {@code true} if closing would lose changes.
+   */
+  private boolean isModified() {
+    if (route == null) {
+      return false;
+    }
+    if (saved == null) {
+      return !edits.isEmpty();
+    }
+    return saved.route() != route || !saved.edits().equals(edits);
+  }
+
+  /**
+   * Writes the title of the window: the name of the file of the roadbook, and whether it is modified; the name of the
+   * application alone while no roadbook was saved nor changed.
+   */
+  private void updateTitle() {
+    final boolean modified = isModified();
+    if (file == null && !modified) {
+      stage.setTitle(texts.getString(TITLE));
+      return;
+    }
+    final String name = file == null ? texts.getString(TITLE_UNTITLED) : RoadbookFiles.name(file);
+    stage.setTitle(new MessageFormat(texts.getString(modified ? TITLE_MODIFIED : TITLE_DOCUMENT), locale)
+                       .format(new Object[] {name}));
+  }
+
+  /**
+   * Tells whether the application may close now: nothing is being saved, and nothing would be lost. Otherwise, it
+   * closes once the roadbook being saved is saved; or the user is asked whether to save the changes first.
+   *
+   * @return {@code true} if the application may close now.
+   */
+  private boolean mayClose() {
+    if (saving != null) {
+      closing = true;
+      setStatus(STATUS_CLOSING);
+      return false;
+    }
+    if (!isModified()) {
+      return true;
+    }
+    askToSave();
+    return false;
+  }
+
+  /**
+   * Asks the user, in a dialog over the window, whether to save the changes of the roadbook before closing: Save
+   * saves it (into its file, or the file chosen), then closes; Don't Save closes; Cancel, or the dialog closed, keeps
+   * the window open.
+   */
+  private void askToSave() {
+    final ButtonType saveButton = new ButtonType(texts.getString(CLOSE_SAVE), ButtonBar.ButtonData.OK_DONE);
+    final ButtonType discard = new ButtonType(texts.getString(CLOSE_DISCARD), ButtonBar.ButtonData.NO);
+    final ButtonType cancel = new ButtonType(texts.getString(CLOSE_CANCEL), ButtonBar.ButtonData.CANCEL_CLOSE);
+    final Alert alert = new Alert(Alert.AlertType.CONFIRMATION, texts.getString(CLOSE_TEXT), saveButton, discard,
+                                  cancel);
+    alert.initOwner(stage);
+    alert.setTitle(texts.getString(TITLE));
+    alert.setHeaderText(texts.getString(CLOSE_QUESTION));
+    alert.getDialogPane().getStylesheets().setAll(stage.getScene().getStylesheets());
+    alert.setOnHidden(event -> {
+      final ButtonType answer = alert.getResult();
+      if (answer == discard) {
+        exit.run();
+      } else if (answer == saveButton) {
+        final Optional<Path> target = file == null ? services.saver().apply(stage) : Optional.of(file);
+        target.ifPresent(chosen -> {
+          closing = true;
+          write(chosen);
+        });
+      }
+    });
+    alert.show();
   }
 
   /**
@@ -749,14 +1140,72 @@ final class MainController {
    */
   @FXML
   private void openRoadbook() {
-    final Optional<Path> file = services.opener().apply(stage);
-    if (file.isEmpty()) {
+    services.opener().apply(stage).ifPresent(this::open);
+  }
+
+  /**
+   * Opens a roadbook opened or saved last, from File › Open a recent roadbook: a file that no longer exists (moved or
+   * deleted) is removed from the list, and the user told so in a dialog.
+   *
+   * @param recent the file of the roadbook.
+   */
+  private void openRecent(final Path recent) {
+    if (Files.isRegularFile(recent)) {
+      open(recent);
       return;
     }
+    save(settings.withoutRecent(recent));
+    updateRecent();
+    final Alert alert = new Alert(Alert.AlertType.INFORMATION, texts.getString(RECENT_MISSING_TEXT),
+                                  new ButtonType(texts.getString(OPEN_CLOSE), ButtonBar.ButtonData.OK_DONE));
+    alert.initOwner(stage);
+    alert.setTitle(texts.getString(RoadbookFiles.OPEN_TITLE));
+    alert.setHeaderText(new MessageFormat(texts.getString(RECENT_MISSING), locale)
+                            .format(new Object[] {RoadbookFiles.name(recent)}));
+    alert.getDialogPane().getStylesheets().setAll(stage.getScene().getStylesheets());
+    alert.show();
+  }
+
+  /**
+   * Fills File › Open a recent roadbook with the roadbooks opened or saved last, the last one first, each by the name
+   * of its file and of its folder; the menu is disabled while there is none.
+   */
+  private void updateRecent() {
+    final List<MenuItem> items = new ArrayList<>();
+    for (final Path recent : settings.recent()) {
+      final String folder = Optional.ofNullable(recent.toAbsolutePath().getParent()).map(Path::getFileName)
+                                    .map(Path::toString).orElse("");
+      final MenuItem item = new MenuItem(new MessageFormat(texts.getString(RECENT_ITEM), locale).format(
+          new Object[] {RoadbookFiles.name(recent), folder}));
+      item.setMnemonicParsing(false);
+      item.setOnAction(event -> openRecent(recent));
+      items.add(item);
+    }
+    recentMenu.getItems().setAll(items);
+    recentMenu.setDisable(items.isEmpty());
+  }
+
+  /**
+   * Puts a roadbook first in the roadbooks opened last, kept in the settings, and in File › Open a recent roadbook.
+   *
+   * @param roadbook the file of the roadbook, opened or saved.
+   */
+  private void remember(final Path roadbook) {
+    save(settings.withRecent(roadbook));
+    updateRecent();
+  }
+
+  /**
+   * Opens a roadbook exported by Box One, in the background, and shows its route once read; a failure is shown in a
+   * dialog.
+   *
+   * @param file the file of the roadbook.
+   */
+  private void open(final Path file) {
     cancelReading();
     final String before = status.getText();
     setStatus(STATUS_OPENING);
-    reading = run(() -> checked(OpenRallyReader.read(file.get())), this::opened, failure -> {
+    reading = run(() -> checked(OpenRallyReader.read(file)), read -> opened(read, file), failure -> {
       reading = null;
       if (status.getText().equals(texts.getString(STATUS_OPENING))) {
         status.setText(before);
@@ -843,17 +1292,23 @@ final class MainController {
   }
 
   /**
-   * Shows a roadbook opened: its start and finish, its route, and for a detour its seed and its budget, proposed for
-   * the next detour.
+   * Shows a roadbook opened: its start and finish, its route (without the boxes added, which a roadbook saved before
+   * 2026-11-15 holds in it), and for a detour its seed and its budget, proposed for the next detour.
    *
-   * @param file the roadbook read back, its detour checked.
+   * @param read the roadbook read back, its detour checked.
+   * @param path its file, which becomes the file of the roadbook.
    */
-  private void opened(final RoadbookFile file) {
+  private void opened(final RoadbookFile read, final Path path) {
     reading = null;
     cancelRouting();
     history.remember(current());
-    final Origin from = file.origin();
-    display(new View(from.start(), from.finish(), null, file.route(), from, true));
+    final Origin from = read.origin();
+    final View view = new View(from.start(), from.finish(), null,
+                               RoadbookEditor.withoutAdded(read.route(), read.edits()), from, true, read.edits());
+    file = path;
+    saved = new Saved(view.route(), view.origin(), view.edits());
+    remember(path);
+    display(view);
   }
 
   /**
@@ -880,17 +1335,27 @@ final class MainController {
    * @param request the budget, the kinds of road forbidden and the seed of the detour.
    */
   private void detour(final DetourDialog.Request request) {
-    cancelRouting();
     budget = request.budget();
     if (!request.avoided().equals(settings.avoided())) {
       save(settings.withAvoided(request.avoided()));
     }
+    generate(request, this::failed);
+  }
+
+  /**
+   * Generates, in the background, a detour from the start to the finish shown, a detour being generated cancelled.
+   *
+   * @param request the budget, the kinds of road forbidden and the seed of the detour.
+   * @param failed receives the failure of the generation, on the JavaFX thread.
+   */
+  private void generate(final DetourDialog.Request request, final Consumer<Throwable> failed) {
+    cancelRouting();
     final DetourGenerator generator = new DetourGenerator(router);
     final GeoPoint start = itinerary.getStart().orElseThrow();
     final GeoPoint finish = itinerary.getFinish().orElseThrow();
     setStatus(STATUS_DETOURING);
     routing = run(() -> generator.generate(start, finish, request.budget(), request.avoided(), request.seed()),
-                  this::detoured, this::failed);
+                  this::detoured, failed);
   }
 
   /**
@@ -939,11 +1404,14 @@ final class MainController {
   }
 
   /**
-   * Quits the application: the item Quit of the File menu.
+   * Quits the application, unless the roadbook is being saved (it quits once saved) or has changes not saved (the
+   * user is asked first): the item Quit of the File menu.
    */
   @FXML
   private void quit() {
-    exit.run();
+    if (mayClose()) {
+      exit.run();
+    }
   }
 
   /**
@@ -1015,11 +1483,22 @@ final class MainController {
     busy = false;
     busyPane.setVisible(false);
     openMapItem.setDisable(false);
-    setStatus(switch (failure) {
+    setStatus(error(failure));
+  }
+
+  /**
+   * Returns the key of the message of a failure of the work in the background.
+   *
+   * @param failure the failure.
+   *
+   * @return the key of its message: the code of a failure of the routing or of the detour, unexpected otherwise.
+   */
+  private static String error(final Throwable failure) {
+    return switch (failure) {
       case final RoutingException error -> ROUTING_ERROR + error.getError().name();
       case final DetourException error -> DETOUR_ERROR + error.getError().name();
       default -> UNEXPECTED;
-    });
+    };
   }
 
   /**
@@ -1054,8 +1533,8 @@ final class MainController {
   }
 
   /**
-   * A state of the window brought back by Undo and Redo (issue #4 of GitLab): the start, the finish and the route
-   * shown. Immutable; its places are personal data, never logged.
+   * A state of the window brought back by Undo and Redo (issue #4 of GitLab): the start, the finish, the route shown
+   * and the changes of the user to its roadbook. Immutable; its places are personal data, never logged.
    *
    * @param start the start, or {@code null}.
    * @param finish the finish, or {@code null}.
@@ -1064,8 +1543,22 @@ final class MainController {
    *              the state is shown, if the start and the finish are placed.
    * @param origin where the route comes from, or {@code null} without route.
    * @param opened whether the route was opened from a roadbook.
+   * @param edits the changes of the user to the roadbook of the route, or to the next route computed.
    */
-  private record View(GeoPoint start, GeoPoint finish, Route under, Route route, Origin origin, boolean opened) {
+  private record View(GeoPoint start, GeoPoint finish, Route under, Route route, Origin origin, boolean opened,
+                      RoadbookEdits edits) {
+  }
+
+  /**
+   * The roadbook as it was saved or opened: its route, compared by identity (a route computed again is another
+   * route; its origin goes with it), its origin, and the changes of the user. Immutable; its places are personal
+   * data, never logged.
+   *
+   * @param route the route.
+   * @param origin where the route comes from.
+   * @param edits the changes of the user.
+   */
+  private record Saved(Route route, Origin origin, RoadbookEdits edits) {
   }
 
 }

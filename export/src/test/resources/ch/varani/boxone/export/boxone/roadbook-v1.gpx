@@ -13,6 +13,12 @@
         <boxone:start lat="46.781310" lon="6.641020"/>
         <boxone:finish lat="46.778390" lon="6.641290"/>
         <boxone:detour seed="654321" budgetUnit="MINUTES" budget="15" avoided="FERRY TRUNK" fastest="PT58S"/>
+        <boxone:edits>
+          <boxone:added lat="46.779000" lon="6.644000"/>
+          <boxone:removed lat="46.780500" lon="6.642000"/>
+          <boxone:box lat="46.780120" lon="6.643457" shift="-12.5" heading="200" display="SHOWN"/>
+          <boxone:box lat="46.778400" lon="6.641300" shift="0.0" display="HIDDEN"/>
+        </boxone:edits>
       </boxone:route>
     </extensions>
   </metadata>

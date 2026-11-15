@@ -9,7 +9,10 @@
   and the indices of its maneuvers among the points of the track (trk), in increasing order;
   start, finish: the places clicked, in WGS 84;
   detour (only for a detour): its seed, its budget (unit and amount), the kinds of road it avoids and the duration of
-  the fastest route.
+  the fastest route;
+  edits (only if the user changed the roadbook, development plan, phase 5): the places of the boxes added (added) and
+  removed (removed), and the corrections of the boxes at their places (box): the shift of the total distance in metres,
+  the heading typed in degrees (absent for the heading computed), and whether the heading is shown (display).
 -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
             xmlns="urn:ch.varani.boxone:roadbook"
@@ -22,6 +25,7 @@
         <xsd:element name="start" type="pointType"/>
         <xsd:element name="finish" type="pointType"/>
         <xsd:element name="detour" type="detourType" minOccurs="0"/>
+        <xsd:element name="edits" type="editsType" minOccurs="0"/>
       </xsd:sequence>
       <xsd:attribute name="formatVersion" type="xsd:positiveInteger" use="required"/>
       <xsd:attribute name="distance" type="nonNegativeDouble" use="required"/>
@@ -75,6 +79,39 @@
       </xsd:simpleType>
     </xsd:attribute>
     <xsd:attribute name="fastest" type="xsd:duration" use="required"/>
+  </xsd:complexType>
+
+  <xsd:complexType name="editsType">
+    <xsd:sequence>
+      <xsd:element name="added" type="pointType" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="removed" type="pointType" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="box" type="boxType" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="boxType">
+    <xsd:complexContent>
+      <xsd:extension base="pointType">
+        <xsd:attribute name="shift" type="xsd:double" use="required"/>
+        <xsd:attribute name="heading">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:int">
+              <xsd:minInclusive value="0"/>
+              <xsd:maxInclusive value="359"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:attribute>
+        <xsd:attribute name="display" use="required">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:token">
+              <xsd:enumeration value="RULE"/>
+              <xsd:enumeration value="SHOWN"/>
+              <xsd:enumeration value="HIDDEN"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
   </xsd:complexType>
 
   <xsd:simpleType name="nonNegativeDouble">

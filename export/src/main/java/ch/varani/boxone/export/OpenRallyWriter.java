@@ -3,8 +3,10 @@ package ch.varani.boxone.export;
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.catalog.TulipRenderer;
 import ch.varani.boxone.core.Box;
+import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Roadbook;
+import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
 
@@ -37,21 +39,24 @@ import java.util.stream.Collectors;
  *       ({@link OpenRallyReader}): the version of its format ({@value #FORMAT_VERSION}), the distance in metres and
  *       the duration of the route, the indices of its maneuvers among the points of the track, the start and the
  *       finish clicked and, for a detour, its seed, its budget, the kinds of road it avoids and the duration of the
- *       fastest route;</li>
+ *       fastest route; then the changes made by the user in the editor of the roadbook (development plan, phase 5),
+ *       if any ({@value #EDITS}): the places of the boxes added and removed, and the corrections of the boxes, so that
+ *       they are kept when the roadbook is opened again and its route changes;</li>
  *   <li>one waypoint ({@code wpt}) per box, at its place: its number as name, its total distance in kilometres with
  *       two decimals (OpenRally only carries the total distance, the reader computes the partial one), its heading
- *       ({@code cap}) when the catalogue shows it (the FIA shows the necessary headings only, §5.11.1); the box of the
- *       start opens the stage ({@code dss}), the box of the finish closes it ({@code ass}), as in the reference files
- *       read by Terra Pirata in phase 0; the tulip of the box, drawn with the catalogue as a PNG image in base64
- *       ({@value #PNG_DATA}…, the only drawing Terra Pirata shows, phase 0);</li>
+ *       ({@code cap}) when the catalogue shows it (the FIA shows the necessary headings only, §5.11.1), unless the
+ *       user showed or hid it; the box of the start opens the stage ({@code dss}), the box of the finish closes it
+ *       ({@code ass}), as in the reference files read by Terra Pirata in phase 0; the tulip of the box, drawn with the
+ *       catalogue as a PNG image in base64 ({@value #PNG_DATA}…, the only drawing Terra Pirata shows, phase 0);</li>
  *   <li>the track ({@code trk}) of the route, point by point.</li>
  * </ol>
  * <p>The numbers are written with a dot, whatever the language of the application. The notes come later. The file
  * is written by the XML writer of the JDK, never by another one found on the module path (Woodstox, brought by
  * GraphHopper through Jackson, would be found first, and writes differently).</p>
  *
- * <p><b>Saving</b>: {@link #save(Roadbook, Origin, String, String, Catalogue, Path)} writes a temporary file next to
- * the file chosen, then moves it in place, so that a failed export never leaves a damaged file (AGENTS.md §5).</p>
+ * <p><b>Saving</b>: {@link #save(Roadbook, Origin, RoadbookEdits, String, String, Catalogue, Path)} writes a
+ * temporary file next to the file chosen, then moves it in place, so that a failed export never leaves a damaged file
+ * (AGENTS.md §5).</p>
  *
  * <p>Utility class without state, safe for concurrent use.</p>
  */
@@ -109,6 +114,23 @@ public final class OpenRallyWriter {
   static final String AVOIDED = "avoided";
   /** The attribute of the duration of the fastest route, an ISO 8601 duration. */
   static final String FASTEST = "fastest";
+  /** The element of the changes made by the user in the editor of the roadbook, in the route of Box One. */
+  static final String EDITS = "edits";
+  /** The element of the place of a box added, in the changes. */
+  static final String ADDED = "added";
+  /** The element of the place of a box removed, in the changes. */
+  static final String REMOVED = "removed";
+  /** The element of the correction of a box, at its place, in the changes. */
+  static final String BOX = "box";
+  /** The attribute of the shift of the total distance of a box corrected, in metres. */
+  static final String SHIFT = "shift";
+  /** The attribute of the heading typed for a box corrected, in degrees; absent for the heading computed. */
+  static final String HEADING = "heading";
+  /**
+   * The attribute of the display of the heading of a box corrected, a name of
+   * {@link ch.varani.boxone.core.HeadingDisplay}.
+   */
+  static final String DISPLAY = "display";
   /** The attribute of the latitude of a point. */
   static final String LATITUDE = "lat";
   /** The attribute of the longitude of a point. */
@@ -158,8 +180,10 @@ public final class OpenRallyWriter {
    * Saves a roadbook into a file, replacing it if it exists: written into a temporary file of the same folder, then
    * moved in place.
    *
-   * @param roadbook the roadbook.
+   * @param roadbook the roadbook: its boxes, with the changes of the user, and its route as generated, without them
+   *                 (the changes are applied to it again when it is opened).
    * @param origin where the route of the roadbook comes from.
+   * @param edits the changes made by the user to the roadbook, applied to its boxes, written to open it again.
    * @param name the name of the roadbook, shown by the reader.
    * @param description the description of the roadbook: the reminder that the route is indicative.
    * @param catalogue the catalogue of symbols that draws the tulips and tells the headings shown.
@@ -167,14 +191,14 @@ public final class OpenRallyWriter {
    *
    * @throws IOException if the file cannot be written; it is then left as it was.
    */
-  public static void save(final Roadbook roadbook, final Origin origin, final String name, final String description,
-                          final Catalogue catalogue, final Path file) throws IOException {
+  public static void save(final Roadbook roadbook, final Origin origin, final RoadbookEdits edits, final String name,
+                          final String description, final Catalogue catalogue, final Path file) throws IOException {
     final Path target = file.toAbsolutePath();
     final Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(),
                                                 TEMPORARY_SUFFIX);
     try {
       try (OutputStream output = Files.newOutputStream(temporary)) {
-        write(roadbook, origin, name, description, catalogue, output);
+        write(roadbook, origin, edits, name, description, catalogue, output);
       }
       Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     } catch (final IOException e) {
@@ -186,8 +210,10 @@ public final class OpenRallyWriter {
   /**
    * Writes a roadbook into a stream, in UTF-8; the stream is left open.
    *
-   * @param roadbook the roadbook.
+   * @param roadbook the roadbook: its boxes, with the changes of the user, and its route as generated, without them
+   *                 (the changes are applied to it again when it is opened).
    * @param origin where the route of the roadbook comes from.
+   * @param edits the changes made by the user to the roadbook, applied to its boxes, written to open it again.
    * @param name the name of the roadbook, shown by the reader.
    * @param description the description of the roadbook: the reminder that the route is indicative.
    * @param catalogue the catalogue of symbols that draws the tulips and tells the headings shown.
@@ -195,8 +221,9 @@ public final class OpenRallyWriter {
    *
    * @throws IOException if the stream cannot be written, or a tulip drawn.
    */
-  public static void write(final Roadbook roadbook, final Origin origin, final String name, final String description,
-                           final Catalogue catalogue, final OutputStream output) throws IOException {
+  public static void write(final Roadbook roadbook, final Origin origin, final RoadbookEdits edits, final String name,
+                           final String description, final Catalogue catalogue, final OutputStream output)
+      throws IOException {
     try {
       final XMLStreamWriter stream = XMLOutputFactory.newDefaultFactory()
                                                      .createXMLStreamWriter(output, StandardCharsets.UTF_8.name());
@@ -211,7 +238,7 @@ public final class OpenRallyWriter {
       stream.writeNamespace(BOX_ONE_PREFIX, BOX_ONE);
       stream.writeAttribute("version", VERSION);
       stream.writeAttribute("creator", CREATOR);
-      metadata(xml, roadbook, origin, name, description);
+      metadata(xml, roadbook, origin, edits, name, description);
       for (final Box box : roadbook.boxes()) {
         waypoint(xml, box, box.number() == roadbook.boxes().size(), catalogue);
       }
@@ -233,13 +260,15 @@ public final class OpenRallyWriter {
    * @param xml the writer, inside the element {@code gpx}.
    * @param roadbook the roadbook.
    * @param origin where the route of the roadbook comes from.
+   * @param edits the changes made by the user to the roadbook.
    * @param name the name of the roadbook.
    * @param description the description of the roadbook.
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void metadata(final Indented xml, final Roadbook roadbook, final Origin origin, final String name,
-                               final String description) throws XMLStreamException {
+  private static void metadata(final Indented xml, final Roadbook roadbook, final Origin origin,
+                               final RoadbookEdits edits, final String name, final String description)
+      throws XMLStreamException {
     xml.open(GPX, "metadata");
     xml.text(GPX, "name", name);
     xml.text(GPX, "desc", description);
@@ -250,22 +279,24 @@ public final class OpenRallyWriter {
     xml.open(GPX, "extensions");
     xml.text(OPENRALLY, "units", UNITS);
     xml.text(OPENRALLY, DISTANCE, kilometres(roadbook.distance()));
-    route(xml, roadbook.route(), origin);
+    route(xml, roadbook.route(), origin, edits);
     xml.close();
     xml.close();
   }
 
   /**
    * Writes the route of Box One: the version of the format, the distance, the duration and the maneuvers of the route,
-   * the start and the finish clicked, and the detour the route comes from.
+   * the start and the finish clicked, the detour the route comes from, and the changes of the user.
    *
    * @param xml the writer, inside the extensions of the metadata.
    * @param route the route of the roadbook.
    * @param origin where the route comes from.
+   * @param edits the changes made by the user to the roadbook.
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void route(final Indented xml, final Route route, final Origin origin) throws XMLStreamException {
+  private static void route(final Indented xml, final Route route, final Origin origin, final RoadbookEdits edits)
+      throws XMLStreamException {
     xml.open(BOX_ONE, ROUTE);
     xml.attribute(FORMAT_VERSION_ATTRIBUTE, Integer.toString(FORMAT_VERSION));
     xml.attribute(DISTANCE, Double.toString(route.distance()));
@@ -285,6 +316,40 @@ public final class OpenRallyWriter {
         xml.attribute(AVOIDED, detour.avoided().stream().sorted().collect(Collectors.joining(LIST_SEPARATOR)));
       }
       xml.attribute(FASTEST, detour.fastest().toString());
+    }
+    if (!edits.isEmpty()) {
+      edits(xml, edits);
+    }
+    xml.close();
+  }
+
+  /**
+   * Writes the changes of the user: the places of the boxes added, of the boxes removed, and the corrections of the
+   * boxes at their places.
+   *
+   * @param xml the writer, inside the route of Box One.
+   * @param edits the changes, not empty.
+   *
+   * @throws XMLStreamException if the stream cannot be written.
+   */
+  private static void edits(final Indented xml, final RoadbookEdits edits) throws XMLStreamException {
+    xml.open(BOX_ONE, EDITS);
+    for (final GeoPoint place : edits.added()) {
+      xml.empty(BOX_ONE, ADDED);
+      position(xml, place);
+    }
+    for (final GeoPoint place : edits.removed()) {
+      xml.empty(BOX_ONE, REMOVED);
+      position(xml, place);
+    }
+    for (final BoxEdit edit : edits.boxes()) {
+      xml.empty(BOX_ONE, BOX);
+      position(xml, edit.place());
+      xml.attribute(SHIFT, Double.toString(edit.shift()));
+      if (edit.heading().isPresent()) {
+        xml.attribute(HEADING, Integer.toString(edit.heading().getAsInt()));
+      }
+      xml.attribute(DISPLAY, edit.display().name());
     }
     xml.close();
   }

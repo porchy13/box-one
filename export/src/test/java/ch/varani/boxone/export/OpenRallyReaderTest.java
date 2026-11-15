@@ -2,8 +2,11 @@ package ch.varani.boxone.export;
 
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
+import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.Roadbook;
+import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,9 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests of {@link OpenRallyReader} (issue #5 of GitLab): a roadbook exported by Box One is read back with its route
- * and its origin, the files of every version of the format are read, and the files that are not roadbooks of Box One,
- * too large, malformed, of a newer version or invalid are refused with their reason.
+ * Tests of {@link OpenRallyReader} (issue #5 of GitLab): a roadbook exported by Box One is read back with its route,
+ * its origin and the changes of the user (development plan, phase 5), the files of every version of the format are
+ * read, and the files that are not roadbooks of Box One, too large, malformed, of a newer version or invalid are
+ * refused with their reason.
  */
 final class OpenRallyReaderTest {
 
@@ -74,6 +78,17 @@ final class OpenRallyReaderTest {
   /** The detour of the tests, avoiding the ferries and the expressways. */
   private static final Origin DETOUR = new Origin.Detour(CLICKED_START, CLICKED_FINISH, SEED, "MINUTES", MINUTES,
                                                          Set.of("FERRY", "TRUNK"), Duration.ofSeconds(58));
+  /** A place where the user removed a box, in the reference file of version 1. */
+  private static final GeoPoint REMOVED = new GeoPoint(46.7805, 6.642);
+  /** The shift of the total distance of the box corrected, in metres. */
+  private static final double SHIFT = -12.5;
+  /** The heading typed for the box corrected, in degrees. */
+  private static final int HEADING = 200;
+  /** The changes of the user of the tests, as in the reference file of version 1. */
+  private static final RoadbookEdits EDITS = new RoadbookEdits(
+      List.of(BEND), List.of(REMOVED),
+      List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(HEADING), HeadingDisplay.SHOWN),
+              new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN)));
   /** The reference file of version 1 of the format, relative to this class. */
   private static final String VERSION_1 = "boxone/roadbook-v1.gpx";
   /** A valid file, as small as can be, edited by the tests of the failures. */
@@ -102,18 +117,19 @@ final class OpenRallyReaderTest {
    * Writes a roadbook of the route of the tests, as Box One exports it.
    *
    * @param origin where the route comes from.
+   * @param edits the changes of the user.
    *
    * @return the bytes of the file.
    *
    * @throws IOException never: the memory can always be written.
    */
-  private static byte[] exported(final Origin origin) throws IOException {
+  private static byte[] exported(final Origin origin, final RoadbookEdits edits) throws IOException {
     final Roadbook roadbook = new Roadbook(ROUTE, List.of(
         new Box(1, START, 0, 0, OptionalInt.of(1), Optional.empty()),
         new Box(2, JUNCTION, DISTANCE / 2, DISTANCE / 2, OptionalInt.of(2), Optional.empty()),
         new Box(3, FINISH, DISTANCE, DISTANCE / 2, OptionalInt.empty(), Optional.empty())));
     final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    OpenRallyWriter.write(roadbook, origin, "Yverdon", "Indicative", FIA, output);
+    OpenRallyWriter.write(roadbook, origin, edits, "Yverdon", "Indicative", FIA, output);
     return output.toByteArray();
   }
 
@@ -143,17 +159,18 @@ final class OpenRallyReaderTest {
 
   /**
    * A detour exported is read back with its route and its origin: the start and the finish clicked, the seed, the
-   * budget, the kinds of road avoided and the duration of the fastest route.
+   * budget, the kinds of road avoided and the duration of the fastest route; and with the changes of the user.
    *
    * @throws Exception if the roadbook cannot be written or read.
    */
   @Test
-  @DisplayName("Issue #5: a detour exported is read back with its route, start, finish, seed and budget")
+  @DisplayName("Issue #5, phase 5: a detour exported is read back with its route, origin and the changes of the user")
   void detourTest() throws Exception {
-    final RoadbookFile file = OpenRallyReader.read(new ByteArrayInputStream(exported(DETOUR)));
+    final RoadbookFile file = OpenRallyReader.read(new ByteArrayInputStream(exported(DETOUR, EDITS)));
     assertAll(
         () -> assertEquals(ROUTE, file.route()),
-        () -> assertEquals(DETOUR, file.origin()));
+        () -> assertEquals(DETOUR, file.origin()),
+        () -> assertEquals(EDITS, file.edits()));
   }
 
   /**
@@ -165,7 +182,8 @@ final class OpenRallyReaderTest {
   @DisplayName("Issue #5: a fastest route exported is read back with its route, start and finish")
   void fastestTest() throws Exception {
     final Origin fastest = new Origin.Fastest(CLICKED_START, CLICKED_FINISH);
-    assertEquals(new RoadbookFile(ROUTE, fastest), OpenRallyReader.read(new ByteArrayInputStream(exported(fastest))));
+    assertEquals(new RoadbookFile(ROUTE, fastest, RoadbookEdits.NONE),
+                 OpenRallyReader.read(new ByteArrayInputStream(exported(fastest, RoadbookEdits.NONE))));
   }
 
   /**
@@ -186,7 +204,8 @@ final class OpenRallyReaderTest {
             new StreamSource(OpenRallyReaderTest.class.getResource(VERSION_1).toString()))),
         () -> assertEquals(new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1, 2), DISTANCE, DURATION),
                            file.route()),
-        () -> assertEquals(DETOUR, file.origin()));
+        () -> assertEquals(DETOUR, file.origin()),
+        () -> assertEquals(EDITS, file.edits()));
   }
 
   /**
@@ -204,13 +223,13 @@ final class OpenRallyReaderTest {
     final Roadbook roadbook = new Roadbook(ROUTE, List.of(
         new Box(1, START, 0, 0, OptionalInt.of(1), Optional.empty()),
         new Box(2, FINISH, DISTANCE, DISTANCE, OptionalInt.empty(), Optional.empty())));
-    OpenRallyWriter.save(roadbook, DETOUR, "Yverdon", "Indicative", FIA, saved);
+    OpenRallyWriter.save(roadbook, DETOUR, RoadbookEdits.NONE, "Yverdon", "Indicative", FIA, saved);
     final Path large = folder.resolve("large.gpx");
     try (RandomAccessFile file = new RandomAccessFile(large.toFile(), "rw")) {
       file.setLength(OpenRallyReader.MAX_SIZE + 1);
     }
     assertAll(
-        () -> assertEquals(new RoadbookFile(ROUTE, DETOUR), OpenRallyReader.read(saved)),
+        () -> assertEquals(new RoadbookFile(ROUTE, DETOUR, RoadbookEdits.NONE), OpenRallyReader.read(saved)),
         () -> assertEquals(ReadError.UNREADABLE, assertThrows(ReadException.class, () -> OpenRallyReader.read(
             folder.resolve("missing.gpx"))).getError()),
         () -> assertEquals(ReadError.TOO_LARGE,
@@ -228,7 +247,8 @@ final class OpenRallyReaderTest {
     final RoadbookFile file = read(MINIMAL);
     assertAll(
         () -> assertEquals(MINIMAL_POINTS, file.route().points().size()),
-        () -> assertEquals(new Origin.Fastest(START, FINISH), file.origin()));
+        () -> assertEquals(new Origin.Fastest(START, FINISH), file.origin()),
+        () -> assertEquals(RoadbookEdits.NONE, file.edits()));
   }
 
   /**
@@ -296,7 +316,18 @@ final class OpenRallyReaderTest {
       "<trkpt lat=\"46.78\"|<trkpt lat=\"91\"",
       "<boxone:finish |<boxone:waypoint lat=\"46.78\" lon=\"6.642\"/><boxone:finish ",
       "<boxone:finish |<boxone:detour seed=\"x\"/><boxone:finish ",
-      "<boxone:finish |<boxone:detour seed=\"1\" budget=\"5\" fastest=\"PT1M\"/><boxone:finish "})
+      "<boxone:finish |<boxone:detour seed=\"1\" budget=\"5\" fastest=\"PT1M\"/><boxone:finish ",
+      "</boxone:route>|<boxone:edits><boxone:added lat=\"95\" lon=\"6.642\"/></boxone:edits></boxone:route>",
+      "</boxone:route>|<boxone:edits><boxone:removed lat=\"46.78\"/></boxone:edits></boxone:route>",
+      "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"x\" display=\"RULE\"/></boxone:route>",
+      "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" heading=\"360\" display=\"RULE\"/>"
+          + "</boxone:route>",
+      "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" heading=\"x\" display=\"RULE\"/>"
+          + "</boxone:route>",
+      "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"OFTEN\"/></boxone:route>",
+      "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\"/></boxone:route>",
+      "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"RULE\"/>"
+          + "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"1\" display=\"RULE\"/></boxone:route>"})
   @DisplayName("Issue #5: a roadbook with a value missing or out of its bounds is refused as invalid")
   void invalidTest(final String target, final String replacement) {
     assertEquals(ReadError.INVALID, refused(MINIMAL.replace(target, replacement == null ? "" : replacement)));

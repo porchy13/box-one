@@ -50,7 +50,7 @@ final class RoadbookFilesTest {
     assertAll(
         () -> assertEquals(Optional.of(roadbook.toPath()), chosen.get()),
         () -> assertTrue(cancelled.get().isEmpty()),
-        () -> assertEquals("Exporter le roadbook", dialog.getTitle()),
+        () -> assertEquals("Enregistrer le roadbook", dialog.getTitle()),
         () -> assertEquals(RoadbookFiles.INITIAL_NAME, dialog.getInitialFileName()),
         () -> assertEquals(List.of(RoadbookFiles.GPX), dialog.getExtensionFilters().getFirst().getExtensions()));
   }

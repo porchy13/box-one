@@ -2,7 +2,9 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.Junction;
+import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.DetourError;
@@ -20,6 +22,7 @@ import ch.varani.boxone.routing.RoutingException;
 import javafx.application.ColorScheme;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.event.ActionEvent;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -29,16 +32,20 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
-import javafx.stage.Window;
+import javafx.stage.WindowEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,10 +58,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -63,6 +73,7 @@ import java.util.function.Function;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,6 +98,24 @@ final class MainControllerTest {
   private static final ResourceBundle TEXTS = Languages.bundle(Languages.FRENCH);
   /** The boxes of the roadbook of a route with one turn: the start, the turn, the finish. */
   private static final int TURNING_BOXES = 3;
+  /** The precision of a place projected on the route, in degrees. */
+  private static final double PLACE_PRECISION = 1e-9;
+  /** The script dropping the box selected on the map at a place, as the page does once it is dragged. */
+  private static final String BOX_DROP = "window.bridge.boxMoved(%s, %s)";
+  /** A latitude between the station and the castle, on the first leg of the route of {@link FakeRouter#turning()}. */
+  private static final double ALONG_LATITUDE = 46.7800;
+  /** The latitude halfway from the station to the latitude of the castle. */
+  private static final double HALFWAY_LATITUDE = 46.7800;
+  /** A longitude about 4 m east of the station: a right-click near the route going south from it. */
+  private static final double NEAR_LONGITUDE = 6.641_05;
+  /** A longitude about 76 m east of the station: a right-click far from the route going south from it. */
+  private static final double FAR_LONGITUDE = 6.6420;
+  /** A view of the map placed by the user: its centre and its zoom, away from the route. */
+  private static final String PLACE_VIEW = "boxOne.map.setView(L.latLng(46.7900, 6.6500), 13, {animate: false})";
+  /** The view {@link #PLACE_VIEW}, as {@code mapView} reads it. */
+  private static final String PLACED_VIEW = "46.7900 6.6500 13";
+  /** A heading typed in the editor, in degrees. */
+  private static final int EASTWARDS = 45;
   /** The index of the budget of 30 minutes in the choice of the detour: after 0, 5… 25 minutes. */
   private static final int THIRTY_MINUTES = 6;
 
@@ -311,7 +340,8 @@ final class MainControllerTest {
                            window.stage().getIcons().stream().map(icon -> (int) icon.getWidth()).toList()),
         () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "toolsMenu"),
                            menus.stream().map(Menu::getId).toList()),
-        () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "exportItem", "quitSeparator", "quitItem"),
+        () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "recentMenu", "saveItem", "saveAsItem",
+                                   "quitSeparator", "quitItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()),
         () -> assertEquals(1, exits.get()),
         () -> assertTrue(window.stage().getScene().lookup(".web-view") instanceof WebView),
@@ -341,7 +371,8 @@ final class MainControllerTest {
     assertAll(
         () -> assertFalse(window.stage().getScene().getAccelerators().containsKey(MainController.REDO_OTHER)),
         () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu"), menus.stream().map(Menu::getId).toList()),
-        () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "exportItem", "settingsSeparator",
+        () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "recentMenu", "saveItem", "saveAsItem",
+                                   "settingsSeparator",
                                    "settingsItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()));
   }
@@ -548,8 +579,489 @@ final class MainControllerTest {
   }
 
   /**
+   * The box selected, but the start and the finish, can be dragged on the map; dropped on the route, it moves there,
+   * selected, its distance computed again, and Undo brings it back; dropped at its place, nothing changes; dropped
+   * far from the route, the status bar says so.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 5: the box selected dragged on the map moves along the route, its distances computed again")
+  void moveBoxTest(final FxRobot robot) throws TimeoutException {
+    final Shown window = show(robot, FakeRouter.turning());
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    final ListView<?> boxes = boxes(robot, window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    robot.interact(() -> boxes.getSelectionModel().select(0));
+    final boolean start = MapPages.draggableBox(robot, view);
+    robot.interact(() -> boxes.getSelectionModel().select(1));
+    final boolean turn = MapPages.draggableBox(robot, view);
+    final BoxRow before = (BoxRow) boxes.getSelectionModel().getSelectedItem();
+    MapPages.script(robot, view, String.format(Locale.ROOT, BOX_DROP, ALONG_LATITUDE, STATION_LONGITUDE));
+    robot.interact(background::runAll);
+    final BoxRow moved = (BoxRow) boxes.getSelectionModel().getSelectedItem();
+    final int waiting = background.size();
+    MapPages.script(robot, view, String.format(Locale.ROOT, BOX_DROP, moved.place().latitude(),
+                                               moved.place().longitude()));
+    final int unchanged = background.size() - waiting;
+    MapPages.script(robot, view, String.format(Locale.ROOT, BOX_DROP, CASTLE_LATITUDE, FAR_LONGITUDE));
+    final String far = text(robot, window, "status");
+    fire(robot, window, "undoItem");
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertFalse(start),
+        () -> assertTrue(turn),
+        () -> assertEquals(ALONG_LATITUDE, moved.place().latitude(), PLACE_PRECISION),
+        () -> assertEquals(STATION_LONGITUDE, moved.place().longitude(), PLACE_PRECISION),
+        () -> assertNotEquals(before.total(), moved.total()),
+        () -> assertEquals(TURNING_BOXES, boxes.getItems().size()),
+        () -> assertEquals(0, unchanged),
+        () -> assertEquals(TEXTS.getString(MainController.MOVE_FAR), far),
+        () -> assertEquals(before.place(), ((BoxRow) boxes.getItems().get(1)).place()));
+  }
+
+  /**
+   * Returns the boxes of the strip.
+   *
+   * @param robot the TestFX robot.
+   * @param window the window.
+   *
+   * @return the list of the boxes.
+   */
+  private static ListView<?> boxes(final FxRobot robot, final Shown window) {
+    return robot.from(window.stage().getScene().getRoot()).lookup("#boxList").queryAs(ListView.class);
+  }
+
+  /**
+   * Shows a window routing with {@link FakeRouter#turning()}, its route from the station to the castle computed.
+   *
+   * @param robot the TestFX robot.
+   * @param exit quits the application.
+   * @param saver chooses the file where the roadbook is saved.
+   *
+   * @return the window.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  private Shown routed(final FxRobot robot, final Runnable exit,
+                       final Function<javafx.stage.Window, Optional<Path>> saver) throws TimeoutException {
+    final Router router = FakeRouter.turning();
+    final Services services = new Services(data, background, folder -> Optional.of(router), (map, graph) -> router,
+                                           owner -> Optional.empty(), saver, owner -> Optional.empty());
+    final Shown window = show(robot, false, exit, services, colors);
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    return window;
+  }
+
+  /**
+   * Corrects the heading of the box of the turn in the editor, and draws the roadbook again.
+   *
+   * @param robot the TestFX robot.
+   * @param window the window.
+   * @param degrees the heading typed.
+   */
+  private void correct(final FxRobot robot, final Shown window, final int degrees) {
+    robot.interact(() -> boxes(robot, window).getSelectionModel().select(1));
+    final TextField heading = robot.lookup("#" + BoxEditor.HEADING_ID).queryAs(TextField.class);
+    robot.interact(() -> {
+      heading.setText(String.valueOf(degrees));
+      heading.fireEvent(new ActionEvent());
+    });
+    robot.interact(background::runAll);
+  }
+
+  /**
+   * The title of the window names the application until the roadbook is changed or saved; then the name of its file,
+   * and "(modifié)" while it differs from the roadbook saved. Save asks for the file the first time only, then writes
+   * it again; Save as… asks for another file, which becomes the one of the roadbook.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws Exception if the page of the map does not load in time, or a file cannot be read.
+   */
+  @Test
+  @DisplayName("Phase 5: Save writes the file of the roadbook again, the title says when it is modified")
+  void saveTest(final FxRobot robot) throws Exception {
+    final Path first = data.resolve("first.gpx");
+    final Path second = data.resolve("second.gpx");
+    final AtomicInteger asked = new AtomicInteger();
+    final Shown window = routed(robot, () -> { },
+                                owner -> Optional.of(asked.incrementAndGet() == 1 ? first : second));
+    final String unchanged = window.stage().getTitle();
+    correct(robot, window, EASTWARDS);
+    final String untitled = window.stage().getTitle();
+    fire(robot, window, "saveItem");
+    robot.interact(background::runAll);
+    final String savedTitle = window.stage().getTitle();
+    correct(robot, window, EASTWARDS + 1);
+    final String modified = window.stage().getTitle();
+    fire(robot, window, "saveItem");
+    robot.interact(background::runAll);
+    final int askedOnce = asked.get();
+    final OptionalInt written = OpenRallyReader.read(first).edits().boxes().getFirst().heading();
+    fire(robot, window, "saveAsItem");
+    robot.interact(background::runAll);
+    final String savedAs = window.stage().getTitle();
+    fire(robot, window, "undoItem");
+    final String undone = window.stage().getTitle();
+    assertAll(
+        () -> assertEquals("Box One", unchanged),
+        () -> assertEquals("Nouveau roadbook (modifié) – Box One", untitled),
+        () -> assertEquals("first – Box One", savedTitle),
+        () -> assertEquals("first (modifié) – Box One", modified),
+        () -> assertEquals(1, askedOnce),
+        () -> assertEquals(OptionalInt.of(EASTWARDS + 1), written),
+        () -> assertEquals("second – Box One", savedAs),
+        () -> assertEquals("second (modifié) – Box One", undone));
+  }
+
+  /**
+   * Closing without change closes at once; with changes not saved, the user is asked: Cancel keeps the window, Don't
+   * Save closes, Save saves then closes, a save failed or a file not chosen keeping the window; closing while the
+   * roadbook is saved closes once it is saved.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 5: closing with changes not saved asks to save them, and waits for a save in progress")
+  void closeChangedTest(final FxRobot robot) throws TimeoutException {
+    final AtomicInteger exits = new AtomicInteger();
+    final AtomicInteger asked = new AtomicInteger();
+    final Path good = data.resolve("closed.gpx");
+    final Path bad = data.resolve("missing").resolve("closed.gpx");
+    final Shown window = routed(robot, exits::incrementAndGet, owner -> switch (asked.incrementAndGet()) {
+      case 1 -> Optional.of(bad);
+      case 2 -> Optional.empty();
+      default -> Optional.of(good);
+    });
+    final WindowEvent unchangedRequest = closeRequest(robot, window);
+    correct(robot, window, EASTWARDS);
+    fire(robot, window, "quitItem");
+    final List<String> dialog = robot.lookup(".dialog-pane").queryAs(DialogPane.class).getButtonTypes().stream()
+                                     .map(ButtonType::getText).toList();
+    robot.interact(button(robot, ButtonBar.ButtonData.CANCEL_CLOSE)::fire);
+    final int afterCancel = exits.get();
+    final WindowEvent changedRequest = closeRequest(robot, window);
+    robot.interact(button(robot, ButtonBar.ButtonData.NO)::fire);
+    final int afterDiscard = exits.get();
+    fire(robot, window, "quitItem");
+    robot.interact(button(robot, ButtonBar.ButtonData.OK_DONE)::fire);
+    robot.interact(background::runAll);
+    final String failed = text(robot, window, "status");
+    fire(robot, window, "quitItem");
+    robot.interact(button(robot, ButtonBar.ButtonData.OK_DONE)::fire);
+    final int afterNoFile = exits.get();
+    fire(robot, window, "saveItem");
+    fire(robot, window, "quitItem");
+    final String closing = text(robot, window, "status");
+    final int whileSaving = exits.get();
+    robot.interact(background::runAll);
+    final int afterSaved = exits.get();
+    correct(robot, window, EASTWARDS + 1);
+    fire(robot, window, "quitItem");
+    robot.interact(button(robot, ButtonBar.ButtonData.OK_DONE)::fire);
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertFalse(unchangedRequest.isConsumed()),
+        () -> assertEquals(List.of("Enregistrer", "Ne pas enregistrer", "Annuler"), dialog),
+        () -> assertEquals(0, afterCancel),
+        () -> assertTrue(changedRequest.isConsumed()),
+
+        () -> assertEquals(TEXTS.getString(MainController.EXPORT_ERROR), failed),
+        () -> assertEquals(1, afterNoFile),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_CLOSING), closing),
+        () -> assertEquals(1, whileSaving),
+
+        () -> assertEquals(1, afterDiscard),
+        () -> assertEquals(afterDiscard + 1, afterSaved),
+        () -> assertEquals(afterSaved + 1, exits.get()),
+        () -> assertTrue(Files.exists(good)));
+  }
+
+  /**
+   * File › Open a recent roadbook lists the roadbooks saved or opened last, the last one first, by the names of their
+   * file and folder, and is disabled while there is none; a roadbook deleted since is removed from the list, the user
+   * told in a dialog; a roadbook of the list is opened; the list is kept in the settings.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Recent roadbooks: File › Open a recent roadbook opens them, a roadbook deleted is removed from it")
+  void recentTest(final FxRobot robot) throws Exception {
+    final Path first = data.resolve("first.gpx");
+    final Path second = data.resolve("second.gpx");
+    final AtomicInteger asked = new AtomicInteger();
+    final Shown window = routed(robot, () -> { },
+                                owner -> Optional.of(asked.incrementAndGet() == 1 ? first : second));
+    final Menu recent = (Menu) item(robot, window, "recentMenu");
+    final boolean disabledBefore = recent.isDisable();
+    fire(robot, window, "saveAsItem");
+    robot.interact(background::runAll);
+    fire(robot, window, "saveAsItem");
+    robot.interact(background::runAll);
+    final List<String> labels = recent.getItems().stream().map(MenuItem::getText).toList();
+    Files.delete(first);
+    robot.interact(recent.getItems().getLast()::fire);
+    final String missing = robot.lookup(".dialog-pane").queryAs(DialogPane.class).getHeaderText();
+    robot.interact(button(robot, ButtonBar.ButtonData.OK_DONE)::fire);
+    final int left = recent.getItems().size();
+    robot.interact(recent.getItems().getFirst()::fire);
+    final String opening = text(robot, window, "status");
+    robot.interact(background::runAll);
+    final String folder = data.getFileName().toString();
+    assertAll(
+        () -> assertTrue(disabledBefore),
+        () -> assertEquals(List.of("second — " + folder, "first — " + folder), labels),
+        () -> assertEquals("Le roadbook « first » n’existe plus.", missing),
+        () -> assertEquals(1, left),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_OPENING), opening),
+        () -> assertEquals("second – Box One", window.stage().getTitle()),
+        () -> assertEquals(List.of(second),
+                           new SettingsStore(data.resolve(DataFolder.SETTINGS)).load().recent()));
+  }
+
+  /**
+   * Asks the window to close, as its close button does, without closing it.
+   *
+   * @param robot the TestFX robot.
+   * @param window the window.
+   *
+   * @return the request, consumed if the window refused to close.
+   */
+  private static WindowEvent closeRequest(final FxRobot robot, final Shown window) {
+    final WindowEvent request = new WindowEvent(window.stage(), WindowEvent.WINDOW_CLOSE_REQUEST);
+    robot.interact(() -> window.stage().getOnCloseRequest().handle(request));
+    return request;
+  }
+
+  /**
+   * Delete and Backspace remove the box selected in the strip, without modifier, but neither the start nor the finish;
+   * Undo and Redo of the changes of the roadbook leave the map where it is, at its zoom, and keep the box selected.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 5: Delete removes the box selected; Undo of the roadbook keeps the map where it is")
+  void removeKeyTest(final FxRobot robot) throws TimeoutException {
+    final Shown window = show(robot, FakeRouter.turning());
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    final ListView<?> boxes = boxes(robot, window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    robot.interact(() -> boxes.getSelectionModel().select(1));
+    press(robot, boxes, KeyCode.DELETE, false, false);
+    robot.interact(background::runAll);
+    final int removed = boxes.getItems().size();
+    MapPages.script(robot, view, PLACE_VIEW);
+    fire(robot, window, "undoItem");
+    robot.interact(background::runAll);
+    final int broughtBack = boxes.getItems().size();
+    final String afterUndo = MapPages.mapView(robot, view);
+    robot.interact(() -> boxes.getSelectionModel().select(1));
+    final TextField heading = robot.lookup("#" + BoxEditor.HEADING_ID).queryAs(TextField.class);
+    robot.interact(() -> {
+      heading.setText(String.valueOf(EASTWARDS));
+      heading.fireEvent(new ActionEvent());
+    });
+    robot.interact(background::runAll);
+    MapPages.script(robot, view, PLACE_VIEW);
+    fire(robot, window, "undoItem");
+    robot.interact(background::runAll);
+    final int selectedAfterUndo = boxes.getSelectionModel().getSelectedIndex();
+    fire(robot, window, "redoItem");
+    robot.interact(background::runAll);
+    final String afterRedo = MapPages.mapView(robot, view);
+    final int beforeKeys = background.size();
+    robot.interact(() -> boxes.getSelectionModel().select(0));
+    press(robot, boxes, KeyCode.BACK_SPACE, false, false);
+    robot.interact(() -> boxes.getSelectionModel().select(TURNING_BOXES - 1));
+    press(robot, boxes, KeyCode.DELETE, false, false);
+    robot.interact(() -> boxes.getSelectionModel().select(1));
+    press(robot, boxes, KeyCode.DELETE, true, false);
+    press(robot, boxes, KeyCode.DELETE, false, true);
+    press(robot, boxes, KeyCode.A, false, false);
+    robot.interact(() -> boxes.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.DELETE, false, true,
+                                                      false, true)));
+    assertAll(
+        () -> assertEquals(TURNING_BOXES - 1, removed),
+        () -> assertEquals(TURNING_BOXES, broughtBack),
+        () -> assertEquals(PLACED_VIEW, afterUndo),
+        () -> assertEquals(1, selectedAfterUndo),
+        () -> assertEquals(PLACED_VIEW, afterRedo),
+        () -> assertEquals(beforeKeys, background.size()),
+        () -> assertEquals(TURNING_BOXES, boxes.getItems().size()));
+  }
+
+  /**
+   * Presses a key on a node.
+   *
+   * @param robot the TestFX robot.
+   * @param node the node.
+   * @param code the key.
+   * @param shift whether Shift is down.
+   * @param alt whether Alt (Option) is down.
+   */
+  private static void press(final FxRobot robot, final Node node, final KeyCode code, final boolean shift,
+                            final boolean alt) {
+    robot.interact(() -> node.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, false, alt, false)));
+  }
+
+  /**
+   * In the dark theme, the box selected stays on paper, white under the black ink, the list focused or not: the
+   * background of the selection of the lists would hide the ink.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("DESIGN.md §14: in the dark theme, the box selected stays black on white, as on paper")
+  void selectedPaperTest(final FxRobot robot) throws TimeoutException {
+    scheme.set(ColorScheme.DARK);
+    final Shown window = show(robot, FakeRouter.turning());
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    final ListView<?> boxes = boxes(robot, window);
+    robot.interact(() -> boxes.getSelectionModel().select(1));
+    final Paint unfocused = selectedFill(robot, boxes);
+    robot.interact(() -> {
+      boxes.requestFocus();
+      boxes.getFocusModel().focus(1);
+    });
+    final Paint focused = selectedFill(robot, boxes);
+    assertAll(
+        () -> assertEquals(Color.WHITE, unfocused),
+        () -> assertEquals(Color.WHITE, focused));
+  }
+
+  /**
+   * Returns the background of the box selected in the strip, once its style applied.
+   *
+   * @param robot the TestFX robot.
+   * @param boxes the strip.
+   *
+   * @return the fill of the background of the cell selected.
+   */
+  private static Paint selectedFill(final FxRobot robot, final ListView<?> boxes) {
+    final AtomicReference<Paint> fill = new AtomicReference<>();
+    robot.interact(() -> {
+      boxes.applyCss();
+      boxes.layout();
+      final ListCell<?> cell = robot.from(boxes).lookup(".box-cell").queryAllAs(ListCell.class).stream()
+                                    .filter(ListCell::isSelected).findFirst().orElseThrow();
+      fill.set(cell.getBackground().getFills().getLast().getFill());
+    });
+    return fill.get();
+  }
+
+  /**
+   * A box is added where the user right-clicks near the route, and selected; a click far from the route says so; the
+   * box selected is corrected in the editor under the strip (its heading, shown always), and removed; Edit › Undo
+   * brings the box back with its corrections; the roadbook exported holds the changes, which are kept when the finish
+   * moves and the route still passes there.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws Exception if the page of the map does not load in time, or the roadbook exported cannot be read.
+   */
+  @Test
+  @DisplayName("Phase 5: a box is added on the route, corrected, removed and brought back, exported with the changes")
+  void editorTest(final FxRobot robot) throws Exception {
+    final Path file = data.resolve("edited.gpx");
+    final Shown window = show(robot, FakeRouter.turning(), owner -> Optional.of(file));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    final ListView<?> boxes = boxes(robot, window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    MapPages.contextMenu(robot, view, HALFWAY_LATITUDE, NEAR_LONGITUDE);
+    robot.interact(MapPages.menu().getItems().getLast()::fire);
+    robot.interact(background::runAll);
+    final int added = boxes.getItems().size();
+    final int selected = boxes.getSelectionModel().getSelectedIndex();
+    final boolean editorShown = window.stage().getScene().lookup(".box-editor").isVisible();
+    MapPages.contextMenu(robot, view, HALFWAY_LATITUDE, NEAR_LONGITUDE);
+    robot.interact(MapPages.menu().getItems().getLast()::fire);
+    final int waitingAgain = background.size();
+    MapPages.contextMenu(robot, view, HALFWAY_LATITUDE, FAR_LONGITUDE);
+    robot.interact(MapPages.menu().getItems().getLast()::fire);
+    final String far = text(robot, window, "status");
+    robot.interact(MapPages.menu()::hide);
+    final TextField heading = robot.lookup("#" + BoxEditor.HEADING_ID).queryAs(TextField.class);
+    robot.interact(() -> {
+      heading.setText(String.valueOf(EASTWARDS));
+      heading.fireEvent(new ActionEvent());
+    });
+    robot.interact(background::runAll);
+    robot.interact(() -> robot.lookup("#" + BoxEditor.DISPLAY_ID).queryAs(ComboBox.class).getSelectionModel()
+                              .select(HeadingDisplay.SHOWN.ordinal()));
+    robot.interact(background::runAll);
+    final Optional<String> cap = ((BoxRow) boxes.getItems().get(1)).heading();
+    robot.interact(() -> robot.lookup("#" + BoxEditor.REMOVE_ID).queryAs(Button.class).fire());
+    robot.interact(background::runAll);
+    final int removed = boxes.getItems().size();
+    final int noneSelected = boxes.getSelectionModel().getSelectedIndex();
+    fire(robot, window, "undoItem");
+    robot.interact(background::runAll);
+    final int broughtBack = boxes.getItems().size();
+    final Optional<String> capBack = ((BoxRow) boxes.getItems().get(1)).heading();
+    fire(robot, window, "saveAsItem");
+    robot.interact(background::runAll);
+    final RoadbookEdits exported = OpenRallyReader.read(file).edits();
+    final Route exportedRoute = OpenRallyReader.read(file).route();
+    MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, FAR_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertEquals(TURNING_BOXES + 1, added),
+        () -> assertEquals(1, selected),
+        () -> assertTrue(editorShown),
+        () -> assertEquals(0, waitingAgain),
+        () -> assertEquals(TEXTS.getString(MainController.ADD_FAR), far),
+        () -> assertEquals(Optional.of("CAP " + EASTWARDS), cap),
+        () -> assertEquals(TURNING_BOXES, removed),
+        () -> assertEquals(-1, noneSelected),
+        () -> assertEquals(TURNING_BOXES + 1, broughtBack),
+        () -> assertEquals(Optional.of("CAP " + EASTWARDS), capBack),
+        () -> assertEquals(1, exported.added().size()),
+        () -> assertEquals(List.of(1), exportedRoute.maneuvers()),
+        () -> assertEquals(TURNING_BOXES, exportedRoute.points().size()),
+        () -> assertEquals(OptionalInt.of(EASTWARDS), exported.boxes().getFirst().heading()),
+        () -> assertEquals(HeadingDisplay.SHOWN, exported.boxes().getFirst().display()),
+        () -> assertEquals(TURNING_BOXES + 1, boxes.getItems().size()),
+        () -> assertEquals(Optional.of("CAP " + EASTWARDS), ((BoxRow) boxes.getItems().get(1)).heading()));
+  }
+
+  /**
    * A right-click on the map shows its context menu: "Place the start here" and "Place the finish here" move the start
-   * and the finish, placed or not, and the route is computed once both are placed.
+   * and the finish, placed or not, and the route is computed once both are placed; "Add a box here" is disabled
+   * without route.
    *
    * @param robot the TestFX robot.
    *
@@ -562,34 +1074,26 @@ final class MainControllerTest {
     robot.interact(background::runAll);
     final WebView view = map(window);
     MapPages.contextMenu(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
-    final ContextMenu menu = contextMenu();
+    final ContextMenu menu = MapPages.menu();
     final boolean showing = menu.isShowing();
     final List<String> labels = menu.getItems().stream().map(MenuItem::getText).toList();
+    final boolean addDisabled = menu.getItems().getLast().isDisable();
     robot.interact(menu.getItems().get(1)::fire);
     final String finish = text(robot, window, "status");
     MapPages.contextMenu(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
-    robot.interact(contextMenu().getItems().getFirst()::fire);
+    robot.interact(MapPages.menu().getItems().getFirst()::fire);
     final String routing = text(robot, window, "status");
     robot.interact(background::runAll);
     robot.interact(menu::hide);
     assertAll(
         () -> assertTrue(showing),
-        () -> assertEquals(List.of(TEXTS.getString(MapView.PLACE_START), TEXTS.getString(MapView.PLACE_FINISH)),
-                           labels),
+        () -> assertEquals(List.of(TEXTS.getString(MapView.PLACE_START), TEXTS.getString(MapView.PLACE_FINISH),
+                                   TEXTS.getString(MapView.ADD_BOX)), labels),
+        () -> assertTrue(addDisabled),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_START), finish),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTING), routing),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTED), text(robot, window, "status")),
         () -> assertEquals(2, MapPages.count(robot, view, ".marker")));
-  }
-
-  /**
-   * Returns the context menu of the map, shown or hidden.
-   *
-   * @return the context menu.
-   */
-  private static ContextMenu contextMenu() {
-    return Window.getWindows().stream().filter(ContextMenu.class::isInstance).map(ContextMenu.class::cast)
-                 .findFirst().orElseThrow();
   }
 
   /**
@@ -610,16 +1114,16 @@ final class MainControllerTest {
                                owner -> choices.getAndIncrement() == 0 ? Optional.empty() : Optional.of(file));
     robot.interact(background::runAll);
     final WebView view = map(window);
-    final MenuItem item = item(robot, window, "exportItem");
+    final MenuItem item = item(robot, window, "saveAsItem");
     final boolean disabledBefore = item.isDisable();
     MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
     robot.interact(background::runAll);
     robot.interact(background::runAll);
     final boolean enabled = !item.isDisable();
-    fire(robot, window, "exportItem");
+    fire(robot, window, "saveAsItem");
     final int waitingAfterCancel = background.size();
-    fire(robot, window, "exportItem");
+    fire(robot, window, "saveAsItem");
     final String exporting = text(robot, window, "status");
     robot.interact(background::runAll);
     final String exported = text(robot, window, "status");
@@ -629,7 +1133,7 @@ final class MainControllerTest {
         () -> assertTrue(enabled),
         () -> assertEquals(0, waitingAfterCancel),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_EXPORTING), exporting),
-        () -> assertEquals("Roadbook exporté, 2 cases. Importez le fichier dans RDS pour le lire dans Terra Pirata.",
+        () -> assertEquals("Roadbook enregistré, 2 cases. Importez le fichier dans RDS pour le lire dans Terra Pirata.",
                            exported),
         () -> assertTrue(Files.readString(file).contains("<name>yverdon</name>")),
         () -> assertTrue(Files.readString(file).contains("<desc>" + TEXTS.getString(MainController.EXPORT_NOTICE)
@@ -641,7 +1145,8 @@ final class MainControllerTest {
    * Route › Generate a detour… is disabled until a route is shown; cancelled, nothing happens; asked with a budget and
    * the seed proposed, the detour is generated in the background, drawn over the fastest route, its distance and
    * duration in the card, its budget and the fastest duration in the status bar, its seed at the right of it; the
-   * finish moved computes a new fastest route, without detour.
+   * finish moved generates the detour again between the new ends, with its seed (decision of the maintainer,
+   * 2026-11-15), the detour before brought back by Undo.
    *
    * @param robot the TestFX robot.
    *
@@ -683,6 +1188,18 @@ final class MainControllerTest {
     final int fastest = MapPages.count(robot, view, ".route-fastest");
     final int detours = MapPages.count(robot, view, ".route-detour");
     MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, STATION_LONGITUDE);
+    final String movedSeed = seedField.getText();
+    final boolean movedSeedVisible = seedField.getParent().isVisible();
+    final String movedTitle = text(robot, window, "routeTitle");
+    final int movedDetours = MapPages.count(robot, view, ".route-detour");
+    final boolean movedDisabled = item.isDisable();
+    final String regenerating = text(robot, window, "status");
+    robot.interact(background::runAll);
+    final String regenerated = text(robot, window, "status");
+    final String regeneratedSeed = seedField.getText();
+    final String regeneratedTitle = text(robot, window, "routeTitle");
+    final int regeneratedDetours = MapPages.count(robot, view, ".route-detour");
+    fire(robot, window, "undoItem");
     assertAll(
         () -> assertTrue(disabledBefore),
         () -> assertTrue(enabled),
@@ -698,11 +1215,19 @@ final class MainControllerTest {
         () -> assertTrue(seedVisible),
         () -> assertEquals(1, fastest),
         () -> assertEquals(1, detours),
-        () -> assertEquals("", seedField.getText()),
-        () -> assertFalse(seedField.getParent().isVisible()),
-        () -> assertEquals(TEXTS.getString(MainController.ROUTE_TITLE), text(robot, window, "routeTitle")),
-        () -> assertEquals(0, MapPages.count(robot, view, ".route-detour")),
-        () -> assertTrue(item.isDisable()));
+        () -> assertEquals("", movedSeed),
+        () -> assertFalse(movedSeedVisible),
+        () -> assertEquals(TEXTS.getString(MainController.ROUTE_TITLE), movedTitle),
+        () -> assertEquals(0, movedDetours),
+        () -> assertTrue(movedDisabled),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_DETOURING), regenerating),
+        () -> assertTrue(regenerated.startsWith("Détour d’au plus 30 min de plus que l’itinéraire le plus rapide "),
+                         regenerated),
+        () -> assertEquals(seed.get(), regeneratedSeed),
+        () -> assertEquals(TEXTS.getString(MainController.DETOUR_TITLE), regeneratedTitle),
+        () -> assertEquals(1, regeneratedDetours),
+        () -> assertEquals(summary, text(robot, window, "summary")),
+        () -> assertEquals(seed.get(), seedField.getText()));
   }
 
   /**
@@ -793,6 +1318,54 @@ final class MainControllerTest {
   }
 
   /**
+   * A detour that cannot be generated again between its ends moved gives the fastest route between them, the status
+   * bar saying why.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("2026-11-15: a detour that cannot be generated again once its finish moved gives the fastest route")
+  void movedDetourFailureTest(final FxRobot robot) throws TimeoutException {
+    final FakeRouter fake = new FakeRouter();
+    final AtomicBoolean failing = new AtomicBoolean();
+    final Shown window = show(robot, new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+        if (failing.get() && points.size() > 2) {
+          throw new RoutingException(RoutingError.POINT_NOT_FOUND);
+        }
+        return fake.route(points, avoided);
+      }
+
+      @Override
+      public void close() {
+        fake.close();
+      }
+    });
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    generate(robot, window);
+    robot.interact(background::runAll);
+    final int detours = MapPages.count(robot, view, ".route-detour");
+    failing.set(true);
+    MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, STATION_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertEquals(1, detours),
+        () -> assertEquals(TEXTS.getString(MainController.DETOUR_ERROR + DetourError.NO_DETOUR.name()),
+                           text(robot, window, "status")),
+        () -> assertEquals(TEXTS.getString(MainController.ROUTE_TITLE), text(robot, window, "routeTitle")),
+        () -> assertEquals(0, MapPages.count(robot, view, ".route-detour")),
+        () -> assertEquals(1, MapPages.count(robot, view, ".route-fastest")));
+  }
+
+  /**
    * Asks for a detour with the budget and the seed proposed.
    *
    * @param robot the TestFX robot.
@@ -821,7 +1394,7 @@ final class MainControllerTest {
     MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
     robot.interact(background::runAll);
-    fire(robot, window, "exportItem");
+    fire(robot, window, "saveAsItem");
     robot.interact(background::runAll);
     assertAll(
         () -> assertEquals(TEXTS.getString(MainController.EXPORT_ERROR), text(robot, window, "status")),
@@ -1077,31 +1650,17 @@ final class MainControllerTest {
   void themeTest(final FxRobot robot) throws TimeoutException {
     final Shown window = show(robot, new FakeRouter());
     final WebView view = map(window);
-    final String lightAccent = color(robot, view, "accent");
-    final String lightDanger = color(robot, view, "danger");
+    final String lightAccent = MapPages.color(robot, view, "accent");
+    final String lightDanger = MapPages.color(robot, view, "danger");
     robot.interact(() -> accent.set(Color.web("#FF9500")));
-    final String orange = color(robot, view, "accent");
+    final String orange = MapPages.color(robot, view, "accent");
     robot.interact(() -> scheme.set(ColorScheme.DARK));
     assertAll(
         () -> assertEquals("#007AFF", lightAccent),
         () -> assertEquals(Theme.tokens(Theme.class.getResource(Theme.LIGHT_TOKENS)).get("-c-danger"), lightDanger),
         () -> assertEquals("#FF9500", orange),
         () -> assertEquals(Theme.tokens(Theme.class.getResource(Theme.DARK_TOKENS)).get("-c-danger"),
-                           color(robot, view, "danger")));
-  }
-
-  /**
-   * Returns a colour token of the page of the map.
-   *
-   * @param robot the TestFX robot.
-   * @param view the view of the map.
-   * @param token the name of the token, without its prefix ({@code accent} for {@code --c-accent}).
-   *
-   * @return the value of the variable {@code --c-<token>} of the page.
-   */
-  private static String color(final FxRobot robot, final WebView view, final String token) {
-    return String.valueOf(MapPages.script(robot, view, "document.documentElement.style.getPropertyValue('--c-"
-                                                       + token + "').trim()"));
+                           MapPages.color(robot, view, "danger")));
   }
 
   /**
@@ -1143,7 +1702,7 @@ final class MainControllerTest {
     });
     WaitForAsyncUtils.waitForFxEvents();
     robot.interact(background::runAll);
-    fire(robot, window, "exportItem");
+    fire(robot, window, "saveAsItem");
     robot.interact(background::runAll);
     return window;
   }
@@ -1188,8 +1747,11 @@ final class MainControllerTest {
     final int detours = MapPages.count(robot, view, ".route-detour");
     final int markers = MapPages.count(robot, view, ".marker");
     final boolean detourDisabled = item(robot, window, "detourItem").isDisable();
-    final boolean exportDisabled = item(robot, window, "exportItem").isDisable();
-    fire(robot, window, "exportItem");
+    final boolean exportDisabled = item(robot, window, "saveAsItem").isDisable();
+    MapPages.contextMenu(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    final boolean addEnabled = !MapPages.menu().getItems().getLast().isDisable();
+    robot.interact(MapPages.menu()::hide);
+    fire(robot, window, "saveAsItem");
     robot.interact(background::runAll);
     fire(robot, window, "openMapItem");
     robot.interact(background::runAll);
@@ -1215,10 +1777,37 @@ final class MainControllerTest {
         () -> assertEquals(2, markers),
         () -> assertTrue(detourDisabled),
         () -> assertFalse(exportDisabled),
+        () -> assertTrue(addEnabled),
         () -> assertEquals(OpenRallyReader.read(file), OpenRallyReader.read(again)),
         () -> assertEquals(summary, summaryAfterImport),
         () -> assertTrue(detourEnabled),
         () -> assertEquals(THIRTY_MINUTES, proposed.get()));
+  }
+
+  /**
+   * The finish of a detour opened without map moved: no detour can be generated again, the window waits for a map.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("2026-11-15: the finish of a detour opened without map moved waits for a map")
+  void movedWithoutMapTest(final FxRobot robot) throws TimeoutException {
+    final Path file = data.resolve("detour.gpx");
+    exportDetour(robot, file);
+    final Shown window = show(robot, folder -> Optional.empty(), (map, graph) -> new FakeRouter(),
+                              owner -> Optional.empty(), owner -> Optional.empty(), owner -> Optional.of(file));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    fire(robot, window, "openRoadbookItem");
+    robot.interact(background::runAll);
+    final int detours = MapPages.count(robot, view, ".route-detour");
+    MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, STATION_LONGITUDE);
+    assertAll(
+        () -> assertEquals(1, detours),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_NO_MAP), text(robot, window, "status")),
+        () -> assertEquals(0, MapPages.count(robot, view, ".route-detour")));
   }
 
   /**
@@ -1239,7 +1828,7 @@ final class MainControllerTest {
     MapPages.click(robot, exporterView, STATION_LATITUDE, STATION_LONGITUDE);
     MapPages.click(robot, exporterView, CASTLE_LATITUDE, CASTLE_LONGITUDE);
     robot.interact(background::runAll);
-    fire(robot, exporter, "exportItem");
+    fire(robot, exporter, "saveAsItem");
     robot.interact(background::runAll);
     final FakeRouter router = new FakeRouter();
     final Shown window = show(robot, folder -> Optional.of(router), (map, graph) -> router,
@@ -1345,7 +1934,8 @@ final class MainControllerTest {
     final Path invalid = data.resolve("hours.gpx");
     OpenRallyWriter.save(RoadbookGenerator.generate(new FakeRouter().route(SmokeTest.STATION, SmokeTest.CASTLE)),
                          new Origin.Detour(SmokeTest.STATION, SmokeTest.CASTLE, 1, "HOURS", 1, Set.of(),
-                                           FakeRouter.DURATION), "hours", "Indicative", Catalogue.fia(), invalid);
+                                           FakeRouter.DURATION), RoadbookEdits.NONE, "hours", "Indicative",
+                         Catalogue.fia(), invalid);
     return invalid;
   }
 
@@ -1374,13 +1964,17 @@ final class MainControllerTest {
   @DisplayName("Issue #5: the budget and the kinds of road of a detour opened are checked")
   void checkedTest() {
     final Route route = new FakeRouter().route(SmokeTest.STATION, SmokeTest.CASTLE);
-    final RoadbookFile fastest = new RoadbookFile(route, new Origin.Fastest(SmokeTest.STATION, SmokeTest.CASTLE));
+    final RoadbookFile fastest = new RoadbookFile(route, new Origin.Fastest(SmokeTest.STATION, SmokeTest.CASTLE),
+                                                  RoadbookEdits.NONE);
     final RoadbookFile detour = new RoadbookFile(route, new Origin.Detour(
-        SmokeTest.STATION, SmokeTest.CASTLE, 1, "PERCENT", Budget.MAX_PERCENT, Set.of("TOLL"), FakeRouter.DURATION));
+        SmokeTest.STATION, SmokeTest.CASTLE, 1, "PERCENT", Budget.MAX_PERCENT, Set.of("TOLL"), FakeRouter.DURATION),
+        RoadbookEdits.NONE);
     final RoadbookFile sevenMinutes = new RoadbookFile(route, new Origin.Detour(
-        SmokeTest.STATION, SmokeTest.CASTLE, 1, "MINUTES", Budget.STEP + 2, Set.of(), FakeRouter.DURATION));
+        SmokeTest.STATION, SmokeTest.CASTLE, 1, "MINUTES", Budget.STEP + 2, Set.of(), FakeRouter.DURATION),
+        RoadbookEdits.NONE);
     final RoadbookFile bridges = new RoadbookFile(route, new Origin.Detour(
-        SmokeTest.STATION, SmokeTest.CASTLE, 1, "MINUTES", Budget.STEP, Set.of("BRIDGE"), FakeRouter.DURATION));
+        SmokeTest.STATION, SmokeTest.CASTLE, 1, "MINUTES", Budget.STEP, Set.of("BRIDGE"), FakeRouter.DURATION),
+        RoadbookEdits.NONE);
     assertAll(
         () -> assertEquals(fastest, MainController.checked(fastest)),
         () -> assertEquals(detour, MainController.checked(detour)),

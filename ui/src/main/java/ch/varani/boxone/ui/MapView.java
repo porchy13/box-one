@@ -29,9 +29,11 @@ import java.util.stream.Collectors;
  * written into a script; the routes as JSON arrays of numbers, with the style class of their line:
  * {@value #FASTEST_LINE} (dashed) or {@value #DETOUR_LINE} (solid, over the fastest route; DESIGN.md §14). The clicks
  * on the map come back through a {@link MapBridge}, as do the markers of the start and the finish dragged and dropped
- * (issue #4 of GitLab), and the right-clicks, which show a context menu of the place, "Place the start here" and
- * "Place the finish here", where the pointer is. The attribution of OpenStreetMap ({@value #OSM_ATTRIBUTION}),
- * the source of the routes, follows the one of the provider of the tiles.</p>
+ * (issue #4 of GitLab), and the right-clicks, which show a context menu of the place, "Place the start here",
+ * "Place the finish here" and, while a route is shown, "Add a box here" (development plan, phase 5), where the pointer
+ * is, and the box selected in the roadbook dropped where it is dragged along the route (phase 5). The attribution of
+ * OpenStreetMap ({@value #OSM_ATTRIBUTION}), the source of the routes, follows the one of the provider of the
+ * tiles.</p>
  *
  * <p>Confined to the JavaFX Application Thread.</p>
  */
@@ -59,6 +61,8 @@ final class MapView {
   static final String PLACE_START = "map.placeStart";
   /** The key of the item of the context menu placing the finish. */
   static final String PLACE_FINISH = "map.placeFinish";
+  /** The key of the item of the context menu adding a box to the roadbook (phase 5). */
+  static final String ADD_BOX = "map.addBox";
   /** The kind of the marker of the start, for the page. */
   private static final String START_KIND = "start";
   /** The kind of the marker of the finish, for the page. */
@@ -82,8 +86,10 @@ final class MapView {
   private final ResourceBundle texts;
   /** The bridge of the clicks, kept here as the page only holds a weak reference to it. */
   private final MapBridge bridge;
-  /** The context menu of the map, placing the start or the finish where it was asked. */
+  /** The context menu of the map, placing the start or the finish, or adding a box, where it was asked. */
   private final ContextMenu menu = new ContextMenu();
+  /** The item of the context menu adding a box, enabled while a route is shown. */
+  private final MenuItem addBox = new MenuItem();
   /** The place where the context menu was asked, or {@code null} before the first one. */
   private GeoPoint menuPlace;
   /** The tiles of the background map, or {@code null} before the first ones. */
@@ -114,19 +120,23 @@ final class MapView {
    * @param clicks receives the places clicked on the map.
    * @param moves receives the start or the finish moved by the user, its marker dropped or by the context menu, and its
    *              new place.
+   * @param adds receives the place where the user adds a box, by the context menu.
+   * @param boxMoves receives the place where the user drops the box selected, dragged along the route.
    */
   MapView(final ResourceBundle texts, final Consumer<GeoPoint> clicks,
-          final BiConsumer<Itinerary.End, GeoPoint> moves) {
+          final BiConsumer<Itinerary.End, GeoPoint> moves, final Consumer<GeoPoint> adds,
+          final Consumer<GeoPoint> boxMoves) {
     this.texts = texts;
     this.bridge = new MapBridge(clicks, place -> moves.accept(Itinerary.End.START, place),
-                                place -> moves.accept(Itinerary.End.FINISH, place), this::showMenu);
+                                place -> moves.accept(Itinerary.End.FINISH, place), this::showMenu, boxMoves);
     view.setAccessibleText(texts.getString(ACCESSIBLE));
-    view.setContextMenuEnabled(false);
     final MenuItem placeStart = new MenuItem(texts.getString(PLACE_START));
     placeStart.setOnAction(event -> moves.accept(Itinerary.End.START, menuPlace));
     final MenuItem placeFinish = new MenuItem(texts.getString(PLACE_FINISH));
     placeFinish.setOnAction(event -> moves.accept(Itinerary.End.FINISH, menuPlace));
-    menu.getItems().setAll(placeStart, placeFinish);
+    addBox.setText(texts.getString(ADD_BOX));
+    addBox.setOnAction(event -> adds.accept(menuPlace));
+    menu.getItems().setAll(placeStart, placeFinish, addBox);
     final WebEngine engine = view.getEngine();
     engine.getLoadWorker().stateProperty().addListener((property, before, after) -> {
       if (after == Worker.State.SUCCEEDED) {
@@ -242,11 +252,14 @@ final class MapView {
 
   /**
    * Shows the box selected in the roadbook: a circle at its place, the map centred on it, close enough to read the
-   * junction; or hides it. Nothing happens before the page has loaded: no box is selected then.
+   * junction, unless it is seen already; or hides it. A box that can move (not the start nor the finish) can be
+   * dragged along the route shown: it stays on its line while it is dragged, and where it is dropped goes to the
+   * application. Nothing happens before the page has loaded: no box is selected then.
    *
    * @param place the place of the box, or {@code null} to hide it.
+   * @param movable whether the box can be dragged along the route.
    */
-  void setBox(final GeoPoint place) {
+  void setBox(final GeoPoint place, final boolean movable) {
     final JSObject page = page();
     if (page == null) {
       return;
@@ -254,7 +267,7 @@ final class MapView {
     if (place == null) {
       page.call("hideBox");
     } else {
-      page.call("showBox", place.latitude(), place.longitude());
+      page.call("showBox", place.latitude(), place.longitude(), movable);
     }
   }
 
@@ -263,13 +276,14 @@ final class MapView {
   // *******************************************************************************************************************
 
   /**
-   * Shows the context menu of a place of the map, where the pointer is.
+   * Shows the context menu of a place of the map, where the pointer is; a box can be added while a route is shown.
    *
    * @param place the place.
    * @param position where the context menu was asked, in the page, in pixels.
    */
   private void showMenu(final GeoPoint place, final Point2D position) {
     menuPlace = place;
+    addBox.setDisable(route == null && detour == null);
     menu.hide();
     final Point2D screen = view.localToScreen(position);
     menu.show(view, screen.getX(), screen.getY());

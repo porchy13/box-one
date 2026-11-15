@@ -13,7 +13,7 @@ import java.util.Set;
 /**
  * A router of the tests: it returns a fixed route from the start to the finish asked, longer by
  * {@link #WAYPOINT_COST} and {@link #WAYPOINT_LENGTH} per waypoint, or throws a fixed exception, and counts its
- * closings.
+ * closings; {@link #turning()} gives a router of routes that turn once.
  *
  * <p>Not thread-safe: used from the JavaFX Application Thread only.</p>
  */
@@ -95,6 +95,28 @@ final class FakeRouter implements Router {
    */
   int getClosings() {
     return closings;
+  }
+
+  /**
+   * Returns a router whose routes go south from the start to the latitude of the finish, then turn east to it: three
+   * boxes, the start, the turn and the finish.
+   *
+   * @return the router.
+   */
+  static Router turning() {
+    return new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+        return new Route(List.of(points.getFirst(), new GeoPoint(points.getLast().latitude(),
+                                                                  points.getFirst().longitude()), points.getLast()),
+                         List.of(1), DISTANCE, DURATION);
+      }
+
+      @Override
+      public void close() {
+        // Nothing to release.
+      }
+    };
   }
 
 }

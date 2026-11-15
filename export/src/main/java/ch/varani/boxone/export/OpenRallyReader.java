@@ -1,7 +1,10 @@
 package ch.varani.boxone.export;
 
+import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.DomainException;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 
 import javax.xml.stream.XMLInputFactory;
@@ -18,6 +21,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -35,8 +39,10 @@ import java.util.Set;
  *       older version to convert (AGENTS.md §5);</li>
  *   <li>the route is built from the points of the track, the maneuvers, the distance and the duration of the route of
  *       Box One, and its origin from the start, the finish and the detour; a value missing or out of its bounds is
- *       refused ({@link ReadError#INVALID}). The waypoints of the boxes are not read: the boxes are generated again
- *       from the route.</li>
+ *       refused ({@link ReadError#INVALID}); the changes of the user, if any, from the places of the boxes added and
+ *       removed and the corrections of the boxes, a value missing or invalid, or two corrections of the same place,
+ *       being refused too. The waypoints of the boxes are not read: the boxes are generated again from the route, and
+ *       the changes applied to them again.</li>
  * </ol>
  * <p>The values of the file are never logged nor put into a message (AGENTS.md §5).</p>
  *
@@ -77,7 +83,7 @@ public final class OpenRallyReader {
    *
    * @param file the file.
    *
-   * @return the route of the roadbook and its origin.
+   * @return the route of the roadbook, its origin and the changes of the user.
    *
    * @throws ReadException if the file cannot be read, is too large, or is not a valid roadbook of Box One.
    */
@@ -99,7 +105,7 @@ public final class OpenRallyReader {
    *
    * @param input the stream.
    *
-   * @return the route of the roadbook and its origin.
+   * @return the route of the roadbook, its origin and the changes of the user.
    *
    * @throws ReadException if the stream is not a valid roadbook of Box One.
    */
@@ -255,6 +261,12 @@ public final class OpenRallyReader {
     private GeoPoint finish;
     /** The element of the detour, its attributes read once the start and the finish are known; {@code null} if none. */
     private DetourValues detour;
+    /** The places of the boxes added by the user, in their order. */
+    private final List<GeoPoint> added = new ArrayList<>();
+    /** The places of the boxes removed by the user, in their order. */
+    private final List<GeoPoint> removed = new ArrayList<>();
+    /** The corrections of the boxes by the user, in their order. */
+    private final List<BoxEdit> corrections = new ArrayList<>();
 
     /**
      * Creates the content of a file, before its first element is read.
@@ -307,7 +319,8 @@ public final class OpenRallyReader {
     }
 
     /**
-     * Reads an element of the namespace of Box One: the route, the start, the finish or the detour.
+     * Reads an element of the namespace of Box One: the route, the start, the finish, the detour, and the changes of
+     * the user.
      *
      * @param xml the parser, on the start of the element.
      * @param name the name of the element.
@@ -325,6 +338,12 @@ public final class OpenRallyReader {
             integer(xml.getAttributeValue(null, OpenRallyWriter.BUDGET)),
             Set.copyOf(items(xml.getAttributeValue(null, OpenRallyWriter.AVOIDED))),
             duration(xml.getAttributeValue(null, OpenRallyWriter.FASTEST)));
+        case OpenRallyWriter.EDITS -> {
+          // The changes are read from the elements it holds.
+        }
+        case OpenRallyWriter.ADDED -> added.add(point(xml));
+        case OpenRallyWriter.REMOVED -> removed.add(point(xml));
+        case OpenRallyWriter.BOX -> corrections.add(correction(xml));
         default -> throw new ReadException(ReadError.INVALID);
       }
     }
@@ -356,6 +375,30 @@ public final class OpenRallyReader {
     }
 
     /**
+     * Reads the correction of a box: its place, the shift of its total distance, its heading typed, if any, and the
+     * display of its heading.
+     *
+     * @param xml the parser, on the start of the element of the correction.
+     *
+     * @return the correction.
+     *
+     * @throws ReadException if a value is missing or invalid: a shift that is not a finite number, a heading beyond
+     *                       0–359 degrees, a display that is not one of {@link HeadingDisplay}.
+     */
+    private static BoxEdit correction(final XMLStreamReader xml) throws ReadException {
+      final GeoPoint place = point(xml);
+      final double shift = decimal(xml.getAttributeValue(null, OpenRallyWriter.SHIFT));
+      final String heading = xml.getAttributeValue(null, OpenRallyWriter.HEADING);
+      final OptionalInt typed = heading == null ? OptionalInt.empty() : OptionalInt.of(integer(heading));
+      final String display = required(xml.getAttributeValue(null, OpenRallyWriter.DISPLAY));
+      try {
+        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display));
+      } catch (DomainException | IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
      * Reads the point of the attributes {@code lat} and {@code lon} of an element.
      *
      * @param xml the parser, on the start of the element.
@@ -377,10 +420,10 @@ public final class OpenRallyReader {
     /**
      * Turns the content read into a roadbook.
      *
-     * @return the route and its origin.
+     * @return the route, its origin and the changes of the user.
      *
      * @throws ReadException if the file holds no route of Box One, or if the route, the start or the finish is
-     *                       missing or invalid.
+     *                       missing or invalid, or if two corrections have the same place.
      */
     private RoadbookFile roadbook() throws ReadException {
       if (!found) {
@@ -395,11 +438,17 @@ public final class OpenRallyReader {
       } catch (DomainException _) {
         throw new ReadException(ReadError.INVALID);
       }
+      final RoadbookEdits edits;
+      try {
+        edits = new RoadbookEdits(added, removed, corrections);
+      } catch (IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
+      }
       if (detour == null) {
-        return new RoadbookFile(route, new Origin.Fastest(start, finish));
+        return new RoadbookFile(route, new Origin.Fastest(start, finish), edits);
       }
       return new RoadbookFile(route, new Origin.Detour(start, finish, detour.seed(), detour.unit(), detour.amount(),
-                                                       detour.avoided(), detour.fastest()));
+                                                       detour.avoided(), detour.fastest()), edits);
     }
 
   }

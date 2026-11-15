@@ -125,6 +125,9 @@
                     <mainClass>ch.varani.boxone.ui/${app.mainClass}</mainClass>
                     <options>
                         <option>--enable-native-access=javafx.graphics,javafx.web</option>
+                        <!-- The formats of the numbers chosen in the settings of the system (macOS, Windows), CLDR
+                             otherwise: CLDR writes fr-CH with a decimal comma, the system may use a point. -->
+                        <option>-Djava.locale.providers=HOST,CLDR</option>
                     </options>
                 </configuration>
             </plugin>

@@ -3,6 +3,7 @@ package ch.varani.boxone.catalog;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Tulip;
 import org.junit.jupiter.api.DisplayName;
@@ -66,6 +67,22 @@ final class HeadingRuleTest {
         () -> assertTrue(RULE.shows(box(HEADING, Optional.of(teeToTrack)))),
         () -> assertFalse(RULE.shows(box(HEADING, Optional.of(teeFromTrack)))),
         () -> assertFalse(new HeadingRule(COMPLICATED, false).shows(box(HEADING, Optional.of(teeToTrack)))));
+  }
+
+  /**
+   * A heading shown by the user is shown whatever the rule, a heading hidden is not, and a box without heading shows
+   * none.
+   */
+  @Test
+  @DisplayName("Phase 5: a heading shown or hidden by the user prevails over the rule")
+  void displayTest() {
+    final Tulip tee = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, TEE,
+                                List.of(BranchKind.TARMAC, BranchKind.TARMAC), 0);
+    final Optional<Tulip> none = Optional.empty();
+    assertAll(
+        () -> assertTrue(RULE.shows(new Box(2, STATION, 0, 0, HEADING, Optional.of(tee), HeadingDisplay.SHOWN))),
+        () -> assertFalse(RULE.shows(new Box(2, STATION, 0, 0, HEADING, none, HeadingDisplay.HIDDEN))),
+        () -> assertFalse(RULE.shows(new Box(2, STATION, 0, 0, OptionalInt.empty(), none, HeadingDisplay.SHOWN))));
   }
 
   /**

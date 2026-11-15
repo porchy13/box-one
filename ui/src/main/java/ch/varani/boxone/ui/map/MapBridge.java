@@ -9,8 +9,9 @@ import java.util.function.Consumer;
 /**
  * The bridge from the page of the map to Java: the page calls {@link #clicked(double, double)} when the user clicks
  * on the map, {@link #startMoved(double, double)} or {@link #finishMoved(double, double)} when the marker of the start
- * or of the finish has been dragged, and {@link #menu(double, double, double, double)} when the user asks for the
- * context menu of the map, by a right-click (issue #4 of GitLab; AGENTS.md §3, the JavaScript only reports the
+ * or of the finish has been dragged, {@link #menu(double, double, double, double)} when the user asks for the
+ * context menu of the map, by a right-click (issue #4 of GitLab), and {@link #boxMoved(double, double)} when the box
+ * selected in the roadbook has been dragged along the route (phase 5; AGENTS.md §3, the JavaScript only reports the
  * events).
  *
  * <p>Public, alone in a package opened to {@code javafx.web} only, as the engine of the page calls it by reflection
@@ -33,6 +34,8 @@ public final class MapBridge {
   private final Consumer<GeoPoint> finishes;
   /** Receives the places of the context menu and where to show it, in the coordinates of the page. */
   private final BiConsumer<GeoPoint, Point2D> menus;
+  /** Receives the places where the box selected is dropped. */
+  private final Consumer<GeoPoint> boxes;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -45,13 +48,15 @@ public final class MapBridge {
    * @param starts receives the places where the marker of the start is dropped.
    * @param finishes receives the places where the marker of the finish is dropped.
    * @param menus receives the place of a context menu asked, and its position in the page, in pixels.
+   * @param boxes receives the places where the box selected is dropped.
    */
   public MapBridge(final Consumer<GeoPoint> clicks, final Consumer<GeoPoint> starts, final Consumer<GeoPoint> finishes,
-                   final BiConsumer<GeoPoint, Point2D> menus) {
+                   final BiConsumer<GeoPoint, Point2D> menus, final Consumer<GeoPoint> boxes) {
     this.clicks = clicks;
     this.starts = starts;
     this.finishes = finishes;
     this.menus = menus;
+    this.boxes = boxes;
   }
 
   // *******************************************************************************************************************
@@ -106,6 +111,18 @@ public final class MapBridge {
    */
   public void menu(final double latitude, final double longitude, final double x, final double y) {
     menus.accept(new GeoPoint(latitude, longitude), new Point2D(x, y));
+  }
+
+  /**
+   * Receives the place where the box selected in the roadbook has been dropped, from the page.
+   *
+   * @param latitude the latitude of the place, in degrees.
+   * @param longitude the longitude of the place, in degrees, between −180 and 180 (the page wraps it).
+   *
+   * @throws ch.varani.boxone.core.DomainException if the place is not a valid point.
+   */
+  public void boxMoved(final double latitude, final double longitude) {
+    boxes.accept(new GeoPoint(latitude, longitude));
   }
 
 }

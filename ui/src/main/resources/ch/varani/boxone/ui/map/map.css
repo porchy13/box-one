@@ -51,10 +51,26 @@ html, body, #map {
     font-size: 14px;
 }
 
-/* The box selected in the roadbook: a circle in the accent around its place. */
+/* The box selected in the roadbook: a circle in the accent around its place, its inside the accent, light. */
 .box-place {
-    stroke: var(--c-accent);
-    stroke-width: 3;
-    fill: var(--c-accent);
-    fill-opacity: 0.2;
+    box-sizing: border-box;
+    border: 3px solid var(--c-accent);
+    border-radius: 50%;
+}
+
+.box-place::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 50%;
+    background: var(--c-accent);
+    opacity: 0.2;
+}
+
+/* A box that can be dragged along the route. */
+.box-place.leaflet-marker-draggable {
+    cursor: move;
 }
