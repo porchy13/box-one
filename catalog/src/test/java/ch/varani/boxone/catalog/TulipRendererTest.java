@@ -147,6 +147,23 @@ final class TulipRendererTest {
   }
 
   /**
+   * The pixels of a tulip are those of its image, row by row.
+   */
+  @Test
+  @DisplayName("Phase 5: a tulip is drawn as pixels for its editor, the same as its image")
+  void argbTest() {
+    final Tulip tulip = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(0), List.of(BranchKind.TARMAC),
+                                  0);
+    final BufferedImage image = TulipRenderer.image(tulip, STYLE);
+    final int[] pixels = TulipRenderer.argb(tulip, STYLE);
+    final int middle = STYLE.size() / 2;
+    assertAll(
+        () -> assertEquals(STYLE.size() * STYLE.size(), pixels.length),
+        () -> assertEquals(image.getRGB(middle, middle), pixels[middle * STYLE.size() + middle]),
+        () -> assertEquals(STYLE.background().getRGB(), pixels[0]));
+  }
+
+  /**
    * Tells whether a colour is found in the square around a point.
    *
    * @param image the image.

@@ -7,6 +7,8 @@ import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +31,9 @@ import java.util.stream.Stream;
  *       generated as any other ({@link RoadbookGenerator}), the junction of a box added read where it is, as for the
  *       maneuvers of the routing engine;</li>
  *   <li>{@link #roadbook(Roadbook, RoadbookEdits)}: each box corrected, the correction within {@value #SAME_PLACE} m
- *       of its place, takes the heading typed, its display, and its total distance shifted, unless the shift puts it
+ *       of its place, takes the heading typed, its display, its tulip corrected if the box has the tulip the
+ *       correction was made on ({@link TulipEdit}: the route still crosses the junction the same way), and its total
+ *       distance shifted, unless the shift puts it
  *       before the total of the box before or after the total computed of the box after (the boxes follow each other
  *       along the route): the shift is then ignored. The partial distances are computed again from the totals;</li>
  *   <li>{@link #retain(RoadbookEdits, Route)}: on a new route, a box added is kept if its place is within
@@ -161,6 +165,7 @@ public final class RoadbookEditor {
       double total = box.total();
       OptionalInt heading = box.heading();
       HeadingDisplay display = box.display();
+      Optional<Tulip> tulip = box.tulip();
       if (edit.isPresent()) {
         final double shifted = total + edit.get().shift();
         if (shifted >= previous && shifted <= next) {
@@ -170,8 +175,9 @@ public final class RoadbookEditor {
           heading = edit.get().heading();
         }
         display = edit.get().display();
+        tulip = tulip(tulip, edit.get().tulip());
       }
-      corrected.add(new Box(box.number(), box.position(), total, total - previous, heading, box.tulip(), display));
+      corrected.add(new Box(box.number(), box.position(), total, total - previous, heading, tulip, display));
       previous = total;
     }
     return new Roadbook(roadbook.route(), corrected);
@@ -212,6 +218,21 @@ public final class RoadbookEditor {
       }
     }
     return kept;
+  }
+
+  /**
+   * Gives the tulip of a box corrected: the tulip of the correction if the box has the tulip it was made on.
+   *
+   * @param generated the tulip of the box generated, or empty.
+   * @param edit the correction of the tulip, or empty.
+   *
+   * @return the tulip corrected, or the tulip generated if there is no correction or if it was made on another tulip.
+   */
+  private static Optional<Tulip> tulip(final Optional<Tulip> generated, final Optional<TulipEdit> edit) {
+    if (edit.isPresent() && generated.equals(Optional.of(edit.get().generated()))) {
+      return Optional.of(edit.get().tulip());
+    }
+    return generated;
   }
 
   /**

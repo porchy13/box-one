@@ -9,6 +9,7 @@ import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -40,8 +41,9 @@ import java.util.stream.Collectors;
  *       the duration of the route, the indices of its maneuvers among the points of the track, the start and the
  *       finish clicked and, for a detour, its seed, its budget, the kinds of road it avoids and the duration of the
  *       fastest route; then the changes made by the user in the editor of the roadbook (development plan, phase 5),
- *       if any ({@value #EDITS}): the places of the boxes added and removed, and the corrections of the boxes, so that
- *       they are kept when the roadbook is opened again and its route changes;</li>
+ *       if any ({@value #EDITS}): the places of the boxes added and removed, and the corrections of the boxes, their
+ *       tulips corrected with the tulips generated they replace, so that they are kept when the roadbook is opened
+ *       again and its route changes;</li>
  *   <li>one waypoint ({@code wpt}) per box, at its place: its number as name, its total distance in kilometres with
  *       two decimals (OpenRally only carries the total distance, the reader computes the partial one), its heading
  *       ({@code cap}) when the catalogue shows it (the FIA shows the necessary headings only, §5.11.1), unless the
@@ -131,6 +133,20 @@ public final class OpenRallyWriter {
    * {@link ch.varani.boxone.core.HeadingDisplay}.
    */
   static final String DISPLAY = "display";
+  /** The element of the tulip generated that a tulip corrected replaces, in the correction of a box. */
+  static final String GENERATED = "generated";
+  /** The element of a tulip: the drawing of a box in OpenRally, the tulip corrected in the correction of a box. */
+  static final String TULIP = "tulip";
+  /** The attribute of the shape of a tulip, a name of {@link ch.varani.boxone.core.JunctionShape}. */
+  static final String SHAPE = "shape";
+  /** The attribute of the kind of the entry of a tulip, a name of {@link ch.varani.boxone.core.BranchKind}. */
+  static final String ENTRY = "entry";
+  /** The attribute of the angles of the branches of a tulip, in degrees, separated by spaces. */
+  static final String ANGLES = "angles";
+  /** The attribute of the kinds of the branches of a tulip, names of {@link ch.varani.boxone.core.BranchKind}. */
+  static final String KINDS = "kinds";
+  /** The attribute of the index of the exit among the branches of a tulip. */
+  static final String EXIT = "exit";
   /** The attribute of the latitude of a point. */
   static final String LATITUDE = "lat";
   /** The attribute of the longitude of a point. */
@@ -325,7 +341,7 @@ public final class OpenRallyWriter {
 
   /**
    * Writes the changes of the user: the places of the boxes added, of the boxes removed, and the corrections of the
-   * boxes at their places.
+   * boxes at their places, a tulip corrected after the tulip generated it replaces.
    *
    * @param xml the writer, inside the route of Box One.
    * @param edits the changes, not empty.
@@ -343,15 +359,44 @@ public final class OpenRallyWriter {
       position(xml, place);
     }
     for (final BoxEdit edit : edits.boxes()) {
-      xml.empty(BOX_ONE, BOX);
+      final Optional<TulipEdit> tulip = edit.tulip();
+      if (tulip.isPresent()) {
+        xml.open(BOX_ONE, BOX);
+      } else {
+        xml.empty(BOX_ONE, BOX);
+      }
       position(xml, edit.place());
       xml.attribute(SHIFT, Double.toString(edit.shift()));
       if (edit.heading().isPresent()) {
         xml.attribute(HEADING, Integer.toString(edit.heading().getAsInt()));
       }
       xml.attribute(DISPLAY, edit.display().name());
+      if (tulip.isPresent()) {
+        tulip(xml, GENERATED, tulip.get().generated());
+        tulip(xml, TULIP, tulip.get().tulip());
+        xml.close();
+      }
     }
     xml.close();
+  }
+
+  /**
+   * Writes a tulip of the correction of a box: its shape, the kind of its entry, the angles and the kinds of its
+   * branches, and its exit.
+   *
+   * @param xml the writer, inside the correction of a box.
+   * @param element the name of the element: the tulip generated or the tulip corrected.
+   * @param tulip the tulip.
+   *
+   * @throws XMLStreamException if the stream cannot be written.
+   */
+  private static void tulip(final Indented xml, final String element, final Tulip tulip) throws XMLStreamException {
+    xml.empty(BOX_ONE, element);
+    xml.attribute(SHAPE, tulip.shape().name());
+    xml.attribute(ENTRY, tulip.entry().name());
+    xml.attribute(ANGLES, tulip.branches().stream().map(String::valueOf).collect(Collectors.joining(LIST_SEPARATOR)));
+    xml.attribute(KINDS, tulip.kinds().stream().map(Enum::name).collect(Collectors.joining(LIST_SEPARATOR)));
+    xml.attribute(EXIT, Integer.toString(tulip.exit()));
   }
 
   /**
@@ -385,7 +430,7 @@ public final class OpenRallyWriter {
     final Optional<Tulip> tulip = box.tulip();
     if (tulip.isPresent()) {
       final byte[] png = TulipRenderer.png(tulip.get(), catalogue.tulip());
-      xml.cdata(OPENRALLY, "tulip", PNG_DATA + Base64.getEncoder().encodeToString(png));
+      xml.cdata(OPENRALLY, TULIP, PNG_DATA + Base64.getEncoder().encodeToString(png));
     }
     xml.close();
     xml.close();

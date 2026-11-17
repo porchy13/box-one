@@ -1,14 +1,18 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.catalog.TulipStyle;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.RoadbookEdits;
+import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -18,6 +22,7 @@ import java.text.NumberFormat;
 import java.text.ParsePosition;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.ResourceBundle;
 import java.util.function.Consumer;
@@ -32,7 +37,9 @@ import java.util.regex.Pattern;
  * (the rule of the catalogue), always or never; the heading and its display are disabled at the finish, which has no
  * heading. Each caption gives the value computed, and an empty field takes it. A field is applied when Enter is
  * pressed or when it loses the focus, the display when it is chosen; a value that does not change the box is not
- * applied.</p>
+ * applied. Then the tulip of the box, but at the start and at the finish ({@link TulipEditor}): a tulip corrected is
+ * kept with the tulip generated it replaces ({@link TulipEdit}), the tulip generated itself removes the correction.
+ * The editor scrolls when it is higher than the room left by the strip.</p>
  *
  * <p><b>Rules</b>: the total distance is between the total of the box before and the total computed of the box after
  * (the boxes follow each other along the route), a value typed within {@value #ROUNDING} m of a bound taking the
@@ -113,6 +120,10 @@ final class BoxEditor {
   private final Consumer<BoxEdit> corrects;
   /** The editor. */
   private final VBox form = new VBox();
+  /** The editor, scrolled when it is higher than its room. */
+  private final ScrollPane scroll = new ScrollPane(form);
+  /** The editor of the tulip of the box. */
+  private final TulipEditor tulipEditor;
   /** The title, with the number of the box. */
   private final Label titleLabel = new Label();
   /** The field of the total distance. */
@@ -143,14 +154,16 @@ final class BoxEditor {
    *
    * @param texts the texts of the user interface.
    * @param locale the locale of the application, for the distances.
+   * @param style the style of the catalogue, which draws the tulips.
    * @param corrects receives the correction of the box, the former one replaced.
    * @param removes receives the place of the box removed.
    */
-  BoxEditor(final ResourceBundle texts, final Locale locale, final Consumer<BoxEdit> corrects,
+  BoxEditor(final ResourceBundle texts, final Locale locale, final TulipStyle style, final Consumer<BoxEdit> corrects,
             final Consumer<GeoPoint> removes) {
     this.texts = texts;
     this.locale = locale;
     this.corrects = corrects;
+    tulipEditor = new TulipEditor(texts, locale, style, this::applyTulip);
     total.setId(TOTAL_ID);
     heading.setId(HEADING_ID);
     display.setId(DISPLAY_ID);
@@ -168,9 +181,12 @@ final class BoxEditor {
     buttons.getStyleClass().add("field-row");
     form.getChildren().addAll(titleLabel, label(TOTAL_LABEL, total), total, caption(totalHint),
                               label(HEADING_LABEL, heading), heading, caption(headingHint),
-                              label(DISPLAY_LABEL, display), display, buttons);
-    form.getStyleClass().addAll("form", "box-editor");
-    form.managedProperty().bind(form.visibleProperty());
+                              label(DISPLAY_LABEL, display), display, buttons, tulipEditor.getNode());
+    form.getStyleClass().addAll("form", "box-form");
+    scroll.setFitToWidth(true);
+    scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    scroll.getStyleClass().add("box-editor");
+    scroll.managedProperty().bind(scroll.visibleProperty());
     total.setOnAction(event -> applyTotal());
     total.focusedProperty().addListener((_, _, _) -> {
       if (!total.isFocused()) {
@@ -198,8 +214,8 @@ final class BoxEditor {
    *
    * @return the editor, hidden while no box is selected.
    */
-  Node getNode() {
-    return form;
+  ScrollPane getNode() {
+    return scroll;
   }
 
   // *******************************************************************************************************************
@@ -213,7 +229,7 @@ final class BoxEditor {
    */
   void show(final Selection selected) {
     selection = selected;
-    form.setVisible(selected != null);
+    scroll.setVisible(selected != null);
     if (selected == null) {
       return;
     }
@@ -238,6 +254,20 @@ final class BoxEditor {
     mark(total, totalHint, false);
     mark(heading, headingHint, false);
     filling = false;
+    tulipEditor.show(row.place(), generated.tulip(), row.box().tulip());
+  }
+
+  /**
+   * Applies the tulip corrected in the editor of the tulip: the correction of the tulip generated, or none if it is
+   * the tulip generated.
+   *
+   * @param tulip the tulip corrected.
+   */
+  private void applyTulip(final Tulip tulip) {
+    final Tulip tulipGenerated = selection.row().generated().tulip().orElseThrow();
+    final Optional<TulipEdit> edit = tulip.equals(tulipGenerated) ? Optional.empty()
+                                                                  : Optional.of(new TulipEdit(tulipGenerated, tulip));
+    corrects.accept(selection.edit().withTulip(edit));
   }
 
   /**

@@ -16,7 +16,10 @@
         <boxone:edits>
           <boxone:added lat="46.779000" lon="6.644000"/>
           <boxone:removed lat="46.780500" lon="6.642000"/>
-          <boxone:box lat="46.780120" lon="6.643457" shift="-12.5" heading="200" display="SHOWN"/>
+          <boxone:box lat="46.780120" lon="6.643457" shift="-12.5" heading="200" display="SHOWN">
+            <boxone:generated shape="CROSSING" entry="TARMAC" angles="-90 0 90" kinds="TARMAC TARMAC TARMAC" exit="2"/>
+            <boxone:tulip shape="CROSSING" entry="TRACK" angles="-120 0 90" kinds="TARMAC TRACK TARMAC" exit="2"/>
+          </boxone:box>
           <boxone:box lat="46.778400" lon="6.641300" shift="0.0" display="HIDDEN"/>
         </boxone:edits>
       </boxone:route>

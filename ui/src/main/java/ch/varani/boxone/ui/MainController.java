@@ -38,6 +38,7 @@ import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.skin.VirtualFlow;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
@@ -115,11 +116,11 @@ import java.util.stream.Collectors;
  * the user told so.</p>
  *
  * <p><b>Editor</b> (development plan, phase 5): the box selected in the strip is corrected in the editor under it
- * ({@link BoxEditor}): its total distance, its heading and whether it is shown; it can be removed, and a box added
- * where the user right-clicks on the route (Add a box here, within {@value RoadbookEditor#NEAR_ROUTE} m of it). Each
- * change can be undone (Edit › Undo), and the roadbook is drawn again with it, the box changed selected. The changes
- * are kept by their places when the route changes ({@link RoadbookEditor#retain(RoadbookEdits, Route)}: the start or
- * the finish moved, a detour generated), exported with the roadbook and opened with it.</p>
+ * ({@link BoxEditor}): its total distance, its heading, whether it is shown, and its tulip; it can be removed, and a
+ * box added where the user right-clicks on the route (Add a box here, within {@value RoadbookEditor#NEAR_ROUTE} m
+ * of it). Each change can be undone (Edit › Undo), and the roadbook is drawn again with it, the box changed selected.
+ * The changes are kept by their places when the route changes ({@link RoadbookEditor#retain(RoadbookEdits, Route)}:
+ * the start or the finish moved, a detour generated), exported with the roadbook and opened with it.</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -239,6 +240,11 @@ final class MainController {
   static final String MOVE_FAR = "status.moveFar";
   /** The position of the divider between the map and the roadbook, as a part of the width of the window. */
   static final double ROADBOOK_DIVIDER = 0.7;
+  /**
+   * The largest part of the height of the panel of the roadbook taken by the editor of the box selected, which
+   * scrolls beyond it: the strip keeps the rest, to choose another box.
+   */
+  static final double EDITOR_SHARE = 0.6;
   /** The other shortcut of Redo outside macOS, beside Shortcut+Shift+Z of its item (DESIGN.md §10: Ctrl+Y). */
   static final KeyCombination REDO_OTHER = new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN);
 
@@ -483,8 +489,9 @@ final class MainController {
     boxList.setCellFactory(list -> new BoxCell());
     boxList.setAccessibleText(texts.getString(ROADBOOK_TITLE));
     roadbookEmpty.visibleProperty().bind(Bindings.isEmpty(boxList.getItems()));
-    boxEditor = new BoxEditor(texts, locale, edit -> changeEdits(edits.with(edit), edit.place()),
+    boxEditor = new BoxEditor(texts, locale, CATALOGUE.tulip(), edit -> changeEdits(edits.with(edit), edit.place()),
                               place -> changeEdits(edits.withRemoved(place), null));
+    boxEditor.getNode().maxHeightProperty().bind(roadbookPane.heightProperty().multiply(EDITOR_SHARE));
     roadbookPane.getChildren().add(boxEditor.getNode());
     boxList.getSelectionModel().selectedItemProperty().addListener((property, before, selected) -> {
       if (!redrawing) {
@@ -917,7 +924,8 @@ final class MainController {
   }
 
   /**
-   * Shows the boxes of a roadbook in the strip, and their number; the box to select, if any, is selected.
+   * Shows the boxes of a roadbook in the strip, and their number; the box to select, if any, is selected, and the
+   * strip scrolled to it.
    *
    * @param rows the boxes, empty for none.
    */
@@ -929,15 +937,29 @@ final class MainController {
                               .format(new Object[] {rows.size()}));
     final GeoPoint place = toSelect;
     toSelect = null;
-    rows.stream().filter(row -> row.place().equals(place)).findFirst()
-        .ifPresent(row -> boxList.getSelectionModel().select(row));
+    final Optional<BoxRow> chosen = rows.stream().filter(row -> row.place().equals(place)).findFirst();
+    chosen.ifPresent(row -> boxList.getSelectionModel().select(row));
     redrawing = false;
+    chosen.ifPresent(row -> reveal(rows.indexOf(row)));
     final BoxRow after = boxList.getSelectionModel().getSelectedItem();
     final GeoPoint was = before == null ? null : before.place();
     final GeoPoint now = after == null ? null : after.place();
     if (!Objects.equals(was, now)) {
       showBox(after);
     }
+  }
+
+  /**
+   * Scrolls the strip as little as needed for a box to be seen whole: a box selected by a change (a box added below
+   * the boxes seen, found by the maintainer on 2026-11-15, was selected out of sight). The panel is laid out first,
+   * with the editor of the box shown under the strip, which leaves the strip less room.
+   *
+   * @param index the index of the box in the strip.
+   */
+  private void reveal(final int index) {
+    roadbookPane.applyCss();
+    roadbookPane.layout();
+    ((VirtualFlow<?>) boxList.lookup(".virtual-flow")).scrollTo(index);
   }
 
   /**

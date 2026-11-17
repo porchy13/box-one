@@ -3,11 +3,15 @@ package ch.varani.boxone.export;
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -84,11 +88,31 @@ final class OpenRallyReaderTest {
   private static final double SHIFT = -12.5;
   /** The heading typed for the box corrected, in degrees. */
   private static final int HEADING = 200;
+  /** The tulip generated at the junction: a crossroads, the exit to the right. */
+  private static final Tulip CROSSROADS = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(-90, 0, 90),
+                                                    List.of(BranchKind.TARMAC, BranchKind.TARMAC, BranchKind.TARMAC),
+                                                    2);
+  /** The angle of the branch to the left moved by the user, in degrees. */
+  private static final int MOVED_LEFT = -120;
+  /** The tulip corrected at the junction: the entry and the road straight ahead are tracks, the left moved. */
+  private static final Tulip CORRECTED = CROSSROADS.withEntry(BranchKind.TRACK).withKind(1, BranchKind.TRACK)
+                                                   .withAngle(0, MOVED_LEFT);
   /** The changes of the user of the tests, as in the reference file of version 1. */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(REMOVED),
-      List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(HEADING), HeadingDisplay.SHOWN),
+      List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(HEADING), HeadingDisplay.SHOWN,
+                          Optional.of(new TulipEdit(CROSSROADS, CORRECTED))),
               new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN)));
+  /** The correction of a box, opened, in the files of the failures. */
+  private static final String BOX = "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"RULE\">";
+  /** A tulip generated, straight ahead, in the files of the failures. */
+  private static final String GENERATED = "<boxone:generated shape=\"CROSSING\" entry=\"TARMAC\" angles=\"0\" "
+                                          + "kinds=\"TARMAC\" exit=\"0\"/>";
+  /** A tulip corrected, straight ahead on a track, in the files of the failures. */
+  private static final String TULIP = "<boxone:tulip shape=\"CROSSING\" entry=\"TARMAC\" angles=\"0\" "
+                                      + "kinds=\"TRACK\" exit=\"0\"/>";
+  /** The end of the correction of a box, then of the route, in the files of the failures. */
+  private static final String END = "</boxone:box></boxone:route>";
   /** The reference file of version 1 of the format, relative to this class. */
   private static final String VERSION_1 = "boxone/roadbook-v1.gpx";
   /** A valid file, as small as can be, edited by the tests of the failures. */
@@ -327,7 +351,21 @@ final class OpenRallyReaderTest {
       "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"OFTEN\"/></boxone:route>",
       "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\"/></boxone:route>",
       "</boxone:route>|<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"RULE\"/>"
-          + "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"1\" display=\"RULE\"/></boxone:route>"})
+          + "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"1\" display=\"RULE\"/></boxone:route>",
+      "</boxone:route>|" + GENERATED + "</boxone:route>",
+      "</boxone:route>|" + BOX + TULIP + END,
+      "</boxone:route>|" + BOX + GENERATED + GENERATED + TULIP + END,
+      "</boxone:route>|" + BOX + GENERATED + TULIP + GENERATED + TULIP + END,
+      "</boxone:route>|" + BOX + GENERATED + "</boxone:box>" + BOX + END,
+      "</boxone:route>|" + BOX + GENERATED + END,
+      "</boxone:route>|" + BOX + GENERATED + "<boxone:tulip shape=\"SQUARE\" entry=\"TARMAC\" angles=\"0\" "
+          + "kinds=\"TARMAC\" exit=\"0\"/>" + END,
+      "</boxone:route>|" + BOX + GENERATED + "<boxone:tulip shape=\"CROSSING\" entry=\"TARMAC\" angles=\"x\" "
+          + "kinds=\"TARMAC\" exit=\"0\"/>" + END,
+      "</boxone:route>|" + BOX + GENERATED + "<boxone:tulip shape=\"CROSSING\" entry=\"TARMAC\" angles=\"0\" "
+          + "kinds=\"TARMAC\" exit=\"1\"/>" + END,
+      "</boxone:route>|" + BOX + GENERATED + "<boxone:tulip shape=\"CROSSING\" angles=\"0\" kinds=\"TARMAC\" "
+          + "exit=\"0\"/>" + END})
   @DisplayName("Issue #5: a roadbook with a value missing or out of its bounds is refused as invalid")
   void invalidTest(final String target, final String replacement) {
     assertEquals(ReadError.INVALID, refused(MINIMAL.replace(target, replacement == null ? "" : replacement)));

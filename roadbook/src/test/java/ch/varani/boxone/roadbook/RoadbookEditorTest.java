@@ -2,11 +2,15 @@ package ch.varani.boxone.roadbook;
 
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests of {@link RoadbookEditor}: the boxes added at the nearest point of the line, a point inserted between two
  * points of it, the boxes removed, the corrections of the totals, the headings and their displays, a shift that would
- * put a box out of its order ignored, the changes kept on a new route where it still passes, and the changes applied
- * twice giving the same roadbook.
+ * put a box out of its order ignored, the tulips corrected where the junction gives the same tulip, the changes kept
+ * on a new route where it still passes, and the changes applied twice giving the same roadbook.
  */
 final class RoadbookEditorTest {
 
@@ -58,6 +62,9 @@ final class RoadbookEditorTest {
   private static final int CLICKS = 20;
   /** The offset of the places clicked from the line, in degrees of latitude: about 3 m. */
   private static final double OFF_LINE = 0.000_03;
+  /** The tulip of the turn to the right at {@link #NORTH}: straight ahead, or to the right. */
+  private static final Tulip TURN = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(0, 90),
+                                              List.of(BranchKind.TARMAC, BranchKind.TARMAC), 1);
   /** The tolerance of the distances, in metres. */
   private static final double TOLERANCE = 1e-6;
 
@@ -197,6 +204,33 @@ final class RoadbookEditorTest {
         () -> assertEquals(before.get(2).partial() - SHIFT, boxes.get(2).partial(), TOLERANCE),
         () -> assertEquals(OptionalInt.empty(), boxes.get(2).heading()),
         () -> assertEquals(HeadingDisplay.HIDDEN, boxes.get(2).display()));
+  }
+
+  /**
+   * A box takes its tulip corrected if it has the tulip the correction was made on; otherwise, the route crossing the
+   * junction another way, the tulip generated.
+   */
+  @Test
+  @DisplayName("Phase 5: a box takes its tulip corrected while its junction gives the tulip it was made on")
+  void tulipTest() {
+    final List<Box> boxes = RoadbookGenerator.generate(route()).boxes();
+    final Box turn = boxes.get(1);
+    final Roadbook generated = new Roadbook(route(), List.of(boxes.get(0), new Box(
+        turn.number(), turn.position(), turn.total(), turn.partial(), turn.heading(), Optional.of(TURN)),
+        boxes.get(2)));
+    final Tulip track = TURN.withKind(0, BranchKind.TRACK);
+    final Tulip otherWay = TURN.withExit(0);
+    final Optional<TulipEdit> corrected = Optional.of(new TulipEdit(TURN, track));
+    final Optional<TulipEdit> elsewhere = Optional.of(new TulipEdit(otherWay, otherWay.withKind(0, BranchKind.TRACK)));
+    assertAll(
+        () -> assertEquals(Optional.of(track), RoadbookEditor.roadbook(
+            generated, RoadbookEdits.NONE.with(new BoxEdit(NORTH).withTulip(corrected))).boxes().get(1).tulip()),
+        () -> assertEquals(Optional.of(TURN), RoadbookEditor.roadbook(
+            generated, RoadbookEdits.NONE.with(new BoxEdit(NORTH).withTulip(elsewhere))).boxes().get(1).tulip()),
+        () -> assertEquals(Optional.of(TURN), RoadbookEditor.roadbook(
+            generated, RoadbookEdits.NONE.with(new BoxEdit(NORTH).withShift(SHIFT))).boxes().get(1).tulip()),
+        () -> assertEquals(Optional.empty(), RoadbookEditor.roadbook(
+            generated, RoadbookEdits.NONE.with(new BoxEdit(START).withTulip(corrected))).boxes().get(0).tulip()));
   }
 
   /**

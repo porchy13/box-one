@@ -11,6 +11,7 @@ import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -103,13 +104,19 @@ final class OpenRallyWriterTest {
   private static final double SHIFT = 12.5;
   /** The heading typed for the box corrected, in degrees. */
   private static final int TYPED_HEADING = 45;
+  /** The tulip generated at the junction: straight ahead, or to the right. */
+  private static final Tulip GENERATED = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(0, 90),
+                                                   List.of(BranchKind.TARMAC, BranchKind.TARMAC), 1);
+  /** The angle of a branch added by the user, in degrees: to the left. */
+  private static final int ADDED_LEFT = -90;
   /**
-   * The changes of the user: a box added at the bend, the box of the junction corrected, and the heading of the start
-   * hidden.
+   * The changes of the user: a box added at the bend, the box of the junction corrected, a track to the left added to
+   * its tulip, and the heading of the start hidden.
    */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(JUNCTION),
-      List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(TYPED_HEADING), HeadingDisplay.SHOWN),
+      List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(TYPED_HEADING), HeadingDisplay.SHOWN,
+                          Optional.of(new TulipEdit(GENERATED, GENERATED.withBranch(ADDED_LEFT, BranchKind.TRACK)))),
               new BoxEdit(START).withDisplay(HeadingDisplay.HIDDEN)));
   /** The roadbook of the tests: three boxes on a line of four points. */
   private static final Roadbook ROADBOOK = new Roadbook(
@@ -323,7 +330,8 @@ final class OpenRallyWriterTest {
 
   /**
    * The route of Box One holds the changes of the user: the places of the boxes added and removed, and the
-   * corrections of the boxes, the heading typed only when there is one; a roadbook without change holds none.
+   * corrections of the boxes, the heading typed only when there is one, the tulip corrected after the tulip generated
+   * only when there is one; a roadbook without change holds none.
    *
    * @throws Exception if the file cannot be written or read.
    */
@@ -334,6 +342,8 @@ final class OpenRallyWriterTest {
     final List<Element> added = boxOne(document, OpenRallyWriter.ADDED);
     final List<Element> removed = boxOne(document, OpenRallyWriter.REMOVED);
     final List<Element> boxes = boxOne(document, OpenRallyWriter.BOX);
+    final List<Element> generated = boxOne(document, OpenRallyWriter.GENERATED);
+    final List<Element> tulips = boxOne(document, OpenRallyWriter.TULIP);
     assertAll(
         () -> assertEquals(1, boxOne(document, OpenRallyWriter.EDITS).size()),
         () -> assertEquals("46.779000", added.getFirst().getAttribute(OpenRallyWriter.LATITUDE)),
@@ -342,6 +352,17 @@ final class OpenRallyWriterTest {
         () -> assertEquals("12.5", boxes.getFirst().getAttribute(OpenRallyWriter.SHIFT)),
         () -> assertEquals("45", boxes.getFirst().getAttribute(OpenRallyWriter.HEADING)),
         () -> assertEquals("SHOWN", boxes.getFirst().getAttribute(OpenRallyWriter.DISPLAY)),
+        () -> assertEquals(boxes.getFirst(), generated.getFirst().getParentNode()),
+        () -> assertEquals("CROSSING", generated.getFirst().getAttribute(OpenRallyWriter.SHAPE)),
+        () -> assertEquals("TARMAC", generated.getFirst().getAttribute(OpenRallyWriter.ENTRY)),
+        () -> assertEquals("0 90", generated.getFirst().getAttribute(OpenRallyWriter.ANGLES)),
+        () -> assertEquals("TARMAC TARMAC", generated.getFirst().getAttribute(OpenRallyWriter.KINDS)),
+        () -> assertEquals("1", generated.getFirst().getAttribute(OpenRallyWriter.EXIT)),
+        () -> assertEquals(1, tulips.size()),
+        () -> assertEquals("-90 0 90", tulips.getFirst().getAttribute(OpenRallyWriter.ANGLES)),
+        () -> assertEquals("TRACK TARMAC TARMAC", tulips.getFirst().getAttribute(OpenRallyWriter.KINDS)),
+        () -> assertEquals("2", tulips.getFirst().getAttribute(OpenRallyWriter.EXIT)),
+        () -> assertFalse(boxes.getLast().hasChildNodes()),
         () -> assertEquals("0.0", boxes.getLast().getAttribute(OpenRallyWriter.SHIFT)),
         () -> assertFalse(boxes.getLast().hasAttribute(OpenRallyWriter.HEADING)),
         () -> assertEquals("HIDDEN", boxes.getLast().getAttribute(OpenRallyWriter.DISPLAY)),

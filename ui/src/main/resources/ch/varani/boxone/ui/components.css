@@ -231,16 +231,47 @@
 }
 
 /* The editor of the box selected, under the strip (phase 5, §6: the detail of the selected element): a form, its fields
-   one under the other in the narrow panel, separated from the strip by a hairline. */
+   one under the other in the narrow panel, separated from the strip by a hairline, scrolled when it is higher than its
+   room. */
 .roadbook-pane > .box-editor {
-    -fx-spacing: 4;
-    -fx-padding: 12;
+    -fx-padding: 0;
+    -fx-background-color: -c-surface;
+    -fx-background-insets: 0;
     -fx-border-color: -c-border transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
 }
 
-.roadbook-pane > .box-editor > .field-label {
+.roadbook-pane > .box-editor > .viewport {
+    -fx-background-color: -c-surface;
+}
+
+.box-editor .box-form, .box-editor .tulip-editor {
+    -fx-spacing: 4;
+}
+
+.box-editor .box-form {
+    -fx-padding: 12;
+}
+
+.box-editor .box-form > .field-label, .box-editor .tulip-editor > .field-label {
     -fx-padding: 4 0 0 0;
+}
+
+/* The tulip of the box selected, drawn as on paper by its catalogue (§14), a handle in the accent at the end of each
+   branch, the handle of the branch selected filled. */
+.box-editor .tulip-pad {
+    -fx-background-color: -c-paper;
+    -fx-cursor: hand;
+}
+
+.box-editor .tulip-handle {
+    -fx-fill: transparent;
+    -fx-stroke: -c-accent;
+    -fx-stroke-width: 2;
+}
+
+.box-editor .tulip-handle.selected {
+    -fx-fill: -c-accent;
 }
 
 .roadbook-empty {

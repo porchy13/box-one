@@ -135,6 +135,14 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   its heading kept). Each change can be undone with Edit › Undo, the map staying where it is. The changes
   are kept by their places when the start or the finish moves or a detour is generated, wherever the new route still
   passes; they are exported with the roadbook and opened with it.
+- **Correct the tulips**: under the fields of the box selected, its tulip (not at the start nor at the finish) is
+  drawn with a handle at the end of each branch and of the arrival. Click a handle to select its branch, drag it to
+  turn the branch, between its neighbours; or choose the branch in the list and type its angle, in degrees from
+  straight ahead (negative to the left). Each branch, the arrival too, is a tarmac road or a track. Take this branch
+  makes it the route, Add a branch adds a road of the kind of the arrival in the widest space of the tulip, Remove the branch removes it
+  (not the route), Reset the tulip brings back the tulip read on the map. The tulip corrected is drawn in the roadbook
+  and exported; it is kept while the route crosses the junction the same way (from the same road, to the same road):
+  if the route changes there, the tulip read on the map comes back.
 
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.

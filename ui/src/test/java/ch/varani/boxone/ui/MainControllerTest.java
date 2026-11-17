@@ -982,7 +982,8 @@ final class MainControllerTest {
    * A box is added where the user right-clicks near the route, and selected; a click far from the route says so; the
    * box selected is corrected in the editor under the strip (its heading, shown always), and removed; Edit › Undo
    * brings the box back with its corrections; the roadbook exported holds the changes, which are kept when the finish
-   * moves and the route still passes there.
+   * moves and the route still passes there. A box corrected is selected and the strip scrolled to it (found by the
+   * maintainer on 2026-11-15: a box added out of sight was selected, not seen).
    *
    * @param robot the TestFX robot.
    *
@@ -1038,7 +1039,16 @@ final class MainControllerTest {
     MapPages.drag(robot, view, "finish", CASTLE_LATITUDE, FAR_LONGITUDE);
     robot.interact(background::runAll);
     robot.interact(background::runAll);
+    final boolean hiddenBefore = Strips.firstOutOfSight(robot, window.stage(), boxes);
+    robot.interact(() -> {
+      heading.setText(String.valueOf(EASTWARDS));
+      heading.fireEvent(new ActionEvent());
+    });
+    robot.interact(background::runAll);
+    final boolean seen = Strips.seen(robot, boxes, 0);
     assertAll(
+        () -> assertTrue(hiddenBefore, "the start out of sight before it is corrected"),
+        () -> assertTrue(seen, "the start corrected seen"),
         () -> assertEquals(TURNING_BOXES + 1, added),
         () -> assertEquals(1, selected),
         () -> assertTrue(editorShown),

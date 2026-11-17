@@ -12,7 +12,10 @@
   the fastest route;
   edits (only if the user changed the roadbook, development plan, phase 5): the places of the boxes added (added) and
   removed (removed), and the corrections of the boxes at their places (box): the shift of the total distance in metres,
-  the heading typed in degrees (absent for the heading computed), and whether the heading is shown (display).
+  the heading typed in degrees (absent for the heading computed), whether the heading is shown (display), and the
+  tulip corrected (tulip), after the tulip generated it replaces (generated): the shape of the junction, the kind of
+  the entry, the angles of the branches in degrees clockwise from straight ahead, their kinds, and the index of the
+  exit among them.
 -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
             xmlns="urn:ch.varani.boxone:roadbook"
@@ -92,6 +95,10 @@
   <xsd:complexType name="boxType">
     <xsd:complexContent>
       <xsd:extension base="pointType">
+        <xsd:sequence minOccurs="0">
+          <xsd:element name="generated" type="tulipType"/>
+          <xsd:element name="tulip" type="tulipType"/>
+        </xsd:sequence>
         <xsd:attribute name="shift" type="xsd:double" use="required"/>
         <xsd:attribute name="heading">
           <xsd:simpleType>
@@ -113,6 +120,54 @@
       </xsd:extension>
     </xsd:complexContent>
   </xsd:complexType>
+
+  <xsd:complexType name="tulipType">
+    <xsd:attribute name="shape" use="required">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:token">
+          <xsd:enumeration value="CROSSING"/>
+          <xsd:enumeration value="COUNTERCLOCKWISE_ROUNDABOUT"/>
+          <xsd:enumeration value="CLOCKWISE_ROUNDABOUT"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="entry" type="branchKindType" use="required"/>
+    <xsd:attribute name="angles" use="required">
+      <xsd:simpleType>
+        <xsd:restriction>
+          <xsd:simpleType>
+            <xsd:list>
+              <xsd:simpleType>
+                <xsd:restriction base="xsd:int">
+                  <xsd:minInclusive value="-179"/>
+                  <xsd:maxInclusive value="179"/>
+                </xsd:restriction>
+              </xsd:simpleType>
+            </xsd:list>
+          </xsd:simpleType>
+          <xsd:minLength value="1"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="kinds" use="required">
+      <xsd:simpleType>
+        <xsd:restriction>
+          <xsd:simpleType>
+            <xsd:list itemType="branchKindType"/>
+          </xsd:simpleType>
+          <xsd:minLength value="1"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="exit" type="xsd:nonNegativeInteger" use="required"/>
+  </xsd:complexType>
+
+  <xsd:simpleType name="branchKindType">
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="TARMAC"/>
+      <xsd:enumeration value="TRACK"/>
+    </xsd:restriction>
+  </xsd:simpleType>
 
   <xsd:simpleType name="nonNegativeDouble">
     <xsd:restriction base="xsd:double">

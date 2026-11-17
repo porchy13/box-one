@@ -1,11 +1,15 @@
 package ch.varani.boxone.export;
 
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.DomainException;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -21,6 +25,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -40,8 +45,9 @@ import java.util.Set;
  *   <li>the route is built from the points of the track, the maneuvers, the distance and the duration of the route of
  *       Box One, and its origin from the start, the finish and the detour; a value missing or out of its bounds is
  *       refused ({@link ReadError#INVALID}); the changes of the user, if any, from the places of the boxes added and
- *       removed and the corrections of the boxes, a value missing or invalid, or two corrections of the same place,
- *       being refused too. The waypoints of the boxes are not read: the boxes are generated again from the route, and
+ *       removed and the corrections of the boxes, their tulips included, a value missing or invalid, two corrections
+ *       of the same place, or a tulip corrected that does not follow the tulip generated of its box, being refused
+ *       too. The waypoints of the boxes are not read: the boxes are generated again from the route, and
  *       the changes applied to them again.</li>
  * </ol>
  * <p>The values of the file are never logged nor put into a message (AGENTS.md §5).</p>
@@ -267,6 +273,8 @@ public final class OpenRallyReader {
     private final List<GeoPoint> removed = new ArrayList<>();
     /** The corrections of the boxes by the user, in their order. */
     private final List<BoxEdit> corrections = new ArrayList<>();
+    /** The tulip generated of the last correction read, until its tulip corrected is read; {@code null} otherwise. */
+    private Tulip generated;
 
     /**
      * Creates the content of a file, before its first element is read.
@@ -343,8 +351,65 @@ public final class OpenRallyReader {
         }
         case OpenRallyWriter.ADDED -> added.add(point(xml));
         case OpenRallyWriter.REMOVED -> removed.add(point(xml));
-        case OpenRallyWriter.BOX -> corrections.add(correction(xml));
+        case OpenRallyWriter.BOX -> {
+          pending();
+          corrections.add(correction(xml));
+        }
+        case OpenRallyWriter.GENERATED -> {
+          if (corrections.isEmpty() || generated != null || corrections.getLast().tulip().isPresent()) {
+            throw new ReadException(ReadError.INVALID);
+          }
+          generated = tulip(xml);
+        }
+        case OpenRallyWriter.TULIP -> {
+          if (generated == null) {
+            throw new ReadException(ReadError.INVALID);
+          }
+          final BoxEdit last = corrections.removeLast();
+          corrections.add(last.withTulip(Optional.of(new TulipEdit(generated, tulip(xml)))));
+          generated = null;
+        }
         default -> throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
+     * Checks that no tulip generated waits for its tulip corrected: the correction of a box holds both or neither.
+     *
+     * @throws ReadException if a tulip generated was read without the tulip corrected after it.
+     */
+    private void pending() throws ReadException {
+      if (generated != null) {
+        throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
+     * Reads a tulip of the correction of a box: its shape, the kind of its entry, the angles and the kinds of its
+     * branches, and its exit.
+     *
+     * @param xml the parser, on the start of the element of the tulip.
+     *
+     * @return the tulip.
+     *
+     * @throws ReadException if a value is missing or invalid: a shape or a kind that is not one of
+     *                       {@link JunctionShape} or {@link BranchKind}, an angle that is not a whole number, a tulip
+     *                       that is not valid ({@link Tulip}).
+     */
+    private static Tulip tulip(final XMLStreamReader xml) throws ReadException {
+      final String shape = required(xml.getAttributeValue(null, OpenRallyWriter.SHAPE));
+      final String entry = required(xml.getAttributeValue(null, OpenRallyWriter.ENTRY));
+      final List<Integer> angles = new ArrayList<>();
+      for (final String item : items(xml.getAttributeValue(null, OpenRallyWriter.ANGLES))) {
+        angles.add(integer(item));
+      }
+      final List<String> kinds = items(xml.getAttributeValue(null, OpenRallyWriter.KINDS));
+      final int exit = integer(xml.getAttributeValue(null, OpenRallyWriter.EXIT));
+      try {
+        return new Tulip(JunctionShape.valueOf(shape), BranchKind.valueOf(entry), angles,
+                         kinds.stream().map(BranchKind::valueOf).toList(), exit);
+      } catch (DomainException | IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
       }
     }
 
@@ -392,7 +457,7 @@ public final class OpenRallyReader {
       final OptionalInt typed = heading == null ? OptionalInt.empty() : OptionalInt.of(integer(heading));
       final String display = required(xml.getAttributeValue(null, OpenRallyWriter.DISPLAY));
       try {
-        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display));
+        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display), Optional.empty());
       } catch (DomainException | IllegalArgumentException _) {
         throw new ReadException(ReadError.INVALID);
       }
@@ -423,9 +488,11 @@ public final class OpenRallyReader {
      * @return the route, its origin and the changes of the user.
      *
      * @throws ReadException if the file holds no route of Box One, or if the route, the start or the finish is
-     *                       missing or invalid, or if two corrections have the same place.
+     *                       missing or invalid, or if two corrections have the same place, or if the last tulip
+     *                       generated has no tulip corrected after it.
      */
     private RoadbookFile roadbook() throws ReadException {
+      pending();
       if (!found) {
         throw new ReadException(ReadError.NOT_BOX_ONE);
       }

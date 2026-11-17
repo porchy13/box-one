@@ -3,12 +3,17 @@ package ch.varani.boxone.ui;
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Tulip;
+import ch.varani.boxone.core.TulipEdit;
 import javafx.event.ActionEvent;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -40,7 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests of {@link BoxEditor} (development plan, phase 5; DESIGN.md §7): the box selected shown with its values
  * computed, its total distance, its heading and its display corrected, a value out of its rules marked with a message
- * under its field and not applied, a value unchanged not applied, the corrections reset and the box removed.
+ * under its field and not applied, a value unchanged not applied, the corrections reset and the box removed, the tulip
+ * corrected kept with the tulip generated.
  */
 @ExtendWith(ApplicationExtension.class)
 final class BoxEditorTest {
@@ -73,6 +79,9 @@ final class BoxEditorTest {
   private static final int JUNCTION_INDEX = 1;
   /** The index of the box of the finish. */
   private static final int FINISH_INDEX = 2;
+  /** The tulip of the junction: straight ahead, or to the left, the route. */
+  private static final Tulip TURN = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(-90, 0),
+                                              List.of(BranchKind.TARMAC, BranchKind.TARMAC), 0);
   /** The tolerance of the distances, in metres. */
   private static final double TOLERANCE = 1e-6;
 
@@ -99,10 +108,24 @@ final class BoxEditorTest {
    * @throws IOException never: the roadbook has no tulip to draw.
    */
   private static Shown show(final FxRobot robot) throws IOException {
+    return show(robot, Optional.empty());
+  }
+
+  /**
+   * Shows the editor in a window, with the rows of the roadbook of the tests, the junction with a tulip or without.
+   *
+   * @param robot the TestFX robot.
+   * @param tulip the tulip of the junction, or empty.
+   *
+   * @return the editor shown, hidden until a box is selected.
+   *
+   * @throws IOException if the tulip cannot be drawn.
+   */
+  private static Shown show(final FxRobot robot, final Optional<Tulip> tulip) throws IOException {
     final Roadbook roadbook = new Roadbook(
         new Route(List.of(STATION, JUNCTION, CASTLE), List.of(1), FINISH_TOTAL, Duration.ofMinutes(1)),
         List.of(new Box(1, STATION, 0, 0, OptionalInt.of(SOUTH), Optional.empty()),
-                new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(EAST), Optional.empty()),
+                new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(EAST), tulip),
                 new Box(3, CASTLE, FINISH_TOTAL, FINISH_TOTAL - JUNCTION_TOTAL, OptionalInt.empty(),
                         Optional.empty())));
     final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Catalogue.fia(), LOCALE, TEXTS);
@@ -110,7 +133,7 @@ final class BoxEditorTest {
     final List<GeoPoint> removals = new ArrayList<>();
     final AtomicReference<Shown> shown = new AtomicReference<>();
     robot.interact(() -> {
-      final BoxEditor editor = new BoxEditor(TEXTS, LOCALE, corrections::add, removals::add);
+      final BoxEditor editor = new BoxEditor(TEXTS, LOCALE, Catalogue.fia().tulip(), corrections::add, removals::add);
       final TextField other = new TextField();
       final Stage stage = new Stage();
       stage.setScene(new Scene(new VBox(other, editor.getNode())));
@@ -170,7 +193,7 @@ final class BoxEditorTest {
    * @return the caption: the node after the field.
    */
   private static Label caption(final Shown shown, final String id) {
-    final VBox form = (VBox) shown.editor().getNode();
+    final VBox form = (VBox) shown.editor().getNode().getContent();
     return (Label) form.getChildren().get(form.getChildren().indexOf(field(shown, id)) + 1);
   }
 
@@ -200,7 +223,7 @@ final class BoxEditorTest {
     final Shown shown = show(robot);
     final boolean hiddenBefore = !shown.editor().getNode().isVisible();
     select(robot, shown, JUNCTION_INDEX, null);
-    final Label title = (Label) ((VBox) shown.editor().getNode()).getChildren().getFirst();
+    final Label title = (Label) ((VBox) shown.editor().getNode().getContent()).getChildren().getFirst();
     final String junctionTitle = title.getText();
     final String total = field(shown, BoxEditor.TOTAL_ID).getText();
     final String totalHint = caption(shown, BoxEditor.TOTAL_ID).getText();
@@ -364,6 +387,34 @@ final class BoxEditorTest {
         () -> assertEquals(List.of(new BoxEdit(JUNCTION).withDisplay(HeadingDisplay.HIDDEN), new BoxEdit(JUNCTION)),
                            shown.corrections()),
         () -> assertEquals(List.of(JUNCTION), shown.removals()));
+  }
+
+  /**
+   * The tulip of a box is shown under its fields, but at the start and at the finish; a tulip corrected (a branch
+   * added) is kept with the tulip generated, and the tulip generated brought back (the branch removed) removes the
+   * correction.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws IOException never: the tulip can be drawn.
+   */
+  @Test
+  @DisplayName("Phase 5: the tulip of a box is corrected in its editor, kept with the tulip generated")
+  void tulipTest(final FxRobot robot) throws IOException {
+    final Shown shown = show(robot, Optional.of(TURN));
+    select(robot, shown, 0, null);
+    final Node section = shown.editor().getNode().lookup(".tulip-editor");
+    final boolean hiddenAtStart = !section.isVisible();
+    select(robot, shown, JUNCTION_INDEX, null);
+    final boolean shownAtJunction = section.isVisible();
+    robot.interact(((Button) shown.editor().getNode().lookup("#" + TulipEditor.ADD_ID))::fire);
+    final Tulip added = TURN.withBranch(TURN.freeAngle().orElseThrow(), BranchKind.TARMAC);
+    final BoxEdit corrected = new BoxEdit(JUNCTION).withTulip(Optional.of(new TulipEdit(TURN, added)));
+    robot.interact(((Button) shown.editor().getNode().lookup("#" + TulipEditor.REMOVE_ID))::fire);
+    assertAll(
+        () -> assertTrue(hiddenAtStart),
+        () -> assertTrue(shownAtJunction),
+        () -> assertEquals(List.of(corrected, new BoxEdit(JUNCTION)), shown.corrections()));
   }
 
   /**

@@ -90,6 +90,20 @@ public final class TulipRenderer {
   }
 
   /**
+   * Draws a tulip as pixels, for a window that shows it as it changes (the editor of the tulip, development plan,
+   * phase 5) without encoding an image.
+   *
+   * @param tulip the tulip.
+   * @param style the style of the catalogue.
+   *
+   * @return the colours of the pixels of the image, of the size of the style, row by row from the top left, each a
+   *         colour in ARGB, opaque.
+   */
+  public static int[] argb(final Tulip tulip, final TulipStyle style) {
+    return image(tulip, style).getRGB(0, 0, style.size(), style.size(), null, 0, style.size());
+  }
+
+  /**
    * Draws a tulip.
    *
    * @param tulip the tulip.
