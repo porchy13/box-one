@@ -19,8 +19,14 @@
           <boxone:box lat="46.780120" lon="6.643457" shift="-12.5" heading="200" display="SHOWN">
             <boxone:generated shape="CROSSING" entry="TARMAC" angles="-90 0 90" kinds="TARMAC TARMAC TARMAC" exit="2"/>
             <boxone:tulip shape="CROSSING" entry="TRACK" angles="-120 0 90" kinds="TARMAC TRACK TARMAC" exit="2"/>
+            <boxone:notes danger="2" abbreviations="KEEP_LEFT AND_NEXT" text="BIG ROCKS">
+              <boxone:symbol name="RAIL_ROAD" place="EXIT"/>
+              <boxone:symbol name="BUMP" place="ENTRY"/>
+            </boxone:notes>
           </boxone:box>
-          <boxone:box lat="46.778400" lon="6.641300" shift="0.0" display="HIDDEN"/>
+          <boxone:box lat="46.778400" lon="6.641300" shift="0.0" display="HIDDEN">
+            <boxone:notes text="BIG ROCKS"/>
+          </boxone:box>
         </boxone:edits>
       </boxone:route>
     </extensions>

@@ -1,15 +1,21 @@
 package ch.varani.boxone.export;
 
 import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.core.Abbreviation;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Symbol;
+import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
 import org.junit.jupiter.api.DisplayName;
@@ -109,14 +115,24 @@ final class OpenRallyWriterTest {
                                                    List.of(BranchKind.TARMAC, BranchKind.TARMAC), 1);
   /** The angle of a branch added by the user, in degrees: to the left. */
   private static final int ADDED_LEFT = -90;
+  /** The free text of the notes of the tests. */
+  private static final String TEXT = "BIG ROCKS";
+  /** The notes of the junction: a danger of level 2, two abbreviations, a text, a level crossing and a bump. */
+  private static final Notes NOTES = new Notes(Optional.of(Danger.LEVEL_2),
+                                               List.of(Abbreviation.KEEP_LEFT, Abbreviation.AND_NEXT), TEXT,
+                                               List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT),
+                                                       new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY)));
   /**
    * The changes of the user: a box added at the bend, the box of the junction corrected, a track to the left added to
-   * its tulip, and the heading of the start hidden.
+   * its tulip, with notes, a text at the finish, a danger at the bend, and the heading of the start hidden.
    */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(JUNCTION),
       List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(TYPED_HEADING), HeadingDisplay.SHOWN,
-                          Optional.of(new TulipEdit(GENERATED, GENERATED.withBranch(ADDED_LEFT, BranchKind.TRACK)))),
+                          Optional.of(new TulipEdit(GENERATED, GENERATED.withBranch(ADDED_LEFT, BranchKind.TRACK))),
+                          NOTES),
+              new BoxEdit(FINISH).withNotes(Notes.NONE.withText(TEXT)),
+              new BoxEdit(BEND).withNotes(Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1))),
               new BoxEdit(START).withDisplay(HeadingDisplay.HIDDEN)));
   /** The roadbook of the tests: three boxes on a line of four points. */
   private static final Roadbook ROADBOOK = new Roadbook(
@@ -203,6 +219,43 @@ final class OpenRallyWriterTest {
         () -> assertEquals(List.of(String.valueOf(START_HEADING), String.valueOf(JUNCTION_HEADING)),
                            List.of(caps.item(0).getTextContent(), caps.item(1).getTextContent())),
         () -> assertEquals(2, caps.getLength()),
+        () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
+            new StreamSource(new ByteArrayInputStream(output.toByteArray())))));
+  }
+
+  /**
+   * A box with a danger carries its level; a box with notes for its diagram carries a diagram, even without tulip; a
+   * box with a description carries its notes, drawn as a PNG image in base64; a box without notes nor tulip carries
+   * neither; the file stays valid against the strict schema.
+   *
+   * @throws Exception if the file cannot be written, read or validated.
+   */
+  @Test
+  @DisplayName("Phase 5: the danger, the diagram with its symbols and the description of a box are exported as PNG")
+  void notesTest() throws Exception {
+    final Tulip straight = new Tulip(JunctionShape.CROSSING, BranchKind.TARMAC, List.of(0),
+                                     List.of(BranchKind.TARMAC), 0);
+    final Roadbook roadbook = new Roadbook(
+        new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1), LENGTH, Duration.ofMinutes(3)),
+        List.of(new Box(1, START, 0, 0, OptionalInt.of(START_HEADING), Optional.empty(), HeadingDisplay.RULE,
+                        Notes.NONE.withDanger(Optional.of(Danger.LEVEL_3))),
+                new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(JUNCTION_HEADING),
+                        Optional.of(straight), HeadingDisplay.RULE, NOTES),
+                new Box(3, FINISH, LENGTH, LENGTH - JUNCTION_TOTAL, OptionalInt.empty(), Optional.empty())));
+    final ByteArrayOutputStream output = new ByteArrayOutputStream();
+    OpenRallyWriter.write(roadbook, DETOUR, RoadbookEdits.NONE, NAME, DESCRIPTION, FIA, output);
+    final List<Element> waypoints = elements(parse(output.toByteArray()), "wpt");
+    final List<String> descriptions = texts(waypoints.get(1), OpenRallyWriter.OPENRALLY, OpenRallyWriter.NOTES);
+    assertAll(
+        () -> assertEquals(List.of("3"), texts(waypoints.getFirst(), OpenRallyWriter.OPENRALLY,
+                                               OpenRallyWriter.DANGER)),
+        () -> assertEquals(1, texts(waypoints.getFirst(), OpenRallyWriter.OPENRALLY, OpenRallyWriter.TULIP).size()),
+        () -> assertEquals(List.of(), texts(waypoints.getFirst(), OpenRallyWriter.OPENRALLY, OpenRallyWriter.NOTES)),
+        () -> assertEquals(List.of("2"), texts(waypoints.get(1), OpenRallyWriter.OPENRALLY, OpenRallyWriter.DANGER)),
+        () -> assertEquals(1, descriptions.size()),
+        () -> assertTrue(descriptions.getFirst().startsWith(OpenRallyWriter.PNG_DATA)),
+        () -> assertEquals(List.of(), texts(waypoints.getLast(), OpenRallyWriter.OPENRALLY, OpenRallyWriter.TULIP)),
+        () -> assertEquals(List.of(), texts(waypoints.getLast(), OpenRallyWriter.OPENRALLY, OpenRallyWriter.DANGER)),
         () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
             new StreamSource(new ByteArrayInputStream(output.toByteArray())))));
   }
@@ -367,6 +420,37 @@ final class OpenRallyWriterTest {
         () -> assertFalse(boxes.getLast().hasAttribute(OpenRallyWriter.HEADING)),
         () -> assertEquals("HIDDEN", boxes.getLast().getAttribute(OpenRallyWriter.DISPLAY)),
         () -> assertEquals(List.of(), boxOne(parse(writtenFastest()), OpenRallyWriter.EDITS)));
+  }
+
+  /**
+   * The corrections of the boxes hold their notes: the danger, the abbreviations and the text as attributes, absent
+   * when empty, then the symbols as elements, their names and their places.
+   *
+   * @throws Exception if the file cannot be written or read.
+   */
+  @Test
+  @DisplayName("Phase 5: the roadbook exported holds the notes of the boxes corrected by the user")
+  void editNotesTest() throws Exception {
+    final Document document = parse(written());
+    final List<Element> boxes = boxOne(document, OpenRallyWriter.BOX);
+    final List<Element> notes = boxOne(document, OpenRallyWriter.NOTES);
+    final List<Element> symbols = boxOne(document, OpenRallyWriter.SYMBOL);
+    assertAll(
+        () -> assertEquals(boxes.get(1), notes.get(1).getParentNode()),
+        () -> assertEquals(List.of("2", "KEEP_LEFT AND_NEXT", TEXT),
+                           List.of(notes.getFirst().getAttribute(OpenRallyWriter.DANGER),
+                                   notes.getFirst().getAttribute(OpenRallyWriter.ABBREVIATIONS),
+                                   notes.getFirst().getAttribute(OpenRallyWriter.TEXT))),
+        () -> assertEquals(List.of("RAIL_ROAD EXIT", "BUMP ENTRY"),
+                           symbols.stream().map(symbol -> symbol.getAttribute(OpenRallyWriter.NAME) + " "
+                                                          + symbol.getAttribute(OpenRallyWriter.PLACE)).toList()),
+        () -> assertEquals(List.of(false, false, TEXT),
+                           List.of(notes.get(1).hasAttribute(OpenRallyWriter.DANGER),
+                                   notes.get(1).hasAttribute(OpenRallyWriter.ABBREVIATIONS),
+                                   notes.get(1).getAttribute(OpenRallyWriter.TEXT))),
+        () -> assertFalse(notes.get(1).hasChildNodes()),
+        () -> assertEquals(List.of("1", false), List.of(notes.getLast().getAttribute(OpenRallyWriter.DANGER),
+                                                        notes.getLast().hasAttribute(OpenRallyWriter.TEXT))));
   }
 
   /**

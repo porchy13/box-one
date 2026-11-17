@@ -95,9 +95,12 @@
   <xsd:complexType name="boxType">
     <xsd:complexContent>
       <xsd:extension base="pointType">
-        <xsd:sequence minOccurs="0">
-          <xsd:element name="generated" type="tulipType"/>
-          <xsd:element name="tulip" type="tulipType"/>
+        <xsd:sequence>
+          <xsd:sequence minOccurs="0">
+            <xsd:element name="generated" type="tulipType"/>
+            <xsd:element name="tulip" type="tulipType"/>
+          </xsd:sequence>
+          <xsd:element name="notes" type="notesType" minOccurs="0"/>
         </xsd:sequence>
         <xsd:attribute name="shift" type="xsd:double" use="required"/>
         <xsd:attribute name="heading">
@@ -121,6 +124,112 @@
     </xsd:complexContent>
   </xsd:complexType>
 
+  <xsd:complexType name="notesType">
+    <xsd:sequence>
+      <xsd:element name="symbol" minOccurs="0" maxOccurs="4">
+        <xsd:complexType>
+          <xsd:attribute name="name" use="required">
+            <xsd:simpleType>
+              <xsd:restriction base="xsd:token">
+                <xsd:enumeration value="RAIL_ROAD"/>
+                <xsd:enumeration value="BUMP"/>
+                <xsd:enumeration value="DIP_HOLE"/>
+                <xsd:enumeration value="COMPRESSION"/>
+                <xsd:enumeration value="DITCH"/>
+                <xsd:enumeration value="SUMMIT"/>
+                <xsd:enumeration value="ABOVE_BRIDGE"/>
+                <xsd:enumeration value="UNDER_BRIDGE"/>
+                <xsd:enumeration value="STEP_UP"/>
+                <xsd:enumeration value="STEP_DOWN"/>
+                <xsd:enumeration value="FENCE_GATE"/>
+                <xsd:enumeration value="CATTLE_GATE"/>
+                <xsd:enumeration value="WALL_GATE"/>
+                <xsd:enumeration value="WADING"/>
+                <xsd:enumeration value="CONCRETE_PASS"/>
+                <xsd:enumeration value="TUNNEL"/>
+              </xsd:restriction>
+            </xsd:simpleType>
+          </xsd:attribute>
+          <xsd:attribute name="place" use="required">
+            <xsd:simpleType>
+              <xsd:restriction base="xsd:token">
+                <xsd:enumeration value="ENTRY"/>
+                <xsd:enumeration value="EXIT"/>
+              </xsd:restriction>
+            </xsd:simpleType>
+          </xsd:attribute>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="danger">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:int">
+          <xsd:minInclusive value="1"/>
+          <xsd:maxInclusive value="3"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="abbreviations">
+      <xsd:simpleType>
+        <xsd:restriction>
+          <xsd:simpleType>
+            <xsd:list itemType="abbreviationType"/>
+          </xsd:simpleType>
+          <xsd:minLength value="1"/>
+          <xsd:maxLength value="6"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="text">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:string">
+          <xsd:pattern value="[ -~]{1,32}"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:simpleType name="abbreviationType">
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="TRACK"/>
+      <xsd:enumeration value="PRINCIPAL_TRACK"/>
+      <xsd:enumeration value="ROAD"/>
+      <xsd:enumeration value="PARALLEL_TRACK"/>
+      <xsd:enumeration value="OFF_TRACK"/>
+      <xsd:enumeration value="FOLLOW_PRINCIPAL_TRACK"/>
+      <xsd:enumeration value="FOLLOW_ROAD"/>
+      <xsd:enumeration value="SANDY"/>
+      <xsd:enumeration value="GRAVEL"/>
+      <xsd:enumeration value="VEGETATION"/>
+      <xsd:enumeration value="LEFT_AND_RIGHT"/>
+      <xsd:enumeration value="RIGHT_AND_LEFT"/>
+      <xsd:enumeration value="ON_LEFT"/>
+      <xsd:enumeration value="ON_RIGHT"/>
+      <xsd:enumeration value="KEEP_LEFT"/>
+      <xsd:enumeration value="KEEP_RIGHT"/>
+      <xsd:enumeration value="KEEP_STRAIGHT"/>
+      <xsd:enumeration value="LESS_VISIBLE"/>
+      <xsd:enumeration value="MORE_OR_LESS_VISIBLE"/>
+      <xsd:enumeration value="ALTERNANCE"/>
+      <xsd:enumeration value="DURING"/>
+      <xsd:enumeration value="INTO"/>
+      <xsd:enumeration value="AND_NEXT"/>
+      <xsd:enumeration value="AT"/>
+      <xsd:enumeration value="STONY"/>
+      <xsd:enumeration value="NARROW"/>
+      <xsd:enumeration value="QUIT"/>
+      <xsd:enumeration value="ALWAYS"/>
+      <xsd:enumeration value="MANY"/>
+      <xsd:enumeration value="IMPERATIVE"/>
+      <xsd:enumeration value="COLLAPSED"/>
+      <xsd:enumeration value="RUTS"/>
+      <xsd:enumeration value="BAD"/>
+      <xsd:enumeration value="REJOIN"/>
+      <xsd:enumeration value="BETWEEN"/>
+      <xsd:enumeration value="BIG"/>
+      <xsd:enumeration value="SMALL"/>
+      <xsd:enumeration value="FOLLOW"/>
+    </xsd:restriction>
+  </xsd:simpleType>
   <xsd:complexType name="tulipType">
     <xsd:attribute name="shape" use="required">
       <xsd:simpleType>

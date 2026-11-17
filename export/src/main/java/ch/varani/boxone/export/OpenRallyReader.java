@@ -1,13 +1,19 @@
 package ch.varani.boxone.export;
 
+import ch.varani.boxone.core.Abbreviation;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.DomainException;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Symbol;
+import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
 
@@ -45,10 +51,10 @@ import java.util.Set;
  *   <li>the route is built from the points of the track, the maneuvers, the distance and the duration of the route of
  *       Box One, and its origin from the start, the finish and the detour; a value missing or out of its bounds is
  *       refused ({@link ReadError#INVALID}); the changes of the user, if any, from the places of the boxes added and
- *       removed and the corrections of the boxes, their tulips included, a value missing or invalid, two corrections
- *       of the same place, or a tulip corrected that does not follow the tulip generated of its box, being refused
- *       too. The waypoints of the boxes are not read: the boxes are generated again from the route, and
- *       the changes applied to them again.</li>
+ *       removed and the corrections of the boxes, their tulips and their notes included, a value missing or invalid,
+ *       two corrections of the same place, a tulip corrected that does not follow the tulip generated of its box, or
+ *       notes or a symbol that are not those of the last correction read, being refused too. The waypoints of the
+ *       boxes are not read: the boxes are generated again from the route, and the changes applied to them again.</li>
  * </ol>
  * <p>The values of the file are never logged nor put into a message (AGENTS.md §5).</p>
  *
@@ -275,6 +281,8 @@ public final class OpenRallyReader {
     private final List<BoxEdit> corrections = new ArrayList<>();
     /** The tulip generated of the last correction read, until its tulip corrected is read; {@code null} otherwise. */
     private Tulip generated;
+    /** The index of the last correction whose notes were read, to which its symbols are added; -1 before any. */
+    private int noted = -1;
 
     /**
      * Creates the content of a file, before its first element is read.
@@ -369,6 +377,21 @@ public final class OpenRallyReader {
           corrections.add(last.withTulip(Optional.of(new TulipEdit(generated, tulip(xml)))));
           generated = null;
         }
+        case OpenRallyWriter.NOTES -> {
+          pending();
+          if (corrections.isEmpty() || noted == corrections.size() - 1) {
+            throw new ReadException(ReadError.INVALID);
+          }
+          corrections.add(corrections.removeLast().withNotes(notes(xml)));
+          noted = corrections.size() - 1;
+        }
+        case OpenRallyWriter.SYMBOL -> {
+          if (corrections.isEmpty() || noted != corrections.size() - 1) {
+            throw new ReadException(ReadError.INVALID);
+          }
+          final BoxEdit last = corrections.removeLast();
+          corrections.add(last.withNotes(withSymbol(last.notes(), symbol(xml))));
+        }
         default -> throw new ReadException(ReadError.INVALID);
       }
     }
@@ -409,6 +432,84 @@ public final class OpenRallyReader {
         return new Tulip(JunctionShape.valueOf(shape), BranchKind.valueOf(entry), angles,
                          kinds.stream().map(BranchKind::valueOf).toList(), exit);
       } catch (DomainException | IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
+     * Reads the notes of the correction of a box, without their symbols: the level of the danger, the abbreviations and
+     * the text, each absent if the box has none.
+     *
+     * @param xml the parser, on the start of the element of the notes.
+     *
+     * @return the notes, without symbol.
+     *
+     * @throws ReadException if a value is invalid: a level of danger that is not 1, 2 or 3, an abbreviation that is not
+     *                       one of {@link Abbreviation}, notes that are not valid ({@link Notes}).
+     */
+    private static Notes notes(final XMLStreamReader xml) throws ReadException {
+      final String level = xml.getAttributeValue(null, OpenRallyWriter.DANGER);
+      final Optional<Danger> danger = level == null ? Optional.empty() : Optional.of(danger(integer(level)));
+      final String text = xml.getAttributeValue(null, OpenRallyWriter.TEXT);
+      try {
+        return new Notes(danger, items(xml.getAttributeValue(null, OpenRallyWriter.ABBREVIATIONS)).stream()
+                                     .map(Abbreviation::valueOf).toList(), text == null ? "" : text, List.of());
+      } catch (DomainException | IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
+     * Gives the danger of a level.
+     *
+     * @param level the level, from 1 to 3.
+     *
+     * @return the danger.
+     *
+     * @throws ReadException if the level is not 1, 2 or 3.
+     */
+    private static Danger danger(final int level) throws ReadException {
+      if (level < Danger.LEVEL_1.level() || level > Danger.LEVEL_3.level()) {
+        throw new ReadException(ReadError.INVALID);
+      }
+      return Danger.values()[level - 1];
+    }
+
+    /**
+     * Reads a symbol of the notes of a box: its name and its place.
+     *
+     * @param xml the parser, on the start of the element of the symbol.
+     *
+     * @return the symbol.
+     *
+     * @throws ReadException if a value is missing or is not one of {@link Symbol} or {@link SymbolPlace}.
+     */
+    private static BoxSymbol symbol(final XMLStreamReader xml) throws ReadException {
+      final String name = required(xml.getAttributeValue(null, OpenRallyWriter.NAME));
+      final String place = required(xml.getAttributeValue(null, OpenRallyWriter.PLACE));
+      try {
+        return new BoxSymbol(Symbol.valueOf(name), SymbolPlace.valueOf(place));
+      } catch (IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
+     * Adds a symbol to notes.
+     *
+     * @param notes the notes.
+     * @param symbol the symbol, after the others.
+     *
+     * @return the notes with the symbol.
+     *
+     * @throws ReadException if the notes would have too many symbols on a road.
+     */
+    private static Notes withSymbol(final Notes notes, final BoxSymbol symbol) throws ReadException {
+      final List<BoxSymbol> symbols = new ArrayList<>(notes.symbols());
+      symbols.add(symbol);
+      try {
+        return notes.withSymbols(symbols);
+      } catch (DomainException _) {
         throw new ReadException(ReadError.INVALID);
       }
     }
@@ -457,7 +558,7 @@ public final class OpenRallyReader {
       final OptionalInt typed = heading == null ? OptionalInt.empty() : OptionalInt.of(integer(heading));
       final String display = required(xml.getAttributeValue(null, OpenRallyWriter.DISPLAY));
       try {
-        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display), Optional.empty());
+        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display), Optional.empty(), Notes.NONE);
       } catch (DomainException | IllegalArgumentException _) {
         throw new ReadException(ReadError.INVALID);
       }

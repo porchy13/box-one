@@ -72,6 +72,13 @@ All notable changes of the project are documented in this file.
   tulip brings back the tulip read on the map. The tulip corrected is drawn in the roadbook and exported; it is kept
   while the route crosses the junction the same way, the tulip read on the map coming back if the route crosses it
   otherwise. Each change can be undone.
+- **Notes of a box**: under the tulip of the box selected, its notes after the lexicon of the FIA: a danger of one to
+  three exclamation marks, drawn in red in the tulip; the abbreviations of the lexicon ("kpL", "FRO", "ET"…), in the
+  order they are read, and a line of free text in English, written under the heading; the symbols of the lexicon on
+  the road before or after the junction (the rail road of a level crossing, a bump, a ditch, a step, a bridge, a gate,
+  a ford, a tunnel…), drawn in the tulip. The notes are shown in the roadbook, exported for Terra Pirata (the danger,
+  the tulip with its symbols, the description as an image) and kept with the roadbook when it is saved and opened
+  again. Each change can be undone.
 - **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the
   start and the finish are moved by dragging their marker, or by the context menu of the map (right-click, "Place the
   start here", "Place the finish here"); the start or the finish of a detour moved generates the detour again, with

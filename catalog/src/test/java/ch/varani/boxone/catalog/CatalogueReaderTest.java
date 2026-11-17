@@ -1,5 +1,7 @@
 package ch.varani.boxone.catalog;
 
+import ch.varani.boxone.core.Symbol;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +17,9 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of {@link CatalogueReader}: the catalogue of the FIA read again after changes, each refusal with its reason.
@@ -101,7 +105,13 @@ final class CatalogueReaderTest {
                           "tulip.ring=90", "tulip.line=0", "tulip.gap=\"4\"", "tulip.track=-1", "tulip.pin=60",
                           "tulip.stem=-",
                           "tulip.background=white", "tulip.route=#12345", "tulip.road=-", "tulip.arrow=M 0",
-                          "headings.tracks=1", "headings.tracks=-", "headings.branches=0"})
+                          "headings.tracks=1", "headings.tracks=-", "headings.branches=0", ".notes=-",
+                          "notes.danger=red", "notes.text=-", "notes.mark=M 0", "notes.markGap=60",
+                          "notes.margin=0", "notes.beside=150", "notes.font=300", "notes.minFont=40",
+                          ".abbreviations=[]",
+                          ".symbols=-", "abbreviations.FOLLOW_ROAD=-", "abbreviations.FOLLOW_ROAD=\" \"",
+                          "abbreviations.FOLLOW_ROAD=ABCDEFGHIJKLMNOPQ", "abbreviations.UNKNOWN=U", "symbols.BUMP=-",
+                          "symbols.BUMP=[]", "symbols.UNKNOWN={}"})
   @DisplayName("Phase 4: a catalogue with a value missing, of the wrong type or beyond its bounds is refused")
   void invalidTest(final String field) throws IOException {
     final String object = field.substring(0, field.indexOf('.'));
@@ -115,6 +125,43 @@ final class CatalogueReaderTest {
         node.set(name, parse(value));
       }
     }));
+  }
+
+  /**
+   * The drawing of a symbol without upright, without parts, with parts that are not a non-empty array of objects, or
+   * a part with a path, a colour or a width invalid: the catalogue is invalid.
+   *
+   * @param drawing the JSON of the drawing of the bump.
+   *
+   * @throws IOException never: the streams are in memory.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"{\"parts\": [{\"path\": \"M 0 0\", \"colour\": \"#000000\"}]}",
+                          "{\"upright\": 1, \"parts\": [{\"path\": \"M 0 0\", \"colour\": \"#000000\"}]}",
+                          "{\"upright\": true}", "{\"upright\": true, \"parts\": {}}",
+                          "{\"upright\": true, \"parts\": []}", "{\"upright\": true, \"parts\": [1]}",
+                          "{\"upright\": true, \"parts\": [{\"path\": \"M 0\", \"colour\": \"#000000\"}]}",
+                          "{\"upright\": true, \"parts\": [{\"path\": \"M 0 0\", \"colour\": \"black\"}]}",
+                          "{\"upright\": true, \"parts\": [{\"path\": \"M 0 0\", \"colour\": \"#000000\", "
+                          + "\"width\": 0}]}",
+                          "{\"upright\": true, \"parts\": [{\"path\": \"M 0 0\", \"colour\": \"#000000\", "
+                          + "\"width\": 51}]}"})
+  @DisplayName("Phase 5: a catalogue with the drawing of a symbol missing a value or invalid is refused")
+  void invalidSymbolTest(final String drawing) throws IOException {
+    final JsonNode node = JSON.readTree(drawing);
+    assertError(CatalogueError.INVALID, changed(root -> ((ObjectNode) root.get("symbols")).set("BUMP", node)));
+  }
+
+  /**
+   * A part of a symbol with a width is stroked, one without width filled.
+   */
+  @Test
+  @DisplayName("Phase 5: a part of a symbol with a width is stroked, a part without width filled")
+  void partTest() {
+    final Catalogue fia = Catalogue.fia();
+    assertAll(
+        () -> assertFalse(fia.symbols().get(Symbol.RAIL_ROAD).parts().getFirst().filled()),
+        () -> assertTrue(fia.symbols().get(Symbol.WALL_GATE).parts().getFirst().filled()));
   }
 
   /**
@@ -141,7 +188,7 @@ final class CatalogueReaderTest {
    *
    * @return its node.
    */
-  private static com.fasterxml.jackson.databind.JsonNode parse(final String value) {
+  private static JsonNode parse(final String value) {
     try {
       return JSON.readTree(value);
     } catch (IOException _) {

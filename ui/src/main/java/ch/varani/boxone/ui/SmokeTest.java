@@ -1,26 +1,38 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.catalog.DescriptionRenderer;
+import ch.varani.boxone.core.Abbreviation;
+import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Notes;
+import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
 import ch.varani.boxone.export.Origin;
 import ch.varani.boxone.export.ReadException;
+import ch.varani.boxone.roadbook.RoadbookEditor;
 import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.GraphHopperRouter;
 import javafx.application.Platform;
 import javafx.scene.image.Image;
+import javafx.scene.image.PixelFormat;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Reference;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -38,9 +50,11 @@ import java.util.stream.Stream;
  * routing works: the small extract of OpenStreetMap {@value #EXTRACT} (the centre of Yverdon-les-Bains, © OpenStreetMap
  * contributors, ODbL) is imported by GraphHopper into a temporary folder (the regrouped module of GraphHopper, its
  * libraries, the compilation of its custom models), and a route joins the station and the castle; its roadbook is
- * generated and written for Terra Pirata, then read back (the writer and the parser of XML of the JDK, linked into the
- * runtime; issue #5 of GitLab); the JavaFX toolkit
- * is started (its native libraries), the icon of the window is loaded (images of the module), the map
+ * generated, the notes {@link #NOTES} given to its first box, and written for Terra Pirata (the tulips, the danger
+ * marks and the description drawn by Java 2D, the text with the fonts of the system: phase 5), then read back (the
+ * writer and the parser of XML of the JDK, linked into the runtime; issue #5 of GitLab); the JavaFX toolkit
+ * is started (its native libraries), the icon of the window is loaded (images of the module), the description of the
+ * notes is drawn with ink (a font of the system found), the map
  * ({@link MapView}) loads its page (the native library of WebKit, Leaflet)
  * and a click on it and the marker of the start dropped reach the application (the bridge, called by WebKit across the
  * modules; issue #4 of GitLab), then the toolkit is
@@ -69,6 +83,9 @@ final class SmokeTest {
   /** The marker of the start dropped at the castle, run in the page once loaded (issue #4 of GitLab). */
   static final String DROP = "boxOne.map.eachLayer(function (layer) { if (layer.options.kind === 'start') {"
                              + " layer.setLatLng(L.latLng(46.7784, 6.6413)); layer.fire('dragend'); } })";
+  /** The notes of the first box of the roadbook of the smoke test: a danger, an abbreviation and a text. */
+  static final Notes NOTES = new Notes(Optional.of(Danger.LEVEL_1), List.of(Abbreviation.FOLLOW_ROAD), "SMOKE TEST",
+                                       List.of());
   /** The beginning of the name of the temporary folder of the smoke test, in the data folder. */
   static final String SMOKE_FOLDER = "smoke-test";
   /** The longest wait for the page of the map, its click and its marker dropped, in seconds. */
@@ -110,6 +127,7 @@ final class SmokeTest {
       StartupNotice.PARAGRAPHS.forEach(Languages.bundle(locale)::getString);
     }
     check(MainController.icons().stream().noneMatch(Image::isError), "The icon of the window cannot be loaded");
+    check(inked(DescriptionRenderer.png(NOTES, Catalogue.fia())), "The notes cannot be written: no font found");
     final CountDownLatch events = new CountDownLatch(2);
     // The page holds its bridge by a weak reference only: the map is kept until its events, or a collection drops it.
     final AtomicReference<MapView> kept = new AtomicReference<>();
@@ -153,7 +171,10 @@ final class SmokeTest {
       final Path roadbook = folder.resolve("roadbook.gpx");
       try (GraphHopperRouter router = GraphHopperRouter.importMap(extract, folder.resolve(DataFolder.GRAPH))) {
         final Route route = router.route(STATION, CASTLE);
-        OpenRallyWriter.save(RoadbookGenerator.generate(route, router.junctions(route)), origin, RoadbookEdits.NONE,
+        final Roadbook generated = RoadbookGenerator.generate(route, router.junctions(route));
+        final RoadbookEdits edits = RoadbookEdits.NONE.with(new BoxEdit(generated.boxes().getFirst().position())
+                                                                .withNotes(NOTES));
+        OpenRallyWriter.save(RoadbookEditor.roadbook(generated, edits), origin, edits,
                              SMOKE_FOLDER,
                              Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE),
                              Catalogue.fia(), roadbook);
@@ -164,6 +185,22 @@ final class SmokeTest {
         files.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
       }
     }
+  }
+
+  /**
+   * Tells whether an image is drawn: whether a pixel differs from the one of its top left corner, the background.
+   *
+   * @param png the bytes of a PNG image.
+   *
+   * @return {@code true} if the image is not of one colour, {@code false} if it is, or cannot be read.
+   */
+  static boolean inked(final byte[] png) {
+    final Image image = new Image(new ByteArrayInputStream(png));
+    final int width = (int) image.getWidth();
+    final int height = (int) image.getHeight();
+    final int[] pixels = new int[width * height];
+    image.getPixelReader().getPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), pixels, 0, width);
+    return Arrays.stream(pixels).anyMatch(argb -> argb != pixels[0]);
   }
 
   /**

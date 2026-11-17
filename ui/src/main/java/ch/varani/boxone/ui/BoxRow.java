@@ -1,11 +1,12 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
-import ch.varani.boxone.catalog.TulipRenderer;
+import ch.varani.boxone.catalog.DescriptionRenderer;
+import ch.varani.boxone.catalog.DiagramRenderer;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
-import ch.varani.boxone.core.Tulip;
 import javafx.scene.image.Image;
 
 import java.io.ByteArrayInputStream;
@@ -17,28 +18,31 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
 
 /**
  * A box of the roadbook as the strip of the window shows it (DESIGN.md §14): its number, its distances in kilometres
- * written in the format of the language, its tulip drawn by the catalogue, its heading where the catalogue shows it,
- * as in the roadbook exported, and its place, shown on the map when it is selected; and the box itself, as corrected
- * by the user and as generated, for its editor (development plan, phase 5).
+ * written in the format of the language, its diagram drawn by the catalogue (its tulip, with the symbols and the
+ * danger mark of its notes), its heading where the catalogue shows it, and its description (the abbreviations and the
+ * free text of its notes), as in the roadbook exported, and its place, shown on the map when it is selected; and the
+ * box itself, as corrected by the user and as generated, for its editor (development plan, phase 5).
  *
  * <p>Built off the JavaFX Application Thread ({@link #rows(Roadbook, Roadbook, Catalogue, Locale, ResourceBundle)}):
- * the tulips are drawn there. Immutable, its image loaded once built.</p>
+ * the diagrams are drawn there. Immutable, its image loaded once built.</p>
  *
  * @param number the number of the box.
  * @param place the place of the box.
  * @param total the total distance, in kilometres with two decimals.
  * @param partial the partial distance, in kilometres with two decimals.
  * @param heading the heading shown, or empty.
- * @param tulip the image of the tulip, or empty for the boxes of the start and of the finish.
- * @param description the text of the box for the readers of the screen: its number and its distances.
+ * @param tulip the image of the diagram, or empty for the boxes without tulip nor notes for their diagram.
+ * @param notes the description of the box, its lines separated by line feeds; empty if it has none.
+ * @param description the text of the box for the readers of the screen: its number, its distances and its notes.
  * @param box the box shown, with the corrections of the user.
  * @param generated the box as generated from the route, without the corrections of the user.
  */
 record BoxRow(int number, GeoPoint place, String total, String partial, Optional<String> heading,
-              Optional<Image> tulip, String description, Box box, Box generated) {
+              Optional<Image> tulip, String notes, String description, Box box, Box generated) {
 
   // *******************************************************************************************************************
   // Constants
@@ -50,6 +54,16 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
   static final double METRES_PER_KILOMETRE = 1000;
   /** The key of the text of a box for the readers of the screen. */
   static final String BOX_TEXT = "roadbook.box";
+  /** The key of the danger of a box for the readers of the screen, with its level. */
+  static final String DANGER_TEXT = "roadbook.danger";
+  /** The key of the description of a box for the readers of the screen, with its text. */
+  static final String NOTES_TEXT = "roadbook.notes";
+  /** The key of the symbols of a box for the readers of the screen, with their names. */
+  static final String SYMBOLS_TEXT = "roadbook.symbols";
+  /** The separator of the lines of the description of a box. */
+  static final String LINE = "\n";
+  /** The separator of the parts of the text of a box for the readers of the screen, and of the names of symbols. */
+  static final String PARTS = ", ";
   /** The key of the heading of a box. */
   static final String HEADING_TEXT = "roadbook.heading";
 
@@ -58,7 +72,7 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
   // *******************************************************************************************************************
 
   /**
-   * Builds the rows of a roadbook, its tulips drawn by a catalogue.
+   * Builds the rows of a roadbook, its diagrams drawn by a catalogue.
    *
    * @param generated the roadbook generated from the route, its boxes added and removed by the user.
    * @param roadbook the same roadbook, its boxes corrected by the user: the one shown.
@@ -68,7 +82,7 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
    *
    * @return the rows, one per box, in their order.
    *
-   * @throws IOException if a tulip cannot be drawn.
+   * @throws IOException if a diagram cannot be drawn.
    */
   static List<BoxRow> rows(final Roadbook generated, final Roadbook roadbook, final Catalogue catalogue,
                            final Locale locale, final ResourceBundle texts) throws IOException {
@@ -83,17 +97,48 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
                             .format(new Object[] {String.valueOf(box.heading().orElseThrow())}))
           : Optional.empty();
       Optional<Image> tulip = Optional.empty();
-      final Optional<Tulip> schema = box.tulip();
-      if (schema.isPresent()) {
-        final byte[] png = TulipRenderer.png(schema.get(), catalogue.tulip());
+      if (box.tulip().isPresent() || box.notes().hasDiagram()) {
+        final byte[] png = DiagramRenderer.png(box.tulip(), box.notes(), catalogue);
         tulip = Optional.of(new Image(new ByteArrayInputStream(png)));
       }
+      final String notes = String.join(LINE, DescriptionRenderer.paragraphs(box.notes(), catalogue));
       final String description = new MessageFormat(texts.getString(BOX_TEXT), locale)
-          .format(new Object[] {box.number(), total, partial});
-      rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, description, box,
+          .format(new Object[] {box.number(), total, partial}) + notes(box.notes(), notes, locale, texts);
+      rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, notes, description, box,
                           generated.boxes().get(i)));
     }
     return rows;
+  }
+
+  /**
+   * Gives the notes of a box for the readers of the screen: its danger, its description and the names of its symbols,
+   * each after a comma, those absent left out.
+   *
+   * @param notes the notes of the box.
+   * @param written the description of the box, as the strip shows it; empty if it has none.
+   * @param locale the locale of the application.
+   * @param texts the texts of the user interface.
+   *
+   * @return the text of the notes, each part after a comma; empty if the box has no notes.
+   */
+  static String notes(final Notes notes, final String written, final Locale locale, final ResourceBundle texts) {
+    final StringBuilder text = new StringBuilder();
+    if (notes.danger().isPresent()) {
+      text.append(PARTS).append(new MessageFormat(texts.getString(DANGER_TEXT), locale)
+                                    .format(new Object[] {notes.danger().get().level()}));
+    }
+    if (!written.isEmpty()) {
+      text.append(PARTS).append(new MessageFormat(texts.getString(NOTES_TEXT), locale)
+                                    .format(new Object[] {written.replace(LINE, " ")}));
+    }
+    if (!notes.symbols().isEmpty()) {
+      final String names = notes.symbols().stream()
+                                .map(symbol -> texts.getString(NotesEditor.SYMBOL_KEYS + symbol.symbol().name()))
+                                .collect(Collectors.joining(PARTS));
+      text.append(PARTS).append(new MessageFormat(texts.getString(SYMBOLS_TEXT), locale)
+                                    .format(new Object[] {names}));
+    }
+    return text.toString();
   }
 
   /**

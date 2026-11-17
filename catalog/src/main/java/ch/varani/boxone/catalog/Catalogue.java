@@ -1,15 +1,23 @@
 package ch.varani.boxone.catalog;
 
+import ch.varani.boxone.core.Abbreviation;
+import ch.varani.boxone.core.Symbol;
+
 import java.io.InputStream;
+import java.util.Map;
 import java.util.Objects;
 
 /**
  * A catalogue of symbols (development plan, phase 4): how the roadbooks of a federation, or of a rally, draw their
- * elements — for now the tulips and which boxes show their heading — with the source of its rules and the provenance of
- * its symbols. One catalogue is one JSON file of this module ({@link CatalogueReader}).
+ * elements — the tulips, which boxes show their heading, and the notes: the danger marks, the symbols on the roads and
+ * how the abbreviations are written (phase 5) — with the source of its rules and the provenance of its symbols. One
+ * catalogue is one JSON file of this module ({@link CatalogueReader}).
  *
  * <p>The symbols of the catalogues are redrawn for Box One, never copied from the plates of the federations (AGENTS.md
  * §2): the provenance says after which lexicon they were drawn, and the application shows it with the catalogue.</p>
+ *
+ * <p><b>Preconditions</b>: every abbreviation written, every symbol drawn. Otherwise the catalogue is rejected. The
+ * maps are copied.</p>
  *
  * <p>Immutable, safe for concurrent use.</p>
  *
@@ -19,9 +27,13 @@ import java.util.Objects;
  * @param provenance after which lexicon the symbols were redrawn, and who provides its icons.
  * @param tulip how the catalogue draws a tulip.
  * @param headings which boxes show their heading.
+ * @param notes how the notes of a box are drawn.
+ * @param abbreviations how each abbreviation is written; unmodifiable.
+ * @param symbols how each symbol is drawn; unmodifiable.
  */
 public record Catalogue(String id, String name, String source, String provenance, TulipStyle tulip,
-                        HeadingRule headings) {
+                        HeadingRule headings, NoteStyle notes, Map<Abbreviation, String> abbreviations,
+                        Map<Symbol, SymbolDrawing> symbols) {
 
   // *******************************************************************************************************************
   // Constants
@@ -43,8 +55,12 @@ public record Catalogue(String id, String name, String source, String provenance
    * @param provenance after which lexicon the symbols were redrawn.
    * @param tulip how the catalogue draws a tulip.
    * @param headings which boxes show their heading.
+   * @param notes how the notes of a box are drawn.
+   * @param abbreviations how each abbreviation is written, all of them.
+   * @param symbols how each symbol is drawn, all of them.
    *
    * @throws NullPointerException if a value is {@code null}.
+   * @throws IllegalArgumentException if an abbreviation is not written or a symbol not drawn.
    */
   public Catalogue {
     Objects.requireNonNull(id);
@@ -53,6 +69,12 @@ public record Catalogue(String id, String name, String source, String provenance
     Objects.requireNonNull(provenance);
     Objects.requireNonNull(tulip);
     Objects.requireNonNull(headings);
+    Objects.requireNonNull(notes);
+    abbreviations = Map.copyOf(abbreviations);
+    symbols = Map.copyOf(symbols);
+    if (abbreviations.size() != Abbreviation.values().length || symbols.size() != Symbol.values().length) {
+      throw new IllegalArgumentException("every abbreviation and every symbol");
+    }
   }
 
   /**

@@ -1,6 +1,6 @@
 package ch.varani.boxone.ui;
 
-import ch.varani.boxone.catalog.TulipStyle;
+import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.GeoPoint;
@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
  * pressed or when it loses the focus, the display when it is chosen; a value that does not change the box is not
  * applied. Then the tulip of the box, but at the start and at the finish ({@link TulipEditor}): a tulip corrected is
  * kept with the tulip generated it replaces ({@link TulipEdit}), the tulip generated itself removes the correction.
+ * Then the notes of the box ({@link NotesEditor}): its danger, its abbreviations, its free text and its symbols.
  * The editor scrolls when it is higher than the room left by the strip.</p>
  *
  * <p><b>Rules</b>: the total distance is between the total of the box before and the total computed of the box after
@@ -124,6 +125,8 @@ final class BoxEditor {
   private final ScrollPane scroll = new ScrollPane(form);
   /** The editor of the tulip of the box. */
   private final TulipEditor tulipEditor;
+  /** The editor of the notes of the box. */
+  private final NotesEditor notesEditor;
   /** The title, with the number of the box. */
   private final Label titleLabel = new Label();
   /** The field of the total distance. */
@@ -154,16 +157,18 @@ final class BoxEditor {
    *
    * @param texts the texts of the user interface.
    * @param locale the locale of the application, for the distances.
-   * @param style the style of the catalogue, which draws the tulips.
+   * @param catalogue the catalogue, which draws the tulips and writes the abbreviations.
    * @param corrects receives the correction of the box, the former one replaced.
    * @param removes receives the place of the box removed.
    */
-  BoxEditor(final ResourceBundle texts, final Locale locale, final TulipStyle style, final Consumer<BoxEdit> corrects,
-            final Consumer<GeoPoint> removes) {
+  BoxEditor(final ResourceBundle texts, final Locale locale, final Catalogue catalogue,
+            final Consumer<BoxEdit> corrects, final Consumer<GeoPoint> removes) {
     this.texts = texts;
     this.locale = locale;
     this.corrects = corrects;
-    tulipEditor = new TulipEditor(texts, locale, style, this::applyTulip);
+    tulipEditor = new TulipEditor(texts, locale, catalogue.tulip(), this::applyTulip);
+    notesEditor = new NotesEditor(texts, locale, catalogue,
+                                  notes -> corrects.accept(selection.edit().withNotes(notes)));
     total.setId(TOTAL_ID);
     heading.setId(HEADING_ID);
     display.setId(DISPLAY_ID);
@@ -181,7 +186,8 @@ final class BoxEditor {
     buttons.getStyleClass().add("field-row");
     form.getChildren().addAll(titleLabel, label(TOTAL_LABEL, total), total, caption(totalHint),
                               label(HEADING_LABEL, heading), heading, caption(headingHint),
-                              label(DISPLAY_LABEL, display), display, buttons, tulipEditor.getNode());
+                              label(DISPLAY_LABEL, display), display, buttons, tulipEditor.getNode(),
+                              notesEditor.getNode());
     form.getStyleClass().addAll("form", "box-form");
     scroll.setFitToWidth(true);
     scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
@@ -255,6 +261,7 @@ final class BoxEditor {
     mark(heading, headingHint, false);
     filling = false;
     tulipEditor.show(row.place(), generated.tulip(), row.box().tulip());
+    notesEditor.show(selected.edit().notes(), row.box().tulip().isPresent());
   }
 
   /**

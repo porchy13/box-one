@@ -223,6 +223,18 @@
     -fx-text-fill: -c-ink;
 }
 
+/* The description of a box (phase 5): the abbreviations and the free text of its notes, under the heading, bold as on
+   the printed strip, right-aligned, wrapped in the width left by the diagram. */
+.roadbook-strip .box-description {
+    -fx-max-width: 96;
+}
+
+.roadbook-strip .box-notes {
+    -fx-font-weight: 700;
+    -fx-text-fill: -c-ink;
+    -fx-text-alignment: right;
+}
+
 .roadbook-strip .box-number {
     -fx-min-width: 24;
     -fx-alignment: top-right;
@@ -245,7 +257,7 @@
     -fx-background-color: -c-surface;
 }
 
-.box-editor .box-form, .box-editor .tulip-editor {
+.box-editor .box-form, .box-editor .tulip-editor, .box-editor .notes-editor {
     -fx-spacing: 4;
 }
 
@@ -253,7 +265,8 @@
     -fx-padding: 12;
 }
 
-.box-editor .box-form > .field-label, .box-editor .tulip-editor > .field-label {
+.box-editor .box-form > .field-label, .box-editor .tulip-editor > .field-label,
+.box-editor .notes-editor > .field-label {
     -fx-padding: 4 0 0 0;
 }
 

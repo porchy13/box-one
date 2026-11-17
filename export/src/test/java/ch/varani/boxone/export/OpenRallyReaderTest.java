@@ -1,15 +1,21 @@
 package ch.varani.boxone.export;
 
 import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.core.Abbreviation;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Symbol;
+import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
 import org.junit.jupiter.api.DisplayName;
@@ -97,12 +103,19 @@ final class OpenRallyReaderTest {
   /** The tulip corrected at the junction: the entry and the road straight ahead are tracks, the left moved. */
   private static final Tulip CORRECTED = CROSSROADS.withEntry(BranchKind.TRACK).withKind(1, BranchKind.TRACK)
                                                    .withAngle(0, MOVED_LEFT);
+  /** The free text of the notes of the tests. */
+  private static final String TEXT = "BIG ROCKS";
+  /** The notes of the junction: a danger of level 2, two abbreviations, a text, a level crossing and a bump. */
+  private static final Notes NOTES = new Notes(Optional.of(Danger.LEVEL_2),
+                                               List.of(Abbreviation.KEEP_LEFT, Abbreviation.AND_NEXT), TEXT,
+                                               List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT),
+                                                       new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY)));
   /** The changes of the user of the tests, as in the reference file of version 1. */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(REMOVED),
       List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(HEADING), HeadingDisplay.SHOWN,
-                          Optional.of(new TulipEdit(CROSSROADS, CORRECTED))),
-              new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN)));
+                          Optional.of(new TulipEdit(CROSSROADS, CORRECTED)), NOTES),
+              new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN).withNotes(Notes.NONE.withText(TEXT))));
   /** The correction of a box, opened, in the files of the failures. */
   private static final String BOX = "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"RULE\">";
   /** A tulip generated, straight ahead, in the files of the failures. */
@@ -111,6 +124,14 @@ final class OpenRallyReaderTest {
   /** A tulip corrected, straight ahead on a track, in the files of the failures. */
   private static final String TULIP = "<boxone:tulip shape=\"CROSSING\" entry=\"TARMAC\" angles=\"0\" "
                                       + "kinds=\"TRACK\" exit=\"0\"/>";
+  /** The notes of a box, empty, in the files of the failures. */
+  private static final String EMPTY_NOTES = "<boxone:notes/>";
+  /** The notes of a box, opened, in the files of the failures. */
+  private static final String OPEN_NOTES = "<boxone:notes>";
+  /** A symbol of the notes of a box, in the files of the failures. */
+  private static final String SYMBOL = "<boxone:symbol name=\"BUMP\" place=\"EXIT\"/>";
+  /** The end of the notes of a box, in the files of the failures. */
+  private static final String END_NOTES = "</boxone:notes>";
   /** The end of the correction of a box, then of the route, in the files of the failures. */
   private static final String END = "</boxone:box></boxone:route>";
   /** The reference file of version 1 of the format, relative to this class. */
@@ -365,7 +386,21 @@ final class OpenRallyReaderTest {
       "</boxone:route>|" + BOX + GENERATED + "<boxone:tulip shape=\"CROSSING\" entry=\"TARMAC\" angles=\"0\" "
           + "kinds=\"TARMAC\" exit=\"1\"/>" + END,
       "</boxone:route>|" + BOX + GENERATED + "<boxone:tulip shape=\"CROSSING\" angles=\"0\" kinds=\"TARMAC\" "
-          + "exit=\"0\"/>" + END})
+          + "exit=\"0\"/>" + END,
+      "</boxone:route>|" + EMPTY_NOTES + "</boxone:route>",
+      "</boxone:route>|" + SYMBOL + "</boxone:route>",
+      "</boxone:route>|" + BOX + EMPTY_NOTES + EMPTY_NOTES + END,
+      "</boxone:route>|" + BOX + SYMBOL + END,
+      "</boxone:route>|" + BOX + GENERATED + EMPTY_NOTES + END,
+      "</boxone:route>|" + BOX + "<boxone:notes danger=\"0\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:notes danger=\"4\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:notes danger=\"x\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:notes abbreviations=\"LEFTISH\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:notes text=\" LEFT\"/>" + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"ROCK\" place=\"EXIT\"/>" + END_NOTES + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"BUMP\" place=\"SIDE\"/>" + END_NOTES + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol place=\"EXIT\"/>" + END_NOTES + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + SYMBOL + SYMBOL + SYMBOL + END_NOTES + END})
   @DisplayName("Issue #5: a roadbook with a value missing or out of its bounds is refused as invalid")
   void invalidTest(final String target, final String replacement) {
     assertEquals(ReadError.INVALID, refused(MINIMAL.replace(target, replacement == null ? "" : replacement)));

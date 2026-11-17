@@ -126,8 +126,8 @@ public record RoadbookEdits(List<GeoPoint> added, List<GeoPoint> removed, List<B
   /**
    * Returns the changes with a box moved along the route, dragged on the map: a box added is added at its new place
    * instead, a box generated is removed and added at its new place. Its distances and its heading are those of its
-   * new place, computed again: its shift and its heading typed are dropped, measured at the former place; the display
-   * of its heading chosen by the user is kept.
+   * new place, computed again: its shift and its heading typed are dropped, measured at the former place, as its tulip
+   * corrected; the display of its heading chosen by the user and its notes are kept.
    *
    * @param from the place of the box.
    * @param to its new place, on the route.
@@ -138,7 +138,8 @@ public record RoadbookEdits(List<GeoPoint> added, List<GeoPoint> removed, List<B
    */
   public RoadbookEdits withMoved(final GeoPoint from, final GeoPoint to) {
     final RoadbookEdits moved = withRemoved(from).withAdded(to);
-    return edit(from).map(old -> moved.with(new BoxEdit(to).withDisplay(old.display()))).orElse(moved);
+    return edit(from).map(old -> moved.with(new BoxEdit(to).withDisplay(old.display()).withNotes(old.notes())))
+                     .orElse(moved);
   }
 
   /**

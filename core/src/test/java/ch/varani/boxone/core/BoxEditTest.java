@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests of {@link BoxEdit}: a correction keeps its place, its shift, its heading, its display and its tulip,
+ * Tests of {@link BoxEdit}: a correction keeps its place, its shift, its heading, its display, its tulip and its notes,
  * changes one of them at a time, moves to another place, tells when it changes nothing, and rejects a shift that is
  * not finite and a heading beyond 0–359 degrees.
  */
@@ -38,15 +38,17 @@ final class BoxEditTest {
   /** The correction of the tulip: a track to the right added. */
   private static final Optional<TulipEdit> TULIP = Optional.of(new TulipEdit(STRAIGHT, STRAIGHT.withBranch(
       90, BranchKind.TRACK)));
+  /** The notes of the box: a danger of level 1. */
+  private static final Notes NOTES = Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1));
 
   /**
    * A correction keeps its values, and changes one of them at a time.
    */
   @Test
-  @DisplayName("Phase 5: a correction keeps its place, its shift, its heading and its display")
+  @DisplayName("Phase 5: a correction keeps its place, its shift, its heading, its display, its tulip and its notes")
   void valuesTest() {
     final BoxEdit edit = new BoxEdit(STATION).withShift(SHIFT).withHeading(WEST).withDisplay(HeadingDisplay.SHOWN)
-                                             .withTulip(TULIP);
+                                             .withTulip(TULIP).withNotes(NOTES);
     final BoxEdit moved = edit.at(CASTLE);
     assertAll(
         () -> assertEquals(STATION, edit.place()),
@@ -54,14 +56,15 @@ final class BoxEditTest {
         () -> assertEquals(WEST, edit.heading()),
         () -> assertEquals(HeadingDisplay.SHOWN, edit.display()),
         () -> assertEquals(TULIP, edit.tulip()),
-        () -> assertEquals(new BoxEdit(CASTLE, SHIFT, WEST, HeadingDisplay.SHOWN, TULIP), moved));
+        () -> assertEquals(NOTES, edit.notes()),
+        () -> assertEquals(new BoxEdit(CASTLE, SHIFT, WEST, HeadingDisplay.SHOWN, TULIP, NOTES), moved));
   }
 
   /**
    * A correction without shift, heading nor display changes nothing; any of them changes the box.
    */
   @Test
-  @DisplayName("Phase 5: a correction changes nothing without shift, heading typed, display chosen nor tulip")
+  @DisplayName("Phase 5: a correction changes nothing without shift, heading typed, display chosen, tulip nor notes")
   void emptyTest() {
     final BoxEdit none = new BoxEdit(STATION);
     assertAll(
@@ -70,7 +73,8 @@ final class BoxEditTest {
         () -> assertFalse(none.withHeading(WEST).isEmpty()),
         () -> assertFalse(none.withDisplay(HeadingDisplay.HIDDEN).isEmpty()),
         () -> assertFalse(none.withTulip(TULIP).isEmpty()),
-        () -> assertTrue(none.withTulip(TULIP).withTulip(Optional.empty()).isEmpty()));
+        () -> assertTrue(none.withTulip(TULIP).withTulip(Optional.empty()).isEmpty()),
+        () -> assertFalse(none.withNotes(NOTES).isEmpty()));
   }
 
   /**
@@ -103,19 +107,20 @@ final class BoxEditTest {
   }
 
   /**
-   * A missing place, heading, display or tulip is a programming error.
+   * A missing place, heading, display, tulip or notes is a programming error.
    */
   @Test
-  @DisplayName("A correction without its place, its heading, its display or its tulip is a programming error")
+  @DisplayName("A correction without its place, heading, display, tulip or notes is a programming error")
   void nullTest() {
     final OptionalInt none = OptionalInt.empty();
     final Optional<TulipEdit> generated = Optional.empty();
     final HeadingDisplay rule = HeadingDisplay.RULE;
     assertAll(
         () -> assertThrows(NullPointerException.class, () -> new BoxEdit(null)),
-        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, null, rule, generated)),
-        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, null, generated)),
-        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, rule, null)));
+        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, null, rule, generated, NOTES)),
+        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, null, generated, NOTES)),
+        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, rule, null, NOTES)),
+        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, rule, generated, null)));
   }
 
 }

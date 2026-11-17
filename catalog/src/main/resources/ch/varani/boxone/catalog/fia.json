@@ -22,5 +22,221 @@
   "headings": {
     "branches": 3,
     "tracks": true
+  },
+  "notes": {
+    "danger": "#E2001A",
+    "mark": "M 0 0 L 9 0 L 6.5 26 L 2.5 26 Z M 0 33 C 0 30.525 2.025 28.5 4.5 28.5 C 6.975 28.5 9 30.525 9 33 C 9 35.475 6.975 37.5 4.5 37.5 C 2.025 37.5 0 35.475 0 33 Z",
+    "markGap": 3,
+    "margin": 8,
+    "beside": 24,
+    "text": "#000000",
+    "font": 30,
+    "minFont": 12
+  },
+  "abbreviations": {
+    "TRACK": "P",
+    "PRINCIPAL_TRACK": "PP",
+    "ROAD": "RO",
+    "PARALLEL_TRACK": "P//",
+    "OFF_TRACK": "HP",
+    "FOLLOW_PRINCIPAL_TRACK": "FPP",
+    "FOLLOW_ROAD": "FRO",
+    "SANDY": "SA",
+    "GRAVEL": "GV",
+    "VEGETATION": "VG",
+    "LEFT_AND_RIGHT": "L/R",
+    "RIGHT_AND_LEFT": "R/L",
+    "ON_LEFT": "onL",
+    "ON_RIGHT": "onR",
+    "KEEP_LEFT": "kpL",
+    "KEEP_RIGHT": "kpR",
+    "KEEP_STRAIGHT": "kpS",
+    "LESS_VISIBLE": "-V",
+    "MORE_OR_LESS_VISIBLE": "±V",
+    "ALTERNANCE": "ALT",
+    "DURING": "/",
+    "INTO": "IN",
+    "AND_NEXT": "ET",
+    "AT": "A",
+    "STONY": "CX",
+    "NARROW": "E3",
+    "QUIT": "QT",
+    "ALWAYS": "TJS",
+    "MANY": "NBX",
+    "IMPERATIVE": "IMP",
+    "COLLAPSED": "EFF",
+    "RUTS": "ORN",
+    "BAD": "BAD",
+    "REJOIN": "RP",
+    "BETWEEN": "BTW",
+    "BIG": "BIG",
+    "SMALL": "SMALL",
+    "FOLLOW": "FOLLOW"
+  },
+  "symbols": {
+    "RAIL_ROAD": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -24 0 L 24 0 M -21 -5 L -21 5 M -15 -5 L -15 5 M -9 -5 L -9 5 M -3 -5 L -3 5 M 3 -5 L 3 5 M 9 -5 L 9 5 M 15 -5 L 15 5 M 21 -5 L 21 5",
+          "colour": "#000000",
+          "width": 2
+        }
+      ]
+    },
+    "BUMP": {
+      "upright": true,
+      "parts": [
+        {
+          "path": "M -16 6 L -9 6 C -5 6 -5 -6 0 -6 C 5 -6 5 6 9 6 L 16 6",
+          "colour": "#E2001A",
+          "width": 3
+        }
+      ]
+    },
+    "DIP_HOLE": {
+      "upright": true,
+      "parts": [
+        {
+          "path": "M -16 -6 L -9 -6 C -5 -6 -5 6 0 6 C 5 6 5 -6 9 -6 L 16 -6",
+          "colour": "#E2001A",
+          "width": 3
+        }
+      ]
+    },
+    "COMPRESSION": {
+      "upright": true,
+      "parts": [
+        {
+          "path": "M -16 2 L -6 2 C -3 2 -3 10 0 10 C 3 10 3 2 6 2 L 16 2",
+          "colour": "#E2001A",
+          "width": 3
+        },
+        {
+          "path": "M 0 -12 L 0 -2 M -4 -6 L 0 -2 L 4 -6 M -4 -12 L 4 -12",
+          "colour": "#000000",
+          "width": 2
+        }
+      ]
+    },
+    "DITCH": {
+      "upright": true,
+      "parts": [
+        {
+          "path": "M -16 -6 L -6 -6 L 0 8 L 6 -6 L 16 -6",
+          "colour": "#E2001A",
+          "width": 3
+        }
+      ]
+    },
+    "SUMMIT": {
+      "upright": true,
+      "parts": [
+        {
+          "path": "M -20 6 C -10 -8 10 -8 20 6",
+          "colour": "#E2001A",
+          "width": 4
+        }
+      ]
+    },
+    "ABOVE_BRIDGE": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -16 -16 L -11 -11 L -11 11 L -16 16 M 16 -16 L 11 -11 L 11 11 L 16 16",
+          "colour": "#000000",
+          "width": 2.5
+        }
+      ]
+    },
+    "UNDER_BRIDGE": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -18 -7 L -13 -3 L 13 -3 L 18 -7 M -18 7 L -13 3 L 13 3 L 18 7",
+          "colour": "#000000",
+          "width": 2.5
+        }
+      ]
+    },
+    "STEP_UP": {
+      "upright": true,
+      "parts": [
+        {
+          "path": "M -14 8 L -2 8 L -2 -4 L 14 -4",
+          "colour": "#E2001A",
+          "width": 3
+        }
+      ]
+    },
+    "STEP_DOWN": {
+      "upright": true,
+      "parts": [
+        {
+          "path": "M -14 -4 L 2 -4 L 2 8 L 14 8",
+          "colour": "#E2001A",
+          "width": 3
+        }
+      ]
+    },
+    "FENCE_GATE": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -26 0 L -9 0 M 9 0 L 26 0 M -9 -6 L -9 6 M 9 -6 L 9 6 M -20 -4 L -20 4 M -14 -4 L -14 4 M 14 -4 L 14 4 M 20 -4 L 20 4",
+          "colour": "#000000",
+          "width": 2
+        }
+      ]
+    },
+    "CATTLE_GATE": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -26 0 L -9 0 M 9 0 L 26 0 M -9 -6 L -9 6 M 9 -6 L 9 6 M -20 -4 L -20 4 M -14 -4 L -14 4 M 14 -4 L 14 4 M 20 -4 L 20 4 M -9 -3 L 9 -3 M -9 3 L 9 3",
+          "colour": "#000000",
+          "width": 2
+        }
+      ]
+    },
+    "WALL_GATE": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -26 -3 L -9 -3 L -9 3 L -26 3 Z M 9 -3 L 26 -3 L 26 3 L 9 3 Z",
+          "colour": "#000000"
+        }
+      ]
+    },
+    "WADING": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -20 -4 C -15 -9 -10 1 -5 -4 C 0 -9 5 1 10 -4 C 15 -9 20 1 25 -4 M -20 4 C -15 -1 -10 9 -5 4 C 0 -1 5 9 10 4 C 15 -1 20 9 25 4",
+          "colour": "#3C8DDC",
+          "width": 2
+        }
+      ]
+    },
+    "CONCRETE_PASS": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -14 -8 L 14 -8 L 14 8 L -14 8 Z M -14 0 L 14 0",
+          "colour": "#000000",
+          "width": 2
+        }
+      ]
+    },
+    "TUNNEL": {
+      "upright": false,
+      "parts": [
+        {
+          "path": "M -14 8 L -14 -2 C -14 -15 14 -15 14 -2 L 14 8",
+          "colour": "#000000",
+          "width": 3
+        }
+      ]
+    }
   }
 }

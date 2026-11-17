@@ -1,10 +1,13 @@
 package ch.varani.boxone.export;
 
 import ch.varani.boxone.catalog.Catalogue;
-import ch.varani.boxone.catalog.TulipRenderer;
+import ch.varani.boxone.catalog.DescriptionRenderer;
+import ch.varani.boxone.catalog.DiagramRenderer;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
@@ -42,17 +45,22 @@ import java.util.stream.Collectors;
  *       finish clicked and, for a detour, its seed, its budget, the kinds of road it avoids and the duration of the
  *       fastest route; then the changes made by the user in the editor of the roadbook (development plan, phase 5),
  *       if any ({@value #EDITS}): the places of the boxes added and removed, and the corrections of the boxes, their
- *       tulips corrected with the tulips generated they replace, so that they are kept when the roadbook is opened
- *       again and its route changes;</li>
+ *       tulips corrected with the tulips generated they replace, and their notes ({@value #NOTES}: the danger, the
+ *       abbreviations and the text as attributes, the symbols as elements), so that they are kept when the roadbook is
+ *       opened again and its route changes;</li>
  *   <li>one waypoint ({@code wpt}) per box, at its place: its number as name, its total distance in kilometres with
  *       two decimals (OpenRally only carries the total distance, the reader computes the partial one), its heading
  *       ({@code cap}) when the catalogue shows it (the FIA shows the necessary headings only, §5.11.1), unless the
  *       user showed or hid it; the box of the start opens the stage ({@code dss}), the box of the finish closes it
- *       ({@code ass}), as in the reference files read by Terra Pirata in phase 0; the tulip of the box, drawn with the
- *       catalogue as a PNG image in base64 ({@value #PNG_DATA}…, the only drawing Terra Pirata shows, phase 0);</li>
+ *       ({@code ass}), as in the reference files read by Terra Pirata in phase 0; its danger ({@code danger}, the level
+ *       of the danger mark of its notes, phase 5); the diagram of the box ({@code tulip}): its tulip, with the
+ *       symbols and the danger mark of its notes, drawn with the catalogue ({@link DiagramRenderer}) as a PNG image in
+ *       base64 ({@value #PNG_DATA}…, the only drawing Terra Pirata shows, phase 0), written if the box has a tulip or
+ *       notes for its diagram; its description ({@code notes}): the abbreviations and the text of its notes
+ *       ({@link DescriptionRenderer}), likewise, written if it has some;</li>
  *   <li>the track ({@code trk}) of the route, point by point.</li>
  * </ol>
- * <p>The numbers are written with a dot, whatever the language of the application. The notes come later. The file
+ * <p>The numbers are written with a dot, whatever the language of the application. The file
  * is written by the XML writer of the JDK, never by another one found on the module path (Woodstox, brought by
  * GraphHopper through Jackson, would be found first, and writes differently).</p>
  *
@@ -137,6 +145,20 @@ public final class OpenRallyWriter {
   static final String GENERATED = "generated";
   /** The element of a tulip: the drawing of a box in OpenRally, the tulip corrected in the correction of a box. */
   static final String TULIP = "tulip";
+  /** The element of the notes of a box, in its correction; the element of OpenRally of its description. */
+  static final String NOTES = "notes";
+  /** The attribute of the level of the danger of the notes of a box, from 1 to 3; the element of OpenRally. */
+  static final String DANGER = "danger";
+  /** The attribute of the abbreviations of the notes of a box, names of {@link ch.varani.boxone.core.Abbreviation}. */
+  static final String ABBREVIATIONS = "abbreviations";
+  /** The attribute of the free text of the notes of a box; absent if it has none. */
+  static final String TEXT = "text";
+  /** The element of a symbol of the notes of a box. */
+  static final String SYMBOL = "symbol";
+  /** The attribute of the name of a symbol, a name of {@link ch.varani.boxone.core.Symbol}. */
+  static final String NAME = "name";
+  /** The attribute of the place of a symbol, a name of {@link ch.varani.boxone.core.SymbolPlace}. */
+  static final String PLACE = "place";
   /** The attribute of the shape of a tulip, a name of {@link ch.varani.boxone.core.JunctionShape}. */
   static final String SHAPE = "shape";
   /** The attribute of the kind of the entry of a tulip, a name of {@link ch.varani.boxone.core.BranchKind}. */
@@ -341,7 +363,7 @@ public final class OpenRallyWriter {
 
   /**
    * Writes the changes of the user: the places of the boxes added, of the boxes removed, and the corrections of the
-   * boxes at their places, a tulip corrected after the tulip generated it replaces.
+   * boxes at their places, a tulip corrected after the tulip generated it replaces, then the notes.
    *
    * @param xml the writer, inside the route of Box One.
    * @param edits the changes, not empty.
@@ -360,7 +382,8 @@ public final class OpenRallyWriter {
     }
     for (final BoxEdit edit : edits.boxes()) {
       final Optional<TulipEdit> tulip = edit.tulip();
-      if (tulip.isPresent()) {
+      final boolean content = tulip.isPresent() || !edit.notes().isEmpty();
+      if (content) {
         xml.open(BOX_ONE, BOX);
       } else {
         xml.empty(BOX_ONE, BOX);
@@ -374,10 +397,50 @@ public final class OpenRallyWriter {
       if (tulip.isPresent()) {
         tulip(xml, GENERATED, tulip.get().generated());
         tulip(xml, TULIP, tulip.get().tulip());
+      }
+      if (!edit.notes().isEmpty()) {
+        notes(xml, edit.notes());
+      }
+      if (content) {
         xml.close();
       }
     }
     xml.close();
+  }
+
+  /**
+   * Writes the notes of the correction of a box: the level of the danger, the names of the abbreviations and the text
+   * as attributes, those absent left out, then one element per symbol, its name and its place.
+   *
+   * @param xml the writer, inside the correction of a box.
+   * @param notes the notes, not empty.
+   *
+   * @throws XMLStreamException if the stream cannot be written.
+   */
+  private static void notes(final Indented xml, final Notes notes) throws XMLStreamException {
+    if (notes.symbols().isEmpty()) {
+      xml.empty(BOX_ONE, NOTES);
+    } else {
+      xml.open(BOX_ONE, NOTES);
+    }
+    if (notes.danger().isPresent()) {
+      xml.attribute(DANGER, Integer.toString(notes.danger().get().level()));
+    }
+    if (!notes.abbreviations().isEmpty()) {
+      xml.attribute(ABBREVIATIONS, notes.abbreviations().stream().map(Enum::name)
+                                        .collect(Collectors.joining(LIST_SEPARATOR)));
+    }
+    if (!notes.text().isEmpty()) {
+      xml.attribute(TEXT, notes.text());
+    }
+    if (!notes.symbols().isEmpty()) {
+      for (final BoxSymbol symbol : notes.symbols()) {
+        xml.empty(BOX_ONE, SYMBOL);
+        xml.attribute(NAME, symbol.symbol().name());
+        xml.attribute(PLACE, symbol.place().name());
+      }
+      xml.close();
+    }
   }
 
   /**
@@ -400,8 +463,8 @@ public final class OpenRallyWriter {
   }
 
   /**
-   * Writes the waypoint of a box: its place, its number, its total distance, its heading, the start or the finish of
-   * the stage.
+   * Writes the waypoint of a box: its place, its number, its total distance, its heading, its danger, the start or the
+   * finish of the stage, its diagram and its description.
    *
    * @param xml the writer, inside the element {@code gpx}.
    * @param box the box.
@@ -409,7 +472,7 @@ public final class OpenRallyWriter {
    * @param catalogue the catalogue of symbols that draws the tulip and tells whether the heading is shown.
    *
    * @throws XMLStreamException if the stream cannot be written.
-   * @throws IOException if the tulip cannot be drawn.
+   * @throws IOException if the diagram or the description cannot be drawn.
    */
   private static void waypoint(final Indented xml, final Box box, final boolean last, final Catalogue catalogue)
       throws XMLStreamException, IOException {
@@ -421,16 +484,23 @@ public final class OpenRallyWriter {
     if (catalogue.headings().shows(box)) {
       xml.text(OPENRALLY, "cap", Integer.toString(box.heading().orElseThrow()));
     }
+    final Notes notes = box.notes();
+    if (notes.danger().isPresent()) {
+      xml.text(OPENRALLY, DANGER, Integer.toString(notes.danger().get().level()));
+    }
     if (box.number() == Box.FIRST) {
       xml.empty(OPENRALLY, "dss");
     }
     if (last) {
       xml.empty(OPENRALLY, "ass");
     }
-    final Optional<Tulip> tulip = box.tulip();
-    if (tulip.isPresent()) {
-      final byte[] png = TulipRenderer.png(tulip.get(), catalogue.tulip());
+    if (box.tulip().isPresent() || notes.hasDiagram()) {
+      final byte[] png = DiagramRenderer.png(box.tulip(), notes, catalogue);
       xml.cdata(OPENRALLY, TULIP, PNG_DATA + Base64.getEncoder().encodeToString(png));
+    }
+    if (notes.hasDescription()) {
+      final byte[] png = DescriptionRenderer.png(notes, catalogue);
+      xml.cdata(OPENRALLY, NOTES, PNG_DATA + Base64.getEncoder().encodeToString(png));
     }
     xml.close();
     xml.close();

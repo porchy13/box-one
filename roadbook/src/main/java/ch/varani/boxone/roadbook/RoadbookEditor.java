@@ -4,6 +4,7 @@ import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
@@ -147,7 +148,7 @@ public final class RoadbookEditor {
 
   /**
    * Applies the corrections of the boxes to the roadbook of a route changed by {@link #route(Route, RoadbookEdits)}:
-   * their shifted totals, their headings, their displays.
+   * their shifted totals, their headings, their displays, their tulips and their notes.
    *
    * @param roadbook the roadbook generated from the route changed.
    * @param edits the changes of the user.
@@ -166,6 +167,7 @@ public final class RoadbookEditor {
       OptionalInt heading = box.heading();
       HeadingDisplay display = box.display();
       Optional<Tulip> tulip = box.tulip();
+      Notes notes = box.notes();
       if (edit.isPresent()) {
         final double shifted = total + edit.get().shift();
         if (shifted >= previous && shifted <= next) {
@@ -176,8 +178,9 @@ public final class RoadbookEditor {
         }
         display = edit.get().display();
         tulip = tulip(tulip, edit.get().tulip());
+        notes = edit.get().notes();
       }
-      corrected.add(new Box(box.number(), box.position(), total, total - previous, heading, tulip, display));
+      corrected.add(new Box(box.number(), box.position(), total, total - previous, heading, tulip, display, notes));
       previous = total;
     }
     return new Roadbook(roadbook.route(), corrected);

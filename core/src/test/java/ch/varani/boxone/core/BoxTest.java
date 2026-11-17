@@ -18,8 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests of {@link Box}: a box keeps its number, its place, its distances and its heading, the box of the finish has
  * no heading, the box of a junction keeps its tulip, a box generated shows its heading as the catalogue decides and a
- * box corrected as the user chose, and a box rejects a number below 1, an invalid distance and a heading beyond 0–359
- * degrees.
+ * box corrected as the user chose, a box keeps its notes, and a box rejects a number below 1, an invalid distance and
+ * a heading beyond 0–359 degrees.
  */
 final class BoxTest {
 
@@ -138,6 +138,20 @@ final class BoxTest {
   }
 
   /**
+   * A box generated has no notes; a box corrected keeps those of the user.
+   */
+  @Test
+  @DisplayName("Phase 5: a box generated has no notes, a box corrected keeps those of the user")
+  void notesTest() {
+    final Optional<Tulip> none = Optional.empty();
+    final Notes notes = Notes.NONE.withText("BIG ROCKS");
+    assertAll(
+        () -> assertEquals(Notes.NONE, new Box(1, STATION, TOTAL, PARTIAL, EAST, none).notes()),
+        () -> assertEquals(notes,
+                           new Box(1, STATION, TOTAL, PARTIAL, EAST, none, HeadingDisplay.RULE, notes).notes()));
+  }
+
+  /**
    * The headings from 0 to 359 degrees are valid, the others not.
    */
   @Test
@@ -151,17 +165,19 @@ final class BoxTest {
   }
 
   /**
-   * A missing place, heading, tulip or display is a programming error.
+   * A missing place, heading, tulip, display or notes is a programming error.
    */
   @Test
-  @DisplayName("A box without its place, its heading, its tulip or its display is a programming error")
+  @DisplayName("A box without its place, its heading, its tulip, its display or its notes is a programming error")
   void nullTest() {
     final Optional<Tulip> none = Optional.empty();
     assertAll(
         () -> assertThrows(NullPointerException.class, () -> new Box(1, null, TOTAL, PARTIAL, EAST, none)),
         () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, null, none)),
         () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, null)),
-        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, none, null)));
+        () -> assertThrows(NullPointerException.class, () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, none, null)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new Box(1, STATION, TOTAL, PARTIAL, EAST, none, HeadingDisplay.RULE, null)));
   }
 
 }

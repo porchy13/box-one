@@ -1,14 +1,20 @@
 package ch.varani.boxone.roadbook;
 
+import ch.varani.boxone.core.Abbreviation;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Symbol;
+import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
 import org.junit.jupiter.api.DisplayName;
@@ -231,6 +237,24 @@ final class RoadbookEditorTest {
             generated, RoadbookEdits.NONE.with(new BoxEdit(NORTH).withShift(SHIFT))).boxes().get(1).tulip()),
         () -> assertEquals(Optional.empty(), RoadbookEditor.roadbook(
             generated, RoadbookEdits.NONE.with(new BoxEdit(START).withTulip(corrected))).boxes().get(0).tulip()));
+  }
+
+  /**
+   * A box corrected takes the notes of its correction; the other boxes keep none.
+   */
+  @Test
+  @DisplayName("Phase 5: a box takes the notes of its correction, the other boxes have none")
+  void notesTest() {
+    final Notes notes = Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1))
+                                  .withAbbreviations(List.of(Abbreviation.FOLLOW_ROAD))
+                                  .withSymbols(List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT)));
+    final List<Box> boxes = RoadbookEditor.roadbook(RoadbookGenerator.generate(route()),
+                                                    RoadbookEdits.NONE.with(new BoxEdit(NORTH).withNotes(notes)))
+                                          .boxes();
+    assertAll(
+        () -> assertEquals(Notes.NONE, boxes.get(0).notes()),
+        () -> assertEquals(notes, boxes.get(1).notes()),
+        () -> assertEquals(Notes.NONE, boxes.get(2).notes()));
   }
 
   /**

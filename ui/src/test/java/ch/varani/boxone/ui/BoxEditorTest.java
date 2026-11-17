@@ -4,9 +4,11 @@ import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.BranchKind;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
@@ -46,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests of {@link BoxEditor} (development plan, phase 5; DESIGN.md §7): the box selected shown with its values
  * computed, its total distance, its heading and its display corrected, a value out of its rules marked with a message
  * under its field and not applied, a value unchanged not applied, the corrections reset and the box removed, the tulip
- * corrected kept with the tulip generated.
+ * corrected kept with the tulip generated, the notes of the box shown and changed.
  */
 @ExtendWith(ApplicationExtension.class)
 final class BoxEditorTest {
@@ -133,7 +135,7 @@ final class BoxEditorTest {
     final List<GeoPoint> removals = new ArrayList<>();
     final AtomicReference<Shown> shown = new AtomicReference<>();
     robot.interact(() -> {
-      final BoxEditor editor = new BoxEditor(TEXTS, LOCALE, Catalogue.fia().tulip(), corrections::add, removals::add);
+      final BoxEditor editor = new BoxEditor(TEXTS, LOCALE, Catalogue.fia(), corrections::add, removals::add);
       final TextField other = new TextField();
       final Stage stage = new Stage();
       stage.setScene(new Scene(new VBox(other, editor.getNode())));
@@ -415,6 +417,34 @@ final class BoxEditorTest {
         () -> assertTrue(hiddenAtStart),
         () -> assertTrue(shownAtJunction),
         () -> assertEquals(List.of(corrected, new BoxEdit(JUNCTION)), shown.corrections()));
+  }
+
+  /**
+   * The notes of the box selected are shown in their editor; a change of the notes is kept with the other corrections
+   * of the box; the box without tulip has its symbols disabled.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws IOException never: the tulip can be drawn.
+   */
+  @Test
+  @DisplayName("Phase 5: the notes of a box are shown and changed in its editor, kept with its other corrections")
+  void notesTest(final FxRobot robot) throws IOException {
+    final Shown shown = show(robot, Optional.of(TURN));
+    final BoxEdit shifted = new BoxEdit(JUNCTION).withShift(1).withNotes(Notes.NONE.withText("BIG ROCKS"));
+    select(robot, shown, JUNCTION_INDEX, shifted);
+    final String text = field(shown, NotesEditor.TEXT_ID).getText();
+    final boolean symbolsAtJunction = !shown.editor().getNode().lookup("#" + NotesEditor.SYMBOL_ID).isDisabled();
+    robot.interact(() -> ((ComboBox<?>) shown.editor().getNode().lookup("#" + NotesEditor.DANGER_ID))
+        .getSelectionModel().select(1));
+    select(robot, shown, 0, null);
+    final boolean symbolsAtStart = !shown.editor().getNode().lookup("#" + NotesEditor.SYMBOL_ID).isDisabled();
+    assertAll(
+        () -> assertEquals("BIG ROCKS", text),
+        () -> assertTrue(symbolsAtJunction),
+        () -> assertFalse(symbolsAtStart),
+        () -> assertEquals(List.of(shifted.withNotes(shifted.notes().withDanger(Optional.of(Danger.LEVEL_1)))),
+                           shown.corrections()));
   }
 
   /**

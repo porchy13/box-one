@@ -489,7 +489,7 @@ final class MainController {
     boxList.setCellFactory(list -> new BoxCell());
     boxList.setAccessibleText(texts.getString(ROADBOOK_TITLE));
     roadbookEmpty.visibleProperty().bind(Bindings.isEmpty(boxList.getItems()));
-    boxEditor = new BoxEditor(texts, locale, CATALOGUE.tulip(), edit -> changeEdits(edits.with(edit), edit.place()),
+    boxEditor = new BoxEditor(texts, locale, CATALOGUE, edit -> changeEdits(edits.with(edit), edit.place()),
                               place -> changeEdits(edits.withRemoved(place), null));
     boxEditor.getNode().maxHeightProperty().bind(roadbookPane.heightProperty().multiply(EDITOR_SHARE));
     roadbookPane.getChildren().add(boxEditor.getNode());

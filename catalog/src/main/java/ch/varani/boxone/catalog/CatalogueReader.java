@@ -6,9 +6,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 
+import ch.varani.boxone.core.Abbreviation;
+import ch.varani.boxone.core.Symbol;
+
 import java.awt.Color;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -24,7 +31,16 @@ import java.util.regex.Pattern;
  *       {@code stem} (positive, at most a quarter of the size), {@code routeScale} ({@value #MIN_SCALE} to
  *       {@value #MAX_SCALE}) and the SVG path {@code arrow} ({@link SvgPath}) — {@link TulipStyle};</li>
  *   <li>{@code headings}: an object of {@code branches} (a whole number from 1) and {@code tracks} (a boolean) —
- *       {@link HeadingRule}.</li>
+ *       {@link HeadingRule};</li>
+ *   <li>{@code notes}: an object of the colours {@code danger} and {@code text}, the SVG path {@code mark}, the lengths
+ *       {@code markGap}, {@code margin} (positive, at most a quarter of the size of the tulip), {@code beside} (at most
+ *       half of it), {@code font} (at most the size) and {@code minFont} (at most the font) — {@link NoteStyle};</li>
+ *   <li>{@code abbreviations}: an object giving the text of each {@link Abbreviation}, by its name, at most
+ *       {@value #MAX_ABBREVIATION} characters, none missing nor unknown;</li>
+ *   <li>{@code symbols}: an object giving the drawing of each {@link Symbol}, by its name, none missing nor unknown: an
+ *       object of {@code upright} (a boolean) and {@code parts}, a non-empty array of objects of an SVG {@code path}, a
+ *       {@code colour} and, for a part stroked, its {@code width} (positive, at most a quarter of the size; a part
+ *       without width is filled) — {@link SymbolDrawing}.</li>
  * </ul>
  *
  * <p><b>Security</b> (AGENTS.md §5): at most {@value #MAX_BYTES} bytes are read; the JSON is read as a tree, without
@@ -56,6 +72,8 @@ final class CatalogueReader {
   private static final Pattern COLOUR = Pattern.compile("#[0-9A-Fa-f]{6}");
   /** The radix of the digits of a colour. */
   private static final int HEXADECIMAL = 16;
+  /** The longest text of an abbreviation, in characters. */
+  static final int MAX_ABBREVIATION = 16;
   /** The parser of the JSON: a tree, duplicate keys and trailing content refused. */
   private static final ObjectMapper MAPPER = JsonMapper.builder()
       .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
@@ -96,8 +114,10 @@ final class CatalogueReader {
     if (integer(root, "formatVersion", 1, Integer.MAX_VALUE) > FORMAT_VERSION) {
       throw new CatalogueException(CatalogueError.NEWER_VERSION);
     }
+    final TulipStyle tulip = tulip(object(root, "tulip"));
     return new Catalogue(text(root, "id"), text(root, "name"), text(root, "source"), text(root, "provenance"),
-                         tulip(object(root, "tulip")), headings(object(root, "headings")));
+                         tulip, headings(object(root, "headings")), notes(object(root, "notes"), tulip.size()),
+                         abbreviations(object(root, "abbreviations")), symbols(object(root, "symbols"), tulip.size()));
   }
 
   /**
@@ -148,6 +168,101 @@ final class CatalogueReader {
   }
 
   /**
+   * Reads how the catalogue draws the notes of a box.
+   *
+   * @param node the object {@code notes}.
+   * @param size the side of the image of a tulip, in pixels.
+   *
+   * @return the style of the notes.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if a value is missing or invalid.
+   */
+  private static NoteStyle notes(final JsonNode node, final int size) {
+    final double width = (double) size / WIDTHS_PER_SIDE;
+    final String mark = text(node, "mark");
+    SvgPath.parse(mark);
+    final double font = number(node, "font", size);
+    return new NoteStyle(colour(node, "danger"), mark, number(node, "markGap", width), number(node, "margin", width),
+                         number(node, "beside", size / 2.0), colour(node, "text"), font,
+                         number(node, "minFont", font));
+  }
+
+  /**
+   * Reads how the catalogue writes the abbreviations.
+   *
+   * @param node the object {@code abbreviations}.
+   *
+   * @return the text of each abbreviation.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if an abbreviation is missing, unknown, or its text
+   *                            invalid.
+   */
+  private static Map<Abbreviation, String> abbreviations(final JsonNode node) {
+    if (node.size() != Abbreviation.values().length) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+    final Map<Abbreviation, String> texts = new EnumMap<>(Abbreviation.class);
+    for (final Abbreviation abbreviation : Abbreviation.values()) {
+      final String text = text(node, abbreviation.name());
+      if (text.length() > MAX_ABBREVIATION) {
+        throw new CatalogueException(CatalogueError.INVALID);
+      }
+      texts.put(abbreviation, text);
+    }
+    return texts;
+  }
+
+  /**
+   * Reads how the catalogue draws the symbols.
+   *
+   * @param node the object {@code symbols}.
+   * @param size the side of the image of a tulip, in pixels.
+   *
+   * @return the drawing of each symbol.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if a symbol is missing, unknown, or its drawing invalid.
+   */
+  private static Map<Symbol, SymbolDrawing> symbols(final JsonNode node, final int size) {
+    if (node.size() != Symbol.values().length) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+    final Map<Symbol, SymbolDrawing> drawings = new EnumMap<>(Symbol.class);
+    for (final Symbol symbol : Symbol.values()) {
+      drawings.put(symbol, symbol(object(node, symbol.name()), size));
+    }
+    return drawings;
+  }
+
+  /**
+   * Reads the drawing of a symbol: whether it stands upright, then its parts, each a path checked, a colour and, for a
+   * part stroked, its width.
+   *
+   * @param node the object of the symbol.
+   * @param size the side of the image of a tulip, in pixels.
+   *
+   * @return the drawing.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if a value is missing or invalid, or there is no part.
+   */
+  private static SymbolDrawing symbol(final JsonNode node, final int size) {
+    final JsonNode parts = field(node, "parts");
+    if (!parts.isArray() || parts.isEmpty()) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+    final List<SymbolPart> drawn = new ArrayList<>(parts.size());
+    for (final JsonNode part : parts) {
+      if (!part.isObject()) {
+        throw new CatalogueException(CatalogueError.INVALID);
+      }
+      final String path = text(part, "path");
+      SvgPath.parse(path);
+      final double width = part.has("width") ? number(part, "width", (double) size / WIDTHS_PER_SIDE) : 0;
+      drawn.add(new SymbolPart(path, colour(part, "colour"), width));
+    }
+    return new SymbolDrawing(bool(node, "upright"), drawn);
+  }
+
+  /**
    * Reads which boxes show their heading.
    *
    * @param node the object {@code headings}.
@@ -158,11 +273,7 @@ final class CatalogueReader {
    *                            bounds.
    */
   private static HeadingRule headings(final JsonNode node) {
-    final JsonNode tracks = field(node, "tracks");
-    if (!tracks.isBoolean()) {
-      throw new CatalogueException(CatalogueError.INVALID);
-    }
-    return new HeadingRule(integer(node, "branches", 1, Integer.MAX_VALUE), tracks.booleanValue());
+    return new HeadingRule(integer(node, "branches", 1, Integer.MAX_VALUE), bool(node, "tracks"));
   }
 
   /**
@@ -180,6 +291,24 @@ final class CatalogueReader {
       throw new CatalogueException(CatalogueError.INVALID);
     }
     return scale;
+  }
+
+  /**
+   * Gives a boolean field of an object.
+   *
+   * @param node the object.
+   * @param name the name of the field.
+   *
+   * @return its value.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if the field is missing or not a boolean.
+   */
+  private static boolean bool(final JsonNode node, final String name) {
+    final JsonNode value = field(node, name);
+    if (!value.isBoolean()) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+    return value.booleanValue();
   }
 
   /**

@@ -112,18 +112,47 @@ public final class TulipRenderer {
    * @return the image, of the size of the style.
    */
   static BufferedImage image(final Tulip tulip, final TulipStyle style) {
-    final BufferedImage image = new BufferedImage(style.size(), style.size(), BufferedImage.TYPE_INT_RGB);
-    final Graphics2D graphics = image.createGraphics();
+    final BufferedImage image = blank(style);
+    final Graphics2D graphics = graphics(image);
     try {
-      graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-      graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-      graphics.setColor(style.background());
-      graphics.fillRect(0, 0, style.size(), style.size());
       draw(graphics, tulip, style);
     } finally {
       graphics.dispose();
     }
     return image;
+  }
+
+  /**
+   * Creates an image of the size of the style, filled with its background.
+   *
+   * @param style the style of the catalogue.
+   *
+   * @return the image, without any drawing.
+   */
+  static BufferedImage blank(final TulipStyle style) {
+    final BufferedImage image = new BufferedImage(style.size(), style.size(), BufferedImage.TYPE_INT_RGB);
+    final Graphics2D graphics = image.createGraphics();
+    try {
+      graphics.setColor(style.background());
+      graphics.fillRect(0, 0, style.size(), style.size());
+    } finally {
+      graphics.dispose();
+    }
+    return image;
+  }
+
+  /**
+   * Gives the graphics of an image, smoothed: its lines antialiased and placed as drawn.
+   *
+   * @param image the image.
+   *
+   * @return its graphics, to dispose of once drawn.
+   */
+  static Graphics2D graphics(final BufferedImage image) {
+    final Graphics2D graphics = image.createGraphics();
+    graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+    return graphics;
   }
 
   /**

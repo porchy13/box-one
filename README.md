@@ -11,8 +11,8 @@ mode. The name refers to the very first box of a roadbook.
 
 The project is at its beginning: the application shows a map, computes the fastest route between two places,
 generates detours within a budget of time, and exports the roadbook of the route for Terra Pirata, with the tulip of
-each junction drawn after the lexicon of the FIA; the other symbols, the editor, the other exports and the training
-mode come in the next versions (see
+each junction drawn after the lexicon of the FIA; its boxes, their tulips and their notes can be corrected; the
+waypoints, the speed zones, the other exports and the training mode come in the next versions (see
 [`changelog.md`](changelog.md)).
 
 Licensed under the [Apache License, Version 2.0](LICENSE) (see also [`NOTICE`](NOTICE)). Routing data © OpenStreetMap
@@ -143,6 +143,15 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   (not the route), Reset the tulip brings back the tulip read on the map. The tulip corrected is drawn in the roadbook
   and exported; it is kept while the route crosses the junction the same way (from the same road, to the same road):
   if the route changes there, the tulip read on the map comes back.
+- **Notes**: under the tulip of the box selected, its notes, after the lexicon of the FIA: the danger (none, or one to
+  three exclamation marks, drawn in red in the tulip); the abbreviations of the lexicon (at most 6, added one after the
+  other in the order they are read, the one selected removed), and a line of free text in English (at most 32
+  characters), written under the heading in the roadbook; the symbols of the lexicon that stand on the road (rail road
+  of a level crossing, bump, dip hole, compression, ditch, summit, over or under a bridge, step up or down, fence,
+  cattle or wall gate, wading, concrete pass, tunnel), before or after the junction, at most 2 on each side, drawn in
+  the tulip (not at the start nor at the finish). The notes are exported: the danger as the danger of OpenRally, the
+  tulip with its symbols and danger marks, the abbreviations and the text as the image of the notes, which Terra
+  Pirata shows.
 
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.
@@ -167,13 +176,13 @@ page of the map) with:
 
 | Module | Role |
 |--------|------|
-| `core` | Domain model (geographic points, routes and their maneuvers, the geometry of their junctions, roadbooks, their boxes and their tulips, the changes of the user to a roadbook; then the waypoints and the speed zones). No dependency outside the JDK. |
+| `core` | Domain model (geographic points, routes and their maneuvers, the geometry of their junctions, roadbooks, their boxes, their tulips and their notes, the changes of the user to a roadbook; then the waypoints and the speed zones). No dependency outside the JDK. |
 | `graphhopper` | GraphHopper as one JPMS module (`graphhopper-core`, `graphhopper-web-api` and `osm-legal-default-speeds-jvm` regrouped, as they cannot go on the module path apart). No code of its own. |
 | `routing` | The fastest route by car between two points, possibly through waypoints, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers and the roads of the junction of each (roundabouts included). |
 | `detour` | Detours: routes through random waypoints drawn in an ellipse around the start and the finish, within a budget of time, reproducible from their seed. |
 | `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry; the changes of the user applied to it, and kept by their places when the route changes. |
-| `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first), and the drawing of the tulips with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
-| `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips as PNG); later the PDF strip and the plain GPX. |
+| `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first): the tulips, the danger marks, the symbols on the roads and how the abbreviations are written; the drawing of the diagram of a box (its tulip and its notes) and of its description with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
+| `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips and the notes as PNG); later the PDF strip and the plain GPX. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |
 
 The training mode becomes a module of its own when it is developed.

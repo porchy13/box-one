@@ -37,6 +37,11 @@ public enum ValidationError {
    * A tulip without branch, with an angle that is not a whole number of degrees from −179 to 179 or not after the
    * previous one, not one kind per branch, or an exit that is not one of its branches.
    */
-  INVALID_TULIP
+  INVALID_TULIP,
+  /**
+   * Notes of a box with too many abbreviations, a free text too long, not printable ASCII or with a space at its ends,
+   * or too many symbols on a road of the tulip.
+   */
+  INVALID_NOTES
 
 }

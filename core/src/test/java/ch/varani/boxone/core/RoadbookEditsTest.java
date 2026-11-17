@@ -28,6 +28,8 @@ final class RoadbookEditsTest {
   private static final GeoPoint CASTLE = new GeoPoint(46.7785, 6.6413);
   /** A shift of the total distance, in metres. */
   private static final double SHIFT = 25;
+  /** The notes of a box: the abbreviation "keep to the left". */
+  private static final Notes NOTES = Notes.NONE.withAbbreviations(List.of(Abbreviation.KEEP_LEFT));
 
   /**
    * No change is empty, and has no correction.
@@ -74,20 +76,21 @@ final class RoadbookEditsTest {
 
   /**
    * A box generated moved is removed and added at its new place; a box added moved is added there instead; the shift
-   * and the heading typed are dropped, the display of the heading kept.
+   * and the heading typed are dropped, the display of the heading and the notes kept.
    */
   @Test
-  @DisplayName("Phase 5: a box moved is at its new place, its distances and heading computed again, its display kept")
+  @DisplayName("Phase 5: a box moved is at its new place, distances and heading computed again, display and notes kept")
   void movedTest() {
     final BoxEdit corrected = new BoxEdit(STATION).withShift(SHIFT).withHeading(OptionalInt.of(Box.MIN_HEADING))
-                                                  .withDisplay(HeadingDisplay.SHOWN);
+                                                  .withDisplay(HeadingDisplay.SHOWN).withNotes(NOTES);
     final RoadbookEdits generated = RoadbookEdits.NONE.with(corrected).withMoved(STATION, CASTLE);
     final RoadbookEdits added = RoadbookEdits.NONE.withAdded(STATION).withMoved(STATION, CASTLE);
     final RoadbookEdits shifted = RoadbookEdits.NONE.with(new BoxEdit(STATION).withShift(SHIFT))
                                                     .withMoved(STATION, CASTLE);
     assertAll(
         () -> assertEquals(new RoadbookEdits(List.of(CASTLE), List.of(STATION),
-                                             List.of(new BoxEdit(CASTLE).withDisplay(HeadingDisplay.SHOWN))),
+                                             List.of(new BoxEdit(CASTLE).withDisplay(HeadingDisplay.SHOWN)
+                                                                         .withNotes(NOTES))),
                            generated),
         () -> assertEquals(new RoadbookEdits(List.of(CASTLE), List.of(), List.of()), added),
         () -> assertEquals(List.of(), shifted.boxes()));
