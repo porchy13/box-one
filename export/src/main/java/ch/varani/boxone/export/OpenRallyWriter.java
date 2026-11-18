@@ -46,8 +46,8 @@ import java.util.stream.Collectors;
  *       fastest route; then the changes made by the user in the editor of the roadbook (development plan, phase 5),
  *       if any ({@value #EDITS}): the places of the boxes added and removed, and the corrections of the boxes, their
  *       tulips corrected with the tulips generated they replace, and their notes ({@value #NOTES}: the danger, the
- *       abbreviations and the text as attributes, the symbols as elements), so that they are kept when the roadbook is
- *       opened again and its route changes;</li>
+ *       abbreviations and the text as attributes, the symbols as elements, a symbol placed freely with its point),
+ *       so that they are kept when the roadbook is opened again and its route changes;</li>
  *   <li>one waypoint ({@code wpt}) per box, at its place: its number as name, its total distance in kilometres with
  *       two decimals (OpenRally only carries the total distance, the reader computes the partial one), its heading
  *       ({@code cap}) when the catalogue shows it (the FIA shows the necessary headings only, §5.11.1), unless the
@@ -159,6 +159,13 @@ public final class OpenRallyWriter {
   static final String NAME = "name";
   /** The attribute of the place of a symbol, a name of {@link ch.varani.boxone.core.SymbolPlace}. */
   static final String PLACE = "place";
+  /**
+   * The attribute of the abscissa of a symbol placed freely, from the centre of the diagram in halves of its side
+   * ({@link ch.varani.boxone.core.DiagramPoint}).
+   */
+  static final String X = "x";
+  /** The attribute of the ordinate of a symbol placed freely, from the centre of the diagram, downwards. */
+  static final String Y = "y";
   /** The attribute of the shape of a tulip, a name of {@link ch.varani.boxone.core.JunctionShape}. */
   static final String SHAPE = "shape";
   /** The attribute of the kind of the entry of a tulip, a name of {@link ch.varani.boxone.core.BranchKind}. */
@@ -410,7 +417,8 @@ public final class OpenRallyWriter {
 
   /**
    * Writes the notes of the correction of a box: the level of the danger, the names of the abbreviations and the text
-   * as attributes, those absent left out, then one element per symbol, its name and its place.
+   * as attributes, those absent left out, then one element per symbol, its name, its place and, placed freely, its
+   * point.
    *
    * @param xml the writer, inside the correction of a box.
    * @param notes the notes, not empty.
@@ -438,6 +446,10 @@ public final class OpenRallyWriter {
         xml.empty(BOX_ONE, SYMBOL);
         xml.attribute(NAME, symbol.symbol().name());
         xml.attribute(PLACE, symbol.place().name());
+        if (symbol.at().isPresent()) {
+          xml.attribute(X, Double.toString(symbol.at().get().x()));
+          xml.attribute(Y, Double.toString(symbol.at().get().y()));
+        }
       }
       xml.close();
     }

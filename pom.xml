@@ -57,7 +57,7 @@
         <checkstyle.version>14.4.0</checkstyle.version>
         <jacoco.version>0.8.16</jacoco.version>
         <test.excludedGroups>slow</test.excludedGroups>
-        <javafx.version>25.0.5</javafx.version>
+        <javafx.version>25.0.5.1</javafx.version>
         <testfx.version>4.0.18</testfx.version>
         <monocle.version>21.0.2</monocle.version>
         <graphhopper.version>11.1</graphhopper.version>

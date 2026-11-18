@@ -125,7 +125,7 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   changes not saved asks whether to save them (Save, Don't Save, Cancel), and a roadbook being saved is saved before
   Box One closes. File › Open a recent roadbook opens one of the roadbooks opened or saved last: 5 by default, up to
   20 in the settings (Roadbooks section); a roadbook moved or deleted since is removed from the list, with a message.
-- **Correct the roadbook**: the box selected in the roadbook is corrected under it: its total distance (empty for the
+- **Correct the roadbook**: the box selected in the roadbook is corrected in the editor at the right of the map: its total distance (empty for the
   distance computed; between the box before and the box after), its heading (empty for the heading computed) and
   whether the heading is shown (where the FIA asks for it, always or never); Reset the box removes its corrections,
   Remove the box, or the key Delete (Backspace on macOS) in the roadbook, removes it (not the start nor the finish). A right-click on the route, Add a box here, adds a box at
@@ -148,8 +148,16 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   other in the order they are read, the one selected removed), and a line of free text in English (at most 32
   characters), written under the heading in the roadbook; the symbols of the lexicon that stand on the road (rail road
   of a level crossing, bump, dip hole, compression, ditch, summit, over or under a bridge, step up or down, fence,
-  cattle or wall gate, wading, concrete pass, tunnel), before or after the junction, at most 2 on each side, drawn in
-  the tulip (not at the start nor at the finish). The notes are exported: the danger as the danger of OpenRally, the
+  cattle or wall gate, wading, concrete pass, tunnel, up or down hill, cut danger, crest), before or after the
+  junction, at most 2 on each side, drawn in the tulip (not at the start nor at the finish); the symbols beside the
+  road (the other symbols of the lexicon of the FIA: buildings, church, village, pylons, trees, water, rocks, dunes,
+  signs…), at most 4, placed freely: added in a free corner of the tulip, then dragged in the tulip of the box with
+  the mouse, or their position typed in percent from the centre (at the start and at the finish too). The symbols and
+  the abbreviations are chosen in lists with a search (case and accents ignored), each symbol drawn beside its name;
+  a cross at the end of a line, or Del, removes it.
+- **Layout**: the roadbook at the left of the map, the editor of the box selected at its right, its tulip at the top
+  and its fields in five tabs: Box, Tulip, Symbols, Abbreviations, Notes (the danger and the free text); a symbol or an
+  abbreviation is chosen first, the elements of the box listed under the choice. The notes are exported: the danger as the danger of OpenRally, the
   tulip with its symbols and danger marks, the abbreviations and the text as the image of the notes, which Terra
   Pirata shows.
 

@@ -13,12 +13,14 @@ import java.util.Optional;
  * drawn in the diagram of the box (§5.8.3), the abbreviations and the text in its description, the text in English
  * (§5.1.5). The bounds keep the notes readable in a box of the strip: at most {@value #MAX_ABBREVIATIONS}
  * abbreviations, a text of at most {@value #MAX_TEXT} characters, at most {@value #MAX_SYMBOLS} symbols on each road
- * (choices of the increment, to be confirmed by the maintainer).</p>
+ * (choices confirmed by the maintainer, 2026-11-17), at most {@value #MAX_FREE_SYMBOLS} symbols beside the road, placed
+ * freely (choice of the symbols beside the road, to be confirmed).</p>
  *
  * <p><b>Preconditions</b>: a danger, or none; at most {@value #MAX_ABBREVIATIONS} abbreviations, in the order they are
  * read, an abbreviation may come twice ("ET"); a text of at most {@value #MAX_TEXT} printable ASCII characters
  * (English), without space at its ends, empty for none; at most {@value #MAX_SYMBOLS} symbols on the entry and as many
- * on the exit. Otherwise the notes are rejected. The lists are copied.</p>
+ * on the exit, at most {@value #MAX_FREE_SYMBOLS} placed freely. Otherwise the notes are rejected. The lists are
+ * copied.</p>
  *
  * <p>Immutable, safe for concurrent use.</p>
  *
@@ -40,6 +42,8 @@ public record Notes(Optional<Danger> danger, List<Abbreviation> abbreviations, S
   public static final int MAX_TEXT = 32;
   /** The largest number of symbols on one road of a tulip, so that they do not overlap (choice of the increment). */
   public static final int MAX_SYMBOLS = 2;
+  /** The largest number of symbols placed freely beside the road, so that the diagram stays readable. */
+  public static final int MAX_FREE_SYMBOLS = 4;
   /** No note. */
   public static final Notes NONE = new Notes(Optional.empty(), List.of(), "", List.of());
 
@@ -58,7 +62,8 @@ public record Notes(Optional<Danger> danger, List<Abbreviation> abbreviations, S
    * @param danger the danger mark, or empty.
    * @param abbreviations the abbreviations, at most {@value #MAX_ABBREVIATIONS}, none {@code null}.
    * @param text the free text, at most {@value #MAX_TEXT} printable ASCII characters, without space at its ends.
-   * @param symbols the symbols, at most {@value #MAX_SYMBOLS} on each road, none {@code null}.
+   * @param symbols the symbols, at most {@value #MAX_SYMBOLS} on each road and {@value #MAX_FREE_SYMBOLS} placed
+   *                freely, none {@code null}.
    *
    * @throws NullPointerException if a value, or an element of a list, is {@code null}.
    * @throws DomainException {@link ValidationError#INVALID_NOTES} if a bound is exceeded or the text is not printable
@@ -70,7 +75,8 @@ public record Notes(Optional<Danger> danger, List<Abbreviation> abbreviations, S
     abbreviations = List.copyOf(abbreviations);
     symbols = List.copyOf(symbols);
     if (abbreviations.size() > MAX_ABBREVIATIONS || !isText(text) || tooMany(symbols, SymbolPlace.ENTRY)
-        || tooMany(symbols, SymbolPlace.EXIT)) {
+        || tooMany(symbols, SymbolPlace.EXIT)
+        || symbols.stream().filter(symbol -> symbol.place() == SymbolPlace.FREE).count() > MAX_FREE_SYMBOLS) {
       throw new DomainException(ValidationError.INVALID_NOTES);
     }
   }
@@ -163,12 +169,13 @@ public record Notes(Optional<Danger> danger, List<Abbreviation> abbreviations, S
   /**
    * Returns the notes with other symbols.
    *
-   * @param newSymbols the symbols, at most {@value #MAX_SYMBOLS} on each road.
+   * @param newSymbols the symbols, at most {@value #MAX_SYMBOLS} on each road and {@value #MAX_FREE_SYMBOLS} placed
+   *                   freely.
    *
    * @return the notes with the symbols.
    *
    * @throws NullPointerException if the list or a symbol is {@code null}.
-   * @throws DomainException {@link ValidationError#INVALID_NOTES} if there are too many on a road.
+   * @throws DomainException {@link ValidationError#INVALID_NOTES} if there are too many on a road or placed freely.
    */
   public Notes withSymbols(final List<BoxSymbol> newSymbols) {
     return new Notes(danger, abbreviations, text, newSymbols);

@@ -160,7 +160,7 @@
     -fx-text-alignment: center;
 }
 
-/* The roadbook of the route, at the right of the map (DESIGN.md §6, §14): its title, its number of boxes, and the
+/* The roadbook of the route, at the left of the map (DESIGN.md §6, §14; decision of the maintainer, 2026-11-17): its title, its number of boxes, and the
    boxes drawn as on paper, the same in both themes, the box selected framed in the accent. */
 .roadbook-pane {
     -fx-background-color: -c-surface;
@@ -242,27 +242,57 @@
     -fx-text-fill: -c-ink;
 }
 
-/* The editor of the box selected, under the strip (phase 5, §6: the detail of the selected element): a form, its fields
-   one under the other in the narrow panel, separated from the strip by a hairline, scrolled when it is higher than its
-   room. */
-.roadbook-pane > .box-editor {
-    -fx-padding: 0;
+/* The editor of the box selected, at the right of the map (phase 5, §6: the detail of the selected element; decision
+   of the maintainer, 2026-11-17): its title, the diagram of the box, then its tabs, each a form scrolled when it is
+   higher than the tab, its fields one under the other in the narrow panel. */
+.editor-pane {
     -fx-background-color: -c-surface;
-    -fx-background-insets: 0;
-    -fx-border-color: -c-border transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
+    -fx-min-width: 320;
 }
 
-.roadbook-pane > .box-editor > .viewport {
+.editor-pane > .box-editor {
+    -fx-padding: 12 0 0 0;
+    -fx-spacing: 8;
+}
+
+.box-editor > .title-panel {
+    -fx-padding: 0 12 0 12;
+}
+
+.box-editor > .box-diagram {
+    -fx-alignment: center;
+}
+
+.box-editor .box-tab, .box-editor .box-tab > .viewport {
     -fx-background-color: -c-surface;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
 }
 
 .box-editor .box-form, .box-editor .tulip-editor, .box-editor .notes-editor {
     -fx-spacing: 4;
+    -fx-padding: 12;
 }
 
-.box-editor .box-form {
-    -fx-padding: 12;
+/* A choice in a long list (the abbreviations, the symbols): a field of search above the list, its items with their
+   icons; the lines of the lists of a box end with a cross that removes their element. */
+.box-editor .picker {
+    -fx-spacing: 4;
+}
+
+.box-editor .removable-line {
+    -fx-alignment: center-left;
+    -fx-spacing: 8;
+}
+
+.box-editor .remove-item {
+    -fx-padding: 0 6 0 6;
+    -fx-background-color: transparent;
+    -fx-text-fill: -c-text-2;
+}
+
+.box-editor .remove-item:hover {
+    -fx-text-fill: -c-danger;
 }
 
 .box-editor .box-form > .field-label, .box-editor .tulip-editor > .field-label,

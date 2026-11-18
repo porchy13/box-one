@@ -1,9 +1,14 @@
 package ch.varani.boxone.ui;
 
-import ch.varani.boxone.catalog.TulipRenderer;
+import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.catalog.DiagramRenderer;
 import ch.varani.boxone.catalog.TulipStyle;
+import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.Notes;
+import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -20,6 +25,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
 
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -36,7 +43,10 @@ import java.util.regex.Pattern;
  * pressed receives the whole drag, and a handle removed from the scene would receive it no more). A click on a handle
  * selects its branch; a branch dragged by its handle turns around the centre, between its neighbours (it cannot pass
  * them nor the entry), the tulip drawn again as it moves; it is applied when it is dropped. The entry is selected,
- * never moved: it is at the bottom.</p>
+ * never moved: it is at the bottom. The tulip is drawn with the notes of the box (its danger, its symbols); a symbol
+ * beside the road, placed freely, is dragged by its centre, within {@value #SYMBOL_GRAB} px (a handle of a branch near
+ * it is taken first), anywhere in the diagram, and its new place is given to the editor of the box when it is dropped
+ * (decision of the maintainer, 2026-11-17).</p>
  *
  * <p><b>The form</b>, for the keyboard and the readers of the screen: the branch selected (the entry, then the branches
  * from the left to the right, the one of the route marked); its angle, in degrees clockwise from straight ahead, from
@@ -48,8 +58,11 @@ import java.util.regex.Pattern;
  * branch" removes it, but the exit and the entry; "Reset the tulip" brings back the tulip generated.</p>
  *
  * <p>Each change gives the tulip corrected to the editor of the box, which keeps it as the correction of the box; the
- * tulip is shown again with the box drawn, the same branch selected while the same box is shown. The section is hidden
- * for a box without tulip: the start and the finish.</p>
+ * tulip is shown again with the box drawn, the same branch selected while the same box is shown. The tulip drawn
+ * ({@link #getPad()}) and its form ({@link #getNode()}) are two nodes: the editor of the box shows the tulip drawn at
+ * its top, whatever its tab (decision of the maintainer, 2026-11-17: the tulip seen while its symbols are chosen), the
+ * form in its tab "Tulip". A box without tulip (the start, the finish) shows its notes alone, without handles, its
+ * symbols placed freely dragged as well; its form is not used.</p>
  *
  * <p>Confined to the JavaFX Application Thread.</p>
  */
@@ -117,6 +130,13 @@ final class TulipEditor {
   static final double HANDLE_RADIUS = 7;
   /** The distance from a handle within which a press takes it, in pixels: the handle and a margin for the mouse. */
   static final double GRAB = 14;
+  /**
+   * The distance from the centre of a symbol placed freely within which a press takes it, in pixels: half a symbol of
+   * the catalogue (about 40 px).
+   */
+  static final double SYMBOL_GRAB = 20;
+  /** No symbol dragged. */
+  static final int NO_SYMBOL = -1;
   /** An angle typed: an optional minus sign (hyphen or minus), then 1 to 3 digits. */
   private static final Pattern ANGLE_PATTERN = Pattern.compile("[-−]?\\d{1,3}");
   /** The style class of a handle. */
@@ -136,10 +156,14 @@ final class TulipEditor {
   private final ResourceBundle texts;
   /** The locale of the application. */
   private final Locale locale;
-  /** The style of the catalogue, which draws the tulip. */
+  /** The catalogue, which draws the tulip and the notes. */
+  private final Catalogue catalogue;
+  /** The style of the tulips of the catalogue. */
   private final TulipStyle style;
   /** Receives the tulip corrected. */
   private final Consumer<Tulip> corrects;
+  /** Receives the notes whose symbol placed freely was moved. */
+  private final Consumer<Notes> moves;
   /** The section of the tulip. */
   private final VBox section = new VBox();
   /** The tulip drawn and its handles. */
@@ -176,6 +200,12 @@ final class TulipEditor {
   private Tulip dragged;
   /** Whether the form is being filled with the tulip shown: its changes are not the user's. */
   private boolean filling;
+  /** The notes of the box shown, drawn with the tulip; their symbol dragged moved. */
+  private Notes notes = Notes.NONE;
+  /** The notes before a symbol is dragged, or {@code null} while none is dragged. */
+  private Notes symbolsBefore;
+  /** The index of the symbol dragged among the symbols of the notes, or {@value #NO_SYMBOL}. */
+  private int symbol = NO_SYMBOL;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -186,15 +216,18 @@ final class TulipEditor {
    *
    * @param texts the texts of the user interface.
    * @param locale the locale of the application.
-   * @param style the style of the catalogue, which draws the tulip.
+   * @param catalogue the catalogue, which draws the tulip and the notes.
    * @param corrects receives the tulip corrected.
+   * @param moves receives the notes whose symbol placed freely was moved.
    */
-  TulipEditor(final ResourceBundle texts, final Locale locale, final TulipStyle style,
-              final Consumer<Tulip> corrects) {
+  TulipEditor(final ResourceBundle texts, final Locale locale, final Catalogue catalogue,
+              final Consumer<Tulip> corrects, final Consumer<Notes> moves) {
     this.texts = texts;
     this.locale = locale;
-    this.style = style;
+    this.catalogue = catalogue;
+    this.style = catalogue.tulip();
     this.corrects = corrects;
+    this.moves = moves;
     pad.setId(PAD_ID);
     branch.setId(BRANCH_ID);
     angle.setId(ANGLE_ID);
@@ -211,8 +244,6 @@ final class TulipEditor {
     image.setMouseTransparent(true);
     handles.setMouseTransparent(true);
     pad.getChildren().setAll(image, handles);
-    final Label title = new Label(texts.getString(TITLE));
-    title.getStyleClass().add("section-head");
     branch.setMaxWidth(Double.MAX_VALUE);
     for (final BranchKind choice : BranchKind.values()) {
       kind.getItems().add(texts.getString(KIND_KEYS + choice.name()));
@@ -228,10 +259,9 @@ final class TulipEditor {
     branchButtons.getStyleClass().add("field-row");
     final HBox tulipButtons = new HBox(addButton, resetButton);
     tulipButtons.getStyleClass().add("field-row");
-    section.getChildren().addAll(title, pad, label(BRANCH_LABEL, branch), branch, label(ANGLE_LABEL, angle), angle,
+    section.getChildren().addAll(label(BRANCH_LABEL, branch), branch, label(ANGLE_LABEL, angle), angle,
                                  angleHint, label(KIND_LABEL, kind), kind, branchButtons, tulipButtons);
     section.getStyleClass().add("tulip-editor");
-    section.managedProperty().bind(section.visibleProperty());
     pad.setOnMousePressed(event -> press(event.getX(), event.getY()));
     pad.setOnMouseDragged(event -> drag(event.getX(), event.getY()));
     pad.setOnMouseReleased(event -> release());
@@ -250,7 +280,6 @@ final class TulipEditor {
       change(without, without.exit());
     });
     resetButton.setOnAction(event -> change(generated, generated.exit()));
-    section.setVisible(false);
   }
 
   // *******************************************************************************************************************
@@ -258,12 +287,22 @@ final class TulipEditor {
   // *******************************************************************************************************************
 
   /**
-   * Returns the node of the section, to put in the editor of the box.
+   * Returns the form of the tulip, to put in its tab of the editor of the box.
    *
-   * @return the section, hidden while the box shown has no tulip.
+   * @return the form, for a box with a tulip.
    */
   Node getNode() {
     return section;
+  }
+
+  /**
+   * Returns the tulip drawn, with its handles, to put at the top of the editor of the box, seen whatever its tab.
+   *
+   * @return the tulip drawn: the diagram of the box, its tulip and its notes, or its notes alone for a box without
+   *         tulip.
+   */
+  Pane getPad() {
+    return pad;
   }
 
   // *******************************************************************************************************************
@@ -277,14 +316,19 @@ final class TulipEditor {
    * @param at the place of the box.
    * @param tulipGenerated the tulip generated of the box, or empty.
    * @param tulip the tulip of the box, corrected by the user, or empty for a box without tulip.
+   * @param boxNotes the notes of the box, drawn with the tulip.
    */
-  void show(final GeoPoint at, final Optional<Tulip> tulipGenerated, final Optional<Tulip> tulip) {
+  void show(final GeoPoint at, final Optional<Tulip> tulipGenerated, final Optional<Tulip> tulip,
+            final Notes boxNotes) {
     final boolean same = at.equals(place) && current != null;
     final int kept = same ? angleOf(current, selected) : Integer.MIN_VALUE;
     place = at;
-    section.setVisible(tulip.isPresent());
+    notes = boxNotes;
+    symbol = NO_SYMBOL;
     if (tulip.isEmpty()) {
       current = null;
+      dragged = null;
+      display();
       return;
     }
     generated = tulipGenerated.orElseThrow();
@@ -295,15 +339,19 @@ final class TulipEditor {
   }
 
   /**
-   * Draws the tulip shown, its handles, and fills the form with its branch selected.
+   * Draws the diagram shown, the handles of its tulip, and fills the form with its branch selected; for a box without
+   * tulip, the diagram alone.
    */
   private void display() {
     final int side = style.size();
     final WritableImage drawn = new WritableImage(side, side);
     drawn.getPixelWriter().setPixels(0, 0, side, side, PixelFormat.getIntArgbInstance(),
-                                     TulipRenderer.argb(current, style), 0, side);
+                                     DiagramRenderer.argb(Optional.ofNullable(current), notes, catalogue), 0, side);
     image.setImage(drawn);
     handles.getChildren().clear();
+    if (current == null) {
+      return;
+    }
     for (int i = ENTRY; i < current.branches().size(); i++) {
       final double[] end = end(angleOf(current, i));
       final Circle handle = new Circle(end[0], end[1], HANDLE_RADIUS);
@@ -413,13 +461,14 @@ final class TulipEditor {
   }
 
   /**
-   * Takes the handle under a press of the mouse, if any: its branch is selected, and dragged unless it is the entry.
+   * Takes the handle under a press of the mouse, if any: its branch is selected, and dragged unless it is the entry;
+   * otherwise the symbol placed freely nearest to the press, within {@value #SYMBOL_GRAB} px of its centre, is dragged.
    *
    * @param x the abscissa of the press, in the tulip drawn.
    * @param y the ordinate of the press.
    */
   private void press(final double x, final double y) {
-    for (int i = ENTRY; i < current.branches().size(); i++) {
+    for (int i = ENTRY; current != null && i < current.branches().size(); i++) {
       final double[] end = end(angleOf(current, i));
       if (Math.hypot(x - end[0], y - end[1]) <= GRAB) {
         selected = i;
@@ -428,15 +477,36 @@ final class TulipEditor {
         return;
       }
     }
+    double nearest = SYMBOL_GRAB;
+    for (int i = 0; i < notes.symbols().size(); i++) {
+      final BoxSymbol free = notes.symbols().get(i);
+      if (free.place() == SymbolPlace.FREE) {
+        final double[] centre = pixel(free.at().orElseThrow());
+        final double distance = Math.hypot(x - centre[0], y - centre[1]);
+        if (distance <= nearest) {
+          nearest = distance;
+          symbol = i;
+          symbolsBefore = notes;
+        }
+      }
+    }
   }
 
   /**
-   * Turns the branch dragged towards the mouse, between its neighbours, and draws the tulip again.
+   * Turns the branch dragged towards the mouse, between its neighbours, or moves the symbol dragged to the mouse,
+   * within the diagram, and draws the tulip again.
    *
    * @param x the abscissa of the mouse, in the tulip drawn.
    * @param y the ordinate of the mouse.
    */
   private void drag(final double x, final double y) {
+    if (symbol != NO_SYMBOL) {
+      final List<BoxSymbol> moved = new ArrayList<>(notes.symbols());
+      moved.set(symbol, moved.get(symbol).movedTo(DiagramRenderer.point(x, y, style.size())));
+      notes = notes.withSymbols(moved);
+      display();
+      return;
+    }
     if (dragged == null) {
       return;
     }
@@ -450,9 +520,17 @@ final class TulipEditor {
   }
 
   /**
-   * Drops the branch dragged: the tulip is given to the editor of the box if the branch moved.
+   * Drops the branch dragged: the tulip is given to the editor of the box if the branch moved; or drops the symbol
+   * dragged: the notes are given to the editor of the box if the symbol moved.
    */
   private void release() {
+    if (symbol != NO_SYMBOL) {
+      symbol = NO_SYMBOL;
+      if (!notes.equals(symbolsBefore)) {
+        moves.accept(notes);
+      }
+      return;
+    }
     if (dragged == null) {
       return;
     }
@@ -461,6 +539,19 @@ final class TulipEditor {
     if (!current.equals(before)) {
       corrects.accept(current);
     }
+  }
+
+  /**
+   * Gives the pixel of a point of the diagram in the tulip drawn, as the catalogue draws it
+   * ({@link DiagramRenderer#pixel}).
+   *
+   * @param point the point of the diagram, from its centre in halves of its side.
+   *
+   * @return the abscissa and the ordinate of the pixel.
+   */
+  double[] pixel(final DiagramPoint point) {
+    final double half = style.size() / 2.0;
+    return new double[] {half + point.x() * half, half + point.y() * half};
   }
 
   /**

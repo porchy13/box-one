@@ -4,6 +4,7 @@ import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.Abbreviation;
 import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.Danger;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.SymbolPlace;
@@ -15,6 +16,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +28,7 @@ import org.testfx.framework.junit5.ApplicationExtension;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -54,6 +58,8 @@ final class NotesEditorTest {
   /** The notes of the tests: a danger of level 1, keep to the left, a text, a level crossing after the junction. */
   private static final Notes NOTES = new Notes(Optional.of(Danger.LEVEL_1), List.of(Abbreviation.KEEP_LEFT), TEXT,
                                                List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT)));
+  /** Half the side of the diagram from its centre, as a coordinate. */
+  private static final double HALF = 0.5;
   /** The index of the danger of level 2 in its choice: after "none" and the level 1. */
   private static final int LEVEL_2_INDEX = 2;
 
@@ -74,7 +80,7 @@ final class NotesEditorTest {
      * @return the node.
      */
     Node node(final String id) {
-      return editor.getNode().lookup("#" + id);
+      return editor.getNode().getScene().lookup("#" + id);
     }
 
     /**
@@ -148,11 +154,51 @@ final class NotesEditorTest {
       final TextField other = new TextField();
       final Stage stage = new Stage();
       editor.show(notes, tulip);
-      stage.setScene(new Scene(new VBox(other, editor.getNode())));
+      stage.setScene(new Scene(new VBox(other, editor.getNode(), editor.getSymbolsNode(),
+                                        editor.getAbbreviationsNode())));
       stage.show();
       shown.set(new Shown(editor, changes, other));
     });
     return shown.get();
+  }
+
+  /**
+   * Chooses an item in a picker of the editor, by its index among all its items.
+   *
+   * @param robot the TestFX robot.
+   * @param shown the editor shown.
+   * @param id the identifier of the list of the picker.
+   * @param index the index of the item.
+   */
+  private static void pick(final FxRobot robot, final Shown shown, final String id, final int index) {
+    final ListView<?> list = (ListView<?>) shown.node(id);
+    robot.interact(() -> list.getSelectionModel().select(list.getItems().indexOf(index)));
+  }
+
+  /**
+   * Gives the crosses of the lines of a list of the box, in the order of the lines shown.
+   *
+   * @param shown the editor shown.
+   * @param id the identifier of the list.
+   *
+   * @return the crosses.
+   */
+  private static List<Button> crosses(final Shown shown, final String id) {
+    return shown.node(id).lookupAll("." + RemovableCell.CROSS_STYLE).stream()
+                .filter(Node::isVisible).map(Button.class::cast)
+                .sorted(Comparator.comparingDouble(cross -> cross.localToScene(0, 0).getY())).toList();
+  }
+
+  /**
+   * Presses a key in a list.
+   *
+   * @param robot the TestFX robot.
+   * @param list the list.
+   * @param code the key.
+   */
+  private static void press(final FxRobot robot, final Node list, final KeyCode code) {
+    robot.interact(() -> list.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false,
+                                                     false)));
   }
 
   /**
@@ -171,8 +217,8 @@ final class NotesEditorTest {
         () -> assertEquals(TEXT, shown.text().getText()),
         () -> assertEquals(List.of("Voie ferrée (passage à niveau), après le carrefour"),
                            shown.list(NotesEditor.SYMBOLS_ID).getItems()),
-        () -> assertTrue(shown.button(NotesEditor.REMOVE_ABBREVIATION_ID).isDisabled()),
-        () -> assertTrue(shown.button(NotesEditor.REMOVE_SYMBOL_ID).isDisabled()),
+        () -> assertEquals("Supprimer kpL — Serrer à gauche",
+                           crosses(shown, NotesEditor.ABBREVIATIONS_ID).getFirst().getAccessibleText()),
         () -> assertFalse(shown.button(NotesEditor.ADD_ABBREVIATION_ID).isDisabled()),
         () -> assertFalse(shown.button(NotesEditor.ADD_SYMBOL_ID).isDisabled()),
         () -> assertEquals("En anglais, 32 caractères au plus.", shown.textHint().getText()));
@@ -205,19 +251,60 @@ final class NotesEditorTest {
   @DisplayName("Phase 5: an abbreviation is added after the others, the one selected removed, 6 at most")
   void abbreviationsTest(final FxRobot robot) {
     final Shown shown = show(robot, NOTES, true);
-    robot.interact(() -> shown.choice(NotesEditor.ABBREVIATION_ID).getSelectionModel()
-                              .select(Abbreviation.FOLLOW_ROAD.ordinal()));
+    pick(robot, shown, NotesEditor.ABBREVIATION_ID, Abbreviation.FOLLOW_ROAD.ordinal());
     robot.interact(shown.button(NotesEditor.ADD_ABBREVIATION_ID)::fire);
+    robot.interact(crosses(shown, NotesEditor.ABBREVIATIONS_ID).getFirst()::fire);
+    press(robot, shown.list(NotesEditor.ABBREVIATIONS_ID), KeyCode.DELETE);
     robot.interact(() -> shown.list(NotesEditor.ABBREVIATIONS_ID).getSelectionModel().select(0));
-    final boolean removable = !shown.button(NotesEditor.REMOVE_ABBREVIATION_ID).isDisabled();
-    robot.interact(shown.button(NotesEditor.REMOVE_ABBREVIATION_ID)::fire);
+    press(robot, shown.list(NotesEditor.ABBREVIATIONS_ID), KeyCode.BACK_SPACE);
+    press(robot, shown.list(NotesEditor.ABBREVIATIONS_ID), KeyCode.A);
     final Shown full = show(robot, Notes.NONE.withAbbreviations(Collections.nCopies(Notes.MAX_ABBREVIATIONS,
                                                                                     Abbreviation.AND_NEXT)), true);
+    final Shown none = show(robot, NOTES, true);
+    robot.interact(() -> none.list(NotesEditor.ABBREVIATION_ID).getSelectionModel().clearSelection());
     assertAll(
         () -> assertEquals(List.of(NOTES.withAbbreviations(List.of(Abbreviation.KEEP_LEFT, Abbreviation.FOLLOW_ROAD)),
-                                   NOTES.withAbbreviations(List.of())), shown.changes()),
-        () -> assertTrue(removable),
-        () -> assertTrue(full.button(NotesEditor.ADD_ABBREVIATION_ID).isDisabled()));
+                                   NOTES.withAbbreviations(List.of()), NOTES.withAbbreviations(List.of())),
+                           shown.changes()),
+        () -> assertTrue(full.button(NotesEditor.ADD_ABBREVIATION_ID).isDisabled()),
+        () -> assertTrue(none.button(NotesEditor.ADD_ABBREVIATION_ID).isDisabled()));
+  }
+
+  /**
+   * An item taken in a picker, by Enter in its search, is added as by its button, unless the button is disabled.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Phase 5: an abbreviation or a symbol taken by Enter in its search is added, unless there is no room")
+  void takeTest(final FxRobot robot) {
+    final Shown shown = show(robot, NOTES, true);
+    pick(robot, shown, NotesEditor.SYMBOL_ID, Symbol.TREE.ordinal());
+    enter(robot, shown, NotesEditor.SYMBOL_ID);
+    pick(robot, shown, NotesEditor.ABBREVIATION_ID, Abbreviation.AT.ordinal());
+    enter(robot, shown, NotesEditor.ABBREVIATION_ID);
+    final Shown full = show(robot, Notes.NONE.withAbbreviations(Collections.nCopies(Notes.MAX_ABBREVIATIONS,
+                                                                                    Abbreviation.AND_NEXT)), false);
+    enter(robot, full, NotesEditor.ABBREVIATION_ID);
+    enter(robot, full, NotesEditor.SYMBOL_ID);
+    final BoxSymbol tree = BoxSymbol.free(Symbol.TREE, NotesEditor.SLOTS.getFirst());
+    assertAll(
+        () -> assertEquals(List.of(NOTES.withSymbols(List.of(NOTES.symbols().getFirst(), tree)),
+                                   NOTES.withAbbreviations(List.of(Abbreviation.KEEP_LEFT, Abbreviation.AT))),
+                           shown.changes()),
+        () -> assertEquals(List.of(), full.changes()));
+  }
+
+  /**
+   * Presses Enter in the search of a picker.
+   *
+   * @param robot the TestFX robot.
+   * @param shown the editor shown.
+   * @param id the identifier of the list of the picker.
+   */
+  private static void enter(final FxRobot robot, final Shown shown, final String id) {
+    final TextField search = (TextField) ((VBox) shown.node(id).getParent()).getChildren().getFirst();
+    robot.interact(() -> search.fireEvent(new ActionEvent()));
   }
 
   /**
@@ -267,11 +354,18 @@ final class NotesEditorTest {
   @DisplayName("Phase 5: a symbol is added before or after the junction, the one selected removed, 2 on each side")
   void symbolsTest(final FxRobot robot) {
     final Shown shown = show(robot, NOTES, true);
-    robot.interact(() -> shown.choice(NotesEditor.SYMBOL_ID).getSelectionModel().select(Symbol.BUMP.ordinal()));
+    pick(robot, shown, NotesEditor.SYMBOL_ID, Symbol.BUMP.ordinal());
     robot.interact(() -> shown.choice(NotesEditor.PLACE_ID).getSelectionModel().select(SymbolPlace.ENTRY.ordinal()));
     robot.interact(shown.button(NotesEditor.ADD_SYMBOL_ID)::fire);
+    robot.interact(crosses(shown, NotesEditor.SYMBOLS_ID).getFirst()::fire);
     robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().select(0));
-    robot.interact(shown.button(NotesEditor.REMOVE_SYMBOL_ID)::fire);
+    press(robot, shown.list(NotesEditor.SYMBOLS_ID), KeyCode.DELETE);
+    robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().clearSelection());
+    press(robot, shown.list(NotesEditor.SYMBOLS_ID), KeyCode.DELETE);
+    press(robot, shown.list(NotesEditor.SYMBOLS_ID), KeyCode.A);
+    robot.interact(() -> shown.list(NotesEditor.SYMBOL_ID).getSelectionModel().clearSelection());
+    final boolean noneChosen = shown.button(NotesEditor.ADD_SYMBOL_ID).isDisabled()
+                               && shown.node(NotesEditor.PLACE_ID).isDisabled();
     final Shown full = show(robot, Notes.NONE.withSymbols(List.of(new BoxSymbol(Symbol.BUMP, SymbolPlace.EXIT),
                                                                   new BoxSymbol(Symbol.DITCH, SymbolPlace.EXIT))),
                             true);
@@ -280,32 +374,111 @@ final class NotesEditorTest {
     assertAll(
         () -> assertEquals(List.of(NOTES.withSymbols(List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT),
                                                              new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY))),
-                                   NOTES.withSymbols(List.of())), shown.changes()),
+                                   NOTES.withSymbols(List.of()), NOTES.withSymbols(List.of())), shown.changes()),
+        () -> assertTrue(noneChosen),
         () -> assertTrue(fullAfter),
         () -> assertFalse(full.button(NotesEditor.ADD_SYMBOL_ID).isDisabled()));
   }
 
   /**
-   * A box without tulip has no road for symbols: their list, their choices and their buttons are disabled, and their
-   * caption says why.
+   * A box without tulip has no road: a symbol of the road cannot be added, its place cannot be chosen, and the caption
+   * says so; a symbol beside the road can, at the first slot.
    *
    * @param robot the TestFX robot.
    */
   @Test
-  @DisplayName("Phase 5: a box without tulip, the start or the finish, takes no symbol")
+  @DisplayName("Phase 5: a box without tulip, the start or the finish, takes symbols beside the road only")
   void withoutTulipTest(final FxRobot robot) {
-    final Shown shown = show(robot, NOTES, false);
-    final VBox section = (VBox) shown.editor().getNode();
+    final Shown shown = show(robot, Notes.NONE, false);
+    final VBox section = (VBox) shown.node(NotesEditor.SYMBOLS_ID).getParent();
     final Label hint = (Label) section.getChildren().get(section.getChildren().indexOf(
         shown.node(NotesEditor.SYMBOLS_ID)) + 1);
-    robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().select(0));
+    final boolean roadRefused = shown.button(NotesEditor.ADD_SYMBOL_ID).isDisabled();
+    pick(robot, shown, NotesEditor.SYMBOL_ID, Symbol.TREE.ordinal());
+    final boolean freeTaken = !shown.button(NotesEditor.ADD_SYMBOL_ID).isDisabled();
+    robot.interact(shown.button(NotesEditor.ADD_SYMBOL_ID)::fire);
     assertAll(
-        () -> assertTrue(shown.node(NotesEditor.SYMBOLS_ID).isDisabled()),
-        () -> assertTrue(shown.node(NotesEditor.SYMBOL_ID).isDisabled()),
+        () -> assertTrue(roadRefused),
+        () -> assertTrue(freeTaken),
         () -> assertTrue(shown.node(NotesEditor.PLACE_ID).isDisabled()),
-        () -> assertTrue(shown.button(NotesEditor.ADD_SYMBOL_ID).isDisabled()),
-        () -> assertTrue(shown.button(NotesEditor.REMOVE_SYMBOL_ID).isDisabled()),
-        () -> assertTrue(hint.getText().startsWith("Les symboles se placent")));
+        () -> assertTrue(hint.getText().startsWith("Le départ et l’arrivée n’ont pas de route")),
+        () -> assertEquals(List.of(Notes.NONE.withSymbols(List.of(BoxSymbol.free(Symbol.TREE,
+                                                                                 NotesEditor.SLOTS.getFirst())))),
+                           shown.changes()));
+  }
+
+  /**
+   * A symbol beside the road is added at the first slot not taken; 4 of them take no other; selected, its position is
+   * shown in percent, typed and applied, a position out of the diagram marked; a symbol of the road has no position.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Phase 5: a symbol beside the road is added at a free slot, its position typed in percent")
+  void freeTest(final FxRobot robot) {
+    final Notes notes = Notes.NONE.withSymbols(List.of(new BoxSymbol(Symbol.BUMP, SymbolPlace.EXIT),
+                                                       BoxSymbol.free(Symbol.CHURCH, NotesEditor.SLOTS.getFirst())));
+    final Shown shown = show(robot, notes, true);
+    pick(robot, shown, NotesEditor.SYMBOL_ID, Symbol.TREE.ordinal());
+    final boolean placeDisabled = shown.node(NotesEditor.PLACE_ID).isDisabled();
+    robot.interact(shown.button(NotesEditor.ADD_SYMBOL_ID)::fire);
+    robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().select(0));
+    final boolean roadUnplaced = shown.node(NotesEditor.X_ID).isDisabled()
+                                 && !shown.node(NotesEditor.X_ID).getParent().isVisible();
+    robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().select(1));
+    final TextField x = (TextField) shown.node(NotesEditor.X_ID);
+    final boolean freePlaced = x.getParent().isVisible();
+    final TextField y = (TextField) shown.node(NotesEditor.Y_ID);
+    final List<String> read = List.of(x.getText(), y.getText());
+    robot.interact(() -> {
+      x.setText("60");
+      x.fireEvent(new ActionEvent());
+    });
+    robot.interact(() -> {
+      x.setText("−50");
+      y.setText("50");
+      y.fireEvent(new ActionEvent());
+    });
+    robot.interact(() -> {
+      x.setText("150");
+      x.fireEvent(new ActionEvent());
+    });
+    final boolean marked = x.getStyleClass().contains("invalid");
+    robot.interact(() -> {
+      x.setText("x");
+      x.fireEvent(new ActionEvent());
+    });
+    robot.interact(() -> {
+      x.setText("0");
+      y.setText("y");
+      y.fireEvent(new ActionEvent());
+    });
+    robot.interact(() -> {
+      y.setText("150");
+      y.fireEvent(new ActionEvent());
+    });
+    robot.interact(x::requestFocus);
+    robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().select(0));
+    robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().select(1));
+    robot.interact(x::requestFocus);
+    robot.interact(() -> shown.list(NotesEditor.SYMBOLS_ID).getSelectionModel().clearSelection());
+    final Shown full = show(robot, Notes.NONE.withSymbols(NotesEditor.SLOTS.stream()
+                                                                .map(slot -> BoxSymbol.free(Symbol.TREE, slot))
+                                                                .toList()), true);
+    pick(robot, full, NotesEditor.SYMBOL_ID, Symbol.TREE.ordinal());
+    assertAll(
+        () -> assertTrue(placeDisabled),
+        () -> assertTrue(roadUnplaced),
+        () -> assertTrue(freePlaced),
+        () -> assertEquals(List.of("60", "-60"), read),
+        () -> assertTrue(marked),
+        () -> assertEquals(List.of(
+            notes.withSymbols(List.of(notes.symbols().get(0), notes.symbols().get(1),
+                                      BoxSymbol.free(Symbol.TREE, NotesEditor.SLOTS.get(1)))),
+            notes.withSymbols(List.of(notes.symbols().get(0),
+                                      BoxSymbol.free(Symbol.CHURCH, new DiagramPoint(-HALF, HALF))))),
+                           shown.changes()),
+        () -> assertTrue(full.button(NotesEditor.ADD_SYMBOL_ID).isDisabled()));
   }
 
 }

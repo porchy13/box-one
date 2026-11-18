@@ -59,7 +59,7 @@ All notable changes of the project are documented in this file.
   file and says when the roadbook is modified; closing with changes not saved asks whether to save them, and waits
   for a roadbook being saved. File › Open a recent roadbook opens the roadbooks opened or saved last, 5 by default
   and up to 20 in the settings; one moved or deleted since is removed from the list, with a message.
-- **Correct the roadbook**: the box selected in the roadbook beside the map is corrected under it: its total
+- **Correct the roadbook**: the box selected in the roadbook beside the map is corrected at the right of the map: its total
   distance, its heading and whether the heading is shown (where the FIA asks for it, always or never); a box is
   removed (Delete, or Backspace on macOS), or added with a right-click on the route (Add a box here), and selected
   then; the box selected is moved by dragging its circle on the map, which follows the route, its distances, its
@@ -76,7 +76,13 @@ All notable changes of the project are documented in this file.
   three exclamation marks, drawn in red in the tulip; the abbreviations of the lexicon ("kpL", "FRO", "ET"…), in the
   order they are read, and a line of free text in English, written under the heading; the symbols of the lexicon on
   the road before or after the junction (the rail road of a level crossing, a bump, a ditch, a step, a bridge, a gate,
-  a ford, a tunnel…), drawn in the tulip. The notes are shown in the roadbook, exported for Terra Pirata (the danger,
+  a ford, a tunnel…), drawn in the tulip; the symbols beside the road (a village, a church, a pylon, a tree, a lake,
+  the dunes… the whole lexicon of the FIA), placed freely in the tulip: dragged with the mouse, or their position
+  typed, at the start and at the finish too. The symbols and the abbreviations are chosen in lists with a search,
+  each symbol drawn beside its name, and removed by the cross of their line.
+- **Window in three columns**: the roadbook at the left, the map in the middle, the editor of the box selected at the
+  right, on the full height: the tulip of the box at its top, then the tabs Box, Tulip, Symbols, Abbreviations and
+  Notes; in Symbols and Abbreviations, the choice first, the elements of the box under it. The notes are shown in the roadbook, exported for Terra Pirata (the danger,
   the tulip with its symbols, the description as an image) and kept with the roadbook when it is saved and opened
   again. Each change can be undone.
 - **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the

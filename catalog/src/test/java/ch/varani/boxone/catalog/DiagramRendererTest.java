@@ -3,6 +3,7 @@ package ch.varani.boxone.catalog;
 import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.Danger;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Symbol;
@@ -62,8 +63,10 @@ final class DiagramRendererTest {
   private static final double AHEAD_RIGHT = 45;
   /** A quarter turn, in degrees. */
   private static final double QUARTER_TURN = 90;
-  /** The height of the top of a bump above its centre, in pixels. */
-  private static final double BUMP_TOP = 6;
+  /** The height of the top of a bump above its centre, in pixels: 6 px of its path, at the scale of the symbols. */
+  private static final double BUMP_TOP = 6 * FIA.notes().symbolScale();
+  /** The coordinate of a symbol placed freely, from the centre, in halves of the side. */
+  private static final double FREE = 0.6;
   /** A tolerance on the angles, in degrees. */
   private static final double TOLERANCE = 1e-9;
 
@@ -142,6 +145,60 @@ final class DiagramRendererTest {
         () -> assertTrue(around(image, mark(1), RED)),
         () -> assertTrue(around(image, middle, STYLE.background())),
         () -> assertFalse(around(image, middle, Color.BLACK)));
+  }
+
+  /**
+   * A symbol placed freely is drawn at its point, upright, with or without tulip; the pixels of the diagram are those
+   * of its image.
+   */
+  @Test
+  @DisplayName("Phase 5: a symbol beside the road is drawn at its point, with or without tulip")
+  void freeTest() {
+    final DiagramPoint topRight = new DiagramPoint(FREE, -FREE);
+    final Notes notes = Notes.NONE.withSymbols(List.of(BoxSymbol.free(Symbol.LAKE, topRight)));
+    final Point2D lake = DiagramRenderer.pixel(topRight, STYLE.size());
+    final BufferedImage with = DiagramRenderer.image(Optional.of(STRAIGHT), notes, FIA);
+    final BufferedImage without = DiagramRenderer.image(Optional.empty(), notes, FIA);
+    final Color water = FIA.symbols().get(Symbol.LAKE).parts().getFirst().colour();
+    final int[] pixels = DiagramRenderer.argb(Optional.of(STRAIGHT), notes, FIA);
+    final int middle = STYLE.size() / 2;
+    assertAll(
+        () -> assertTrue(around(with, lake, water)),
+        () -> assertTrue(around(without, lake, water)),
+        () -> assertFalse(around(DiagramRenderer.image(Optional.of(STRAIGHT), Notes.NONE, FIA), lake, water)),
+        () -> assertEquals(with.getRGB(middle, middle), pixels[middle * STYLE.size() + middle]),
+        () -> assertEquals(STYLE.size() * STYLE.size(), pixels.length));
+  }
+
+  /**
+   * A point of the diagram is a pixel from the centre, in halves of the side; a pixel is a point, brought within the
+   * diagram.
+   */
+  @Test
+  @DisplayName("Phase 5: a point of the diagram and its pixel, a pixel beyond the image brought to its edge")
+  void pointTest() {
+    final double size = STYLE.size();
+    assertAll(
+        () -> assertEquals(new Point2D.Double(size * (1 + FREE) / 2, size * (1 - FREE) / 2),
+                           DiagramRenderer.pixel(new DiagramPoint(FREE, -FREE), size)),
+        () -> assertEquals(new DiagramPoint(0, 0), DiagramRenderer.point(CENTRE, CENTRE, size)),
+        () -> assertEquals(new DiagramPoint(DiagramPoint.MIN, DiagramPoint.MAX),
+                           DiagramRenderer.point(-size, size + size, size)));
+  }
+
+  /**
+   * A symbol drawn as an icon is centred on the background, of the side asked.
+   */
+  @Test
+  @DisplayName("Phase 5: a symbol is drawn alone as an icon of a list, centred")
+  void iconTest() {
+    final int side = 24;
+    final int[] lake = DiagramRenderer.icon(Symbol.LAKE, FIA, side);
+    final int water = FIA.symbols().get(Symbol.LAKE).parts().getFirst().colour().getRGB();
+    assertAll(
+        () -> assertEquals(side * side, lake.length),
+        () -> assertEquals(water, lake[side / 2 * side + side / 2]),
+        () -> assertEquals(STYLE.background().getRGB(), lake[0]));
   }
 
   /**

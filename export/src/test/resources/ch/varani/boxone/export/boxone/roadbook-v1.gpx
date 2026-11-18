@@ -22,6 +22,7 @@
             <boxone:notes danger="2" abbreviations="KEEP_LEFT AND_NEXT" text="BIG ROCKS">
               <boxone:symbol name="RAIL_ROAD" place="EXIT"/>
               <boxone:symbol name="BUMP" place="ENTRY"/>
+              <boxone:symbol name="CHURCH" place="FREE" x="0.5" y="-0.25"/>
             </boxone:notes>
           </boxone:box>
           <boxone:box lat="46.778400" lon="6.641300" shift="0.0" display="HIDDEN">

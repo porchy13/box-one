@@ -54,6 +54,14 @@
   </top>
   <center>
     <SplitPane fx:id="split">
+      <VBox fx:id="roadbookPane" styleClass="roadbook-pane">
+        <Label fx:id="roadbookTitle" styleClass="title-panel" text="%roadbook.title"/>
+        <Label fx:id="roadbookCount" styleClass="caption"/>
+        <StackPane VBox.vgrow="ALWAYS">
+          <ListView fx:id="boxList" styleClass="roadbook-strip"/>
+          <Label fx:id="roadbookEmpty" styleClass="roadbook-empty" text="%roadbook.empty" wrapText="true"/>
+        </StackPane>
+      </VBox>
       <StackPane fx:id="mapPane">
         <VBox fx:id="routeCard" styleClass="route-card" StackPane.alignment="TOP_RIGHT" maxWidth="-Infinity"
               maxHeight="-Infinity" mouseTransparent="true">
@@ -69,13 +77,8 @@
           </VBox>
         </StackPane>
       </StackPane>
-      <VBox fx:id="roadbookPane" styleClass="roadbook-pane">
-        <Label fx:id="roadbookTitle" styleClass="title-panel" text="%roadbook.title"/>
-        <Label fx:id="roadbookCount" styleClass="caption"/>
-        <StackPane VBox.vgrow="ALWAYS">
-          <ListView fx:id="boxList" styleClass="roadbook-strip"/>
-          <Label fx:id="roadbookEmpty" styleClass="roadbook-empty" text="%roadbook.empty" wrapText="true"/>
-        </StackPane>
+      <VBox fx:id="editorPane" styleClass="editor-pane">
+        <Label fx:id="editorEmpty" styleClass="roadbook-empty" text="%box.empty" wrapText="true"/>
       </VBox>
     </SplitPane>
   </center>

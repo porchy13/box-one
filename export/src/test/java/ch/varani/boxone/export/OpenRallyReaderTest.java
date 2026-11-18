@@ -7,6 +7,7 @@ import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.Danger;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
@@ -109,7 +110,8 @@ final class OpenRallyReaderTest {
   private static final Notes NOTES = new Notes(Optional.of(Danger.LEVEL_2),
                                                List.of(Abbreviation.KEEP_LEFT, Abbreviation.AND_NEXT), TEXT,
                                                List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT),
-                                                       new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY)));
+                                                       new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY),
+                                                       BoxSymbol.free(Symbol.CHURCH, new DiagramPoint(0.5, -0.25))));
   /** The changes of the user of the tests, as in the reference file of version 1. */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(REMOVED),
@@ -400,7 +402,14 @@ final class OpenRallyReaderTest {
       "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"ROCK\" place=\"EXIT\"/>" + END_NOTES + END,
       "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"BUMP\" place=\"SIDE\"/>" + END_NOTES + END,
       "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol place=\"EXIT\"/>" + END_NOTES + END,
-      "</boxone:route>|" + BOX + OPEN_NOTES + SYMBOL + SYMBOL + SYMBOL + END_NOTES + END})
+      "</boxone:route>|" + BOX + OPEN_NOTES + SYMBOL + SYMBOL + SYMBOL + END_NOTES + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"TREE\" place=\"FREE\"/>" + END_NOTES + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"TREE\" place=\"FREE\" x=\"2\" y=\"0\"/>"
+          + END_NOTES + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"TREE\" place=\"FREE\" x=\"0\"/>"
+          + END_NOTES + END,
+      "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"BUMP\" place=\"EXIT\" x=\"0\" y=\"0\"/>"
+          + END_NOTES + END})
   @DisplayName("Issue #5: a roadbook with a value missing or out of its bounds is refused as invalid")
   void invalidTest(final String target, final String replacement) {
     assertEquals(ReadError.INVALID, refused(MINIMAL.replace(target, replacement == null ? "" : replacement)));

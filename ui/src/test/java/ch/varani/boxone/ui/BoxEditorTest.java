@@ -15,11 +15,12 @@ import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
 import javafx.event.ActionEvent;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -195,7 +196,7 @@ final class BoxEditorTest {
    * @return the caption: the node after the field.
    */
   private static Label caption(final Shown shown, final String id) {
-    final VBox form = (VBox) shown.editor().getNode().getContent();
+    final VBox form = (VBox) field(shown, id).getParent();
     return (Label) form.getChildren().get(form.getChildren().indexOf(field(shown, id)) + 1);
   }
 
@@ -225,7 +226,7 @@ final class BoxEditorTest {
     final Shown shown = show(robot);
     final boolean hiddenBefore = !shown.editor().getNode().isVisible();
     select(robot, shown, JUNCTION_INDEX, null);
-    final Label title = (Label) ((VBox) shown.editor().getNode().getContent()).getChildren().getFirst();
+    final Label title = (Label) shown.editor().getNode().getChildren().getFirst();
     final String junctionTitle = title.getText();
     final String total = field(shown, BoxEditor.TOTAL_ID).getText();
     final String totalHint = caption(shown, BoxEditor.TOTAL_ID).getText();
@@ -405,10 +406,12 @@ final class BoxEditorTest {
   void tulipTest(final FxRobot robot) throws IOException {
     final Shown shown = show(robot, Optional.of(TURN));
     select(robot, shown, 0, null);
-    final Node section = shown.editor().getNode().lookup(".tulip-editor");
-    final boolean hiddenAtStart = !section.isVisible();
+    final Tab section = ((TabPane) shown.editor().getNode().lookup("#" + BoxEditor.TABS_ID)).getTabs().get(1);
+    robot.interact(() -> section.getTabPane().getSelectionModel().select(section));
+    select(robot, shown, 0, null);
+    final boolean hiddenAtStart = section.isDisable() && !section.isSelected();
     select(robot, shown, JUNCTION_INDEX, null);
-    final boolean shownAtJunction = section.isVisible();
+    final boolean shownAtJunction = !section.isDisable();
     robot.interact(((Button) shown.editor().getNode().lookup("#" + TulipEditor.ADD_ID))::fire);
     final Tulip added = TURN.withBranch(TURN.freeAngle().orElseThrow(), BranchKind.TARMAC);
     final BoxEdit corrected = new BoxEdit(JUNCTION).withTulip(Optional.of(new TulipEdit(TURN, added)));
@@ -434,11 +437,11 @@ final class BoxEditorTest {
     final BoxEdit shifted = new BoxEdit(JUNCTION).withShift(1).withNotes(Notes.NONE.withText("BIG ROCKS"));
     select(robot, shown, JUNCTION_INDEX, shifted);
     final String text = field(shown, NotesEditor.TEXT_ID).getText();
-    final boolean symbolsAtJunction = !shown.editor().getNode().lookup("#" + NotesEditor.SYMBOL_ID).isDisabled();
+    final boolean symbolsAtJunction = !shown.editor().getNode().lookup("#" + NotesEditor.PLACE_ID).isDisabled();
     robot.interact(() -> ((ComboBox<?>) shown.editor().getNode().lookup("#" + NotesEditor.DANGER_ID))
         .getSelectionModel().select(1));
     select(robot, shown, 0, null);
-    final boolean symbolsAtStart = !shown.editor().getNode().lookup("#" + NotesEditor.SYMBOL_ID).isDisabled();
+    final boolean symbolsAtStart = !shown.editor().getNode().lookup("#" + NotesEditor.PLACE_ID).isDisabled();
     assertAll(
         () -> assertEquals("BIG ROCKS", text),
         () -> assertTrue(symbolsAtJunction),

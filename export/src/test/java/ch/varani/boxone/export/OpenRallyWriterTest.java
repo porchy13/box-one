@@ -7,6 +7,7 @@ import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.Danger;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.JunctionShape;
@@ -121,7 +122,8 @@ final class OpenRallyWriterTest {
   private static final Notes NOTES = new Notes(Optional.of(Danger.LEVEL_2),
                                                List.of(Abbreviation.KEEP_LEFT, Abbreviation.AND_NEXT), TEXT,
                                                List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT),
-                                                       new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY)));
+                                                       new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY),
+                                                       BoxSymbol.free(Symbol.CHURCH, new DiagramPoint(0.5, -0.25))));
   /**
    * The changes of the user: a box added at the bend, the box of the junction corrected, a track to the left added to
    * its tulip, with notes, a text at the finish, a danger at the bend, and the heading of the start hidden.
@@ -441,9 +443,13 @@ final class OpenRallyWriterTest {
                            List.of(notes.getFirst().getAttribute(OpenRallyWriter.DANGER),
                                    notes.getFirst().getAttribute(OpenRallyWriter.ABBREVIATIONS),
                                    notes.getFirst().getAttribute(OpenRallyWriter.TEXT))),
-        () -> assertEquals(List.of("RAIL_ROAD EXIT", "BUMP ENTRY"),
+        () -> assertEquals(List.of("RAIL_ROAD EXIT", "BUMP ENTRY", "CHURCH FREE"),
                            symbols.stream().map(symbol -> symbol.getAttribute(OpenRallyWriter.NAME) + " "
                                                           + symbol.getAttribute(OpenRallyWriter.PLACE)).toList()),
+        () -> assertEquals(List.of("0.5", "-0.25", false),
+                           List.of(symbols.getLast().getAttribute(OpenRallyWriter.X),
+                                   symbols.getLast().getAttribute(OpenRallyWriter.Y),
+                                   symbols.getFirst().hasAttribute(OpenRallyWriter.X))),
         () -> assertEquals(List.of(false, false, TEXT),
                            List.of(notes.get(1).hasAttribute(OpenRallyWriter.DANGER),
                                    notes.get(1).hasAttribute(OpenRallyWriter.ABBREVIATIONS),

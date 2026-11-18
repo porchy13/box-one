@@ -126,7 +126,7 @@
 
   <xsd:complexType name="notesType">
     <xsd:sequence>
-      <xsd:element name="symbol" minOccurs="0" maxOccurs="4">
+      <xsd:element name="symbol" minOccurs="0" maxOccurs="8">
         <xsd:complexType>
           <xsd:attribute name="name" use="required">
             <xsd:simpleType>
@@ -147,6 +147,70 @@
                 <xsd:enumeration value="WADING"/>
                 <xsd:enumeration value="CONCRETE_PASS"/>
                 <xsd:enumeration value="TUNNEL"/>
+                <xsd:enumeration value="UP_HILL"/>
+                <xsd:enumeration value="DOWN_HILL"/>
+                <xsd:enumeration value="CUT_DANGER"/>
+                <xsd:enumeration value="CREST"/>
+                <xsd:enumeration value="IMPORTANT"/>
+                <xsd:enumeration value="STOP"/>
+                <xsd:enumeration value="FENCE"/>
+                <xsd:enumeration value="BARBED_FENCE"/>
+                <xsd:enumeration value="HOLE"/>
+                <xsd:enumeration value="COLLAPSE"/>
+                <xsd:enumeration value="RUTS"/>
+                <xsd:enumeration value="TWISTY"/>
+                <xsd:enumeration value="BUMPY_BROKEN"/>
+                <xsd:enumeration value="BUMPY"/>
+                <xsd:enumeration value="LATERAL_INCLINATION"/>
+                <xsd:enumeration value="POST"/>
+                <xsd:enumeration value="ELECTRIC_POLE"/>
+                <xsd:enumeration value="ELECTRIC_LINE"/>
+                <xsd:enumeration value="HIGH_VOLTAGE_TOWER"/>
+                <xsd:enumeration value="ANTENNA"/>
+                <xsd:enumeration value="WELL"/>
+                <xsd:enumeration value="TANKS"/>
+                <xsd:enumeration value="BARRELS"/>
+                <xsd:enumeration value="NOTABLE_ELEMENTS"/>
+                <xsd:enumeration value="TIRES"/>
+                <xsd:enumeration value="SIGN_POSTS"/>
+                <xsd:enumeration value="RESTRICTED_AREA"/>
+                <xsd:enumeration value="BUILDINGS"/>
+                <xsd:enumeration value="CHURCH"/>
+                <xsd:enumeration value="RUIN"/>
+                <xsd:enumeration value="FORT"/>
+                <xsd:enumeration value="CEMETERY"/>
+                <xsd:enumeration value="VILLAGE"/>
+                <xsd:enumeration value="BIVOUAC"/>
+                <xsd:enumeration value="PIPELINE"/>
+                <xsd:enumeration value="WALL"/>
+                <xsd:enumeration value="NATIVE_CAMP"/>
+                <xsd:enumeration value="PETROL_STATION"/>
+                <xsd:enumeration value="MONUMENT"/>
+                <xsd:enumeration value="ANIMAL"/>
+                <xsd:enumeration value="ANIMALS"/>
+                <xsd:enumeration value="CAIRN"/>
+                <xsd:enumeration value="ROCKS"/>
+                <xsd:enumeration value="MOUNTAIN"/>
+                <xsd:enumeration value="TREE"/>
+                <xsd:enumeration value="PALM_TREE"/>
+                <xsd:enumeration value="CAMEL_GRASS"/>
+                <xsd:enumeration value="VEGETATION"/>
+                <xsd:enumeration value="SLOPE"/>
+                <xsd:enumeration value="SMALL_WADI"/>
+                <xsd:enumeration value="LARGE_WADI"/>
+                <xsd:enumeration value="SANDY_WADI"/>
+                <xsd:enumeration value="RIVER"/>
+                <xsd:enumeration value="LAKE"/>
+                <xsd:enumeration value="PLAIN"/>
+                <xsd:enumeration value="TOWARDS"/>
+                <xsd:enumeration value="ROAD_WORKS"/>
+                <xsd:enumeration value="RESET_TRIP"/>
+                <xsd:enumeration value="SANDY_PLAIN"/>
+                <xsd:enumeration value="BIG_BOWL"/>
+                <xsd:enumeration value="SAND_SPIT"/>
+                <xsd:enumeration value="DUNE"/>
+                <xsd:enumeration value="BROKEN_DUNE"/>
+                <xsd:enumeration value="DUNES"/>
               </xsd:restriction>
             </xsd:simpleType>
           </xsd:attribute>
@@ -155,9 +219,12 @@
               <xsd:restriction base="xsd:token">
                 <xsd:enumeration value="ENTRY"/>
                 <xsd:enumeration value="EXIT"/>
+                <xsd:enumeration value="FREE"/>
               </xsd:restriction>
             </xsd:simpleType>
           </xsd:attribute>
+          <xsd:attribute name="x" type="diagramCoordinate"/>
+          <xsd:attribute name="y" type="diagramCoordinate"/>
         </xsd:complexType>
       </xsd:element>
     </xsd:sequence>
@@ -188,6 +255,12 @@
       </xsd:simpleType>
     </xsd:attribute>
   </xsd:complexType>
+  <xsd:simpleType name="diagramCoordinate">
+    <xsd:restriction base="xsd:double">
+      <xsd:minInclusive value="-1"/>
+      <xsd:maxInclusive value="1"/>
+    </xsd:restriction>
+  </xsd:simpleType>
   <xsd:simpleType name="abbreviationType">
     <xsd:restriction base="xsd:token">
       <xsd:enumeration value="TRACK"/>

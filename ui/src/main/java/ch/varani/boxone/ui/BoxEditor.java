@@ -5,6 +5,7 @@ import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
@@ -13,8 +14,11 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.text.MessageFormat;
@@ -30,7 +34,15 @@ import java.util.regex.Pattern;
 
 /**
  * The editor of the box selected in the roadbook (development plan, phase 5: "correct a box"; DESIGN.md §6, §14: the
- * editor of the selected box in the detail panel), under the strip.
+ * editor of the selected box in the detail panel), at the right of the map (decision of the maintainer, 2026-11-17:
+ * the strip at the left, the map in the middle, the editor at the right).
+ *
+ * <p><b>Layout</b>: the title ("Box 12"), the diagram of the box drawn by the catalogue ({@link TulipEditor#getPad()},
+ * its tulip and its notes, its handles and its symbols placed freely dragged there), seen whatever the tab, then three
+ * tabs, each scrolled when it is higher than its room (decision of the maintainer, 2026-11-17: the sections
+ * separated; the symbols and the abbreviations in tabs of their own, their choice first, the elements of the box
+ * under it): "Box", the fields below; "Tulip", the form of the tulip, disabled for a box without tulip; "Symbols",
+ * "Abbreviations" and "Notes" (the danger and the free text), the notes ({@link NotesEditor}).</p>
  *
  * <p><b>Fields</b>: the total distance, in kilometres in the format of the language, the box of the start excepted
  * (always 0); the heading, in degrees, empty for the heading computed; whether the heading is shown: as the FIA asks
@@ -39,8 +51,7 @@ import java.util.regex.Pattern;
  * pressed or when it loses the focus, the display when it is chosen; a value that does not change the box is not
  * applied. Then the tulip of the box, but at the start and at the finish ({@link TulipEditor}): a tulip corrected is
  * kept with the tulip generated it replaces ({@link TulipEdit}), the tulip generated itself removes the correction.
- * Then the notes of the box ({@link NotesEditor}): its danger, its abbreviations, its free text and its symbols.
- * The editor scrolls when it is higher than the room left by the strip.</p>
+ * Then the notes of the box ({@link NotesEditor}): its danger, its symbols, its abbreviations and its free text.</p>
  *
  * <p><b>Rules</b>: the total distance is between the total of the box before and the total computed of the box after
  * (the boxes follow each other along the route), a value typed within {@value #ROUNDING} m of a bound taking the
@@ -85,6 +96,10 @@ final class BoxEditor {
   static final String DISPLAY_KEYS = "box.display.";
   /** The key of the button removing the corrections of the box. */
   static final String RESET = "box.reset";
+  /** The key of the tab of the fields of the box. */
+  static final String BOX_TAB = "box.tab";
+  /** The identifier of the tabs. */
+  static final String TABS_ID = "boxTabs";
   /** The key of the button removing the box. */
   static final String REMOVE = "box.remove";
   /** The identifier of the field of the total distance. */
@@ -121,8 +136,12 @@ final class BoxEditor {
   private final Consumer<BoxEdit> corrects;
   /** The editor. */
   private final VBox form = new VBox();
-  /** The editor, scrolled when it is higher than its room. */
-  private final ScrollPane scroll = new ScrollPane(form);
+  /** The editor: the title, the diagram and the tabs. */
+  private final VBox editor = new VBox();
+  /** The tabs: the box, the tulip, the notes. */
+  private final TabPane tabs = new TabPane();
+  /** The tab of the tulip, disabled for a box without tulip. */
+  private final Tab tulipTab = new Tab();
   /** The editor of the tulip of the box. */
   private final TulipEditor tulipEditor;
   /** The editor of the notes of the box. */
@@ -166,15 +185,14 @@ final class BoxEditor {
     this.texts = texts;
     this.locale = locale;
     this.corrects = corrects;
-    tulipEditor = new TulipEditor(texts, locale, catalogue.tulip(), this::applyTulip);
-    notesEditor = new NotesEditor(texts, locale, catalogue,
-                                  notes -> corrects.accept(selection.edit().withNotes(notes)));
+    tulipEditor = new TulipEditor(texts, locale, catalogue, this::applyTulip, this::applyNotes);
+    notesEditor = new NotesEditor(texts, locale, catalogue, this::applyNotes);
     total.setId(TOTAL_ID);
     heading.setId(HEADING_ID);
     display.setId(DISPLAY_ID);
     resetButton.setId(RESET_ID);
     removeButton.setId(REMOVE_ID);
-    titleLabel.getStyleClass().add("section-head-first");
+    titleLabel.getStyleClass().add("title-panel");
     for (final HeadingDisplay choice : HeadingDisplay.values()) {
       display.getItems().add(texts.getString(DISPLAY_KEYS + choice.name()));
     }
@@ -184,15 +202,25 @@ final class BoxEditor {
     removeButton.getStyleClass().add("danger");
     final HBox buttons = new HBox(resetButton, removeButton);
     buttons.getStyleClass().add("field-row");
-    form.getChildren().addAll(titleLabel, label(TOTAL_LABEL, total), total, caption(totalHint),
+    form.getChildren().addAll(label(TOTAL_LABEL, total), total, caption(totalHint),
                               label(HEADING_LABEL, heading), heading, caption(headingHint),
-                              label(DISPLAY_LABEL, display), display, buttons, tulipEditor.getNode(),
-                              notesEditor.getNode());
+                              label(DISPLAY_LABEL, display), display, buttons);
     form.getStyleClass().addAll("form", "box-form");
-    scroll.setFitToWidth(true);
-    scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-    scroll.getStyleClass().add("box-editor");
-    scroll.managedProperty().bind(scroll.visibleProperty());
+    tulipTab.setText(texts.getString(TulipEditor.TITLE));
+    tulipTab.setContent(scrolled(tulipEditor.getNode()));
+    tabs.getTabs().addAll(new Tab(texts.getString(BOX_TAB), scrolled(form)), tulipTab,
+                          new Tab(texts.getString(NotesEditor.SYMBOLS_TAB), scrolled(notesEditor.getSymbolsNode())),
+                          new Tab(texts.getString(NotesEditor.ABBREVIATIONS_TAB),
+                                  scrolled(notesEditor.getAbbreviationsNode())),
+                          new Tab(texts.getString(NotesEditor.TITLE), scrolled(notesEditor.getNode())));
+    tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+    tabs.setId(TABS_ID);
+    VBox.setVgrow(tabs, Priority.ALWAYS);
+    final HBox diagram = new HBox(tulipEditor.getPad());
+    diagram.getStyleClass().add("box-diagram");
+    editor.getChildren().addAll(titleLabel, diagram, tabs);
+    editor.getStyleClass().add("box-editor");
+    editor.managedProperty().bind(editor.visibleProperty());
     total.setOnAction(event -> applyTotal());
     total.focusedProperty().addListener((_, _, _) -> {
       if (!total.isFocused()) {
@@ -216,12 +244,12 @@ final class BoxEditor {
   // *******************************************************************************************************************
 
   /**
-   * Returns the node of the editor, to put under the strip.
+   * Returns the node of the editor, to put at the right of the map.
    *
    * @return the editor, hidden while no box is selected.
    */
-  ScrollPane getNode() {
-    return scroll;
+  VBox getNode() {
+    return editor;
   }
 
   // *******************************************************************************************************************
@@ -235,7 +263,7 @@ final class BoxEditor {
    */
   void show(final Selection selected) {
     selection = selected;
-    scroll.setVisible(selected != null);
+    editor.setVisible(selected != null);
     if (selected == null) {
       return;
     }
@@ -260,7 +288,11 @@ final class BoxEditor {
     mark(total, totalHint, false);
     mark(heading, headingHint, false);
     filling = false;
-    tulipEditor.show(row.place(), generated.tulip(), row.box().tulip());
+    tulipEditor.show(row.place(), generated.tulip(), row.box().tulip(), selected.edit().notes());
+    tulipTab.setDisable(row.box().tulip().isEmpty());
+    if (tulipTab.isDisable() && tulipTab.isSelected()) {
+      tabs.getSelectionModel().selectFirst();
+    }
     notesEditor.show(selected.edit().notes(), row.box().tulip().isPresent());
   }
 
@@ -275,6 +307,15 @@ final class BoxEditor {
     final Optional<TulipEdit> edit = tulip.equals(tulipGenerated) ? Optional.empty()
                                                                   : Optional.of(new TulipEdit(tulipGenerated, tulip));
     corrects.accept(selection.edit().withTulip(edit));
+  }
+
+  /**
+   * Applies the notes changed in the editor of the notes, or a symbol moved in the editor of the tulip.
+   *
+   * @param notes the notes of the box.
+   */
+  private void applyNotes(final Notes notes) {
+    corrects.accept(selection.edit().withNotes(notes));
   }
 
   /**
@@ -389,6 +430,21 @@ final class BoxEditor {
       field.getStyleClass().add(INVALID);
       caption.getStyleClass().add(ERROR);
     }
+  }
+
+  /**
+   * Puts the content of a tab in a pane that scrolls it vertically when it is higher than the tab.
+   *
+   * @param content the content of the tab.
+   *
+   * @return the pane scrolling it, as wide as the tab.
+   */
+  private static ScrollPane scrolled(final Node content) {
+    final ScrollPane scroll = new ScrollPane(content);
+    scroll.setFitToWidth(true);
+    scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    scroll.getStyleClass().add("box-tab");
+    return scroll;
   }
 
   /**

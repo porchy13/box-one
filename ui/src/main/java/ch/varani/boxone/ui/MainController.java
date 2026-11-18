@@ -43,6 +43,7 @@ import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -238,13 +239,13 @@ final class MainController {
   static final String ADD_FAR = "status.addFar";
   /** The key of the status when a box is dropped too far from the route. */
   static final String MOVE_FAR = "status.moveFar";
-  /** The position of the divider between the map and the roadbook, as a part of the width of the window. */
-  static final double ROADBOOK_DIVIDER = 0.7;
   /**
-   * The largest part of the height of the panel of the roadbook taken by the editor of the box selected, which
-   * scrolls beyond it: the strip keeps the rest, to choose another box.
+   * The position of the divider between the roadbook, at the left, and the map, as a part of the width of the window
+   * (decision of the maintainer, 2026-11-17: the strip at the left, the map in the middle, the editor at the right).
    */
-  static final double EDITOR_SHARE = 0.6;
+  static final double ROADBOOK_DIVIDER = 0.2;
+  /** The position of the divider between the map and the editor of the box, at the right, as a part of the width. */
+  static final double EDITOR_DIVIDER = 0.75;
   /** The other shortcut of Redo outside macOS, beside Shortcut+Shift+Z of its item (DESIGN.md §10: Ctrl+Y). */
   static final KeyCombination REDO_OTHER = new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN);
 
@@ -409,9 +410,15 @@ final class MainController {
   /** The map and the roadbook, side by side, injected by the view. */
   @FXML
   private SplitPane split;
-  /** The pane of the roadbook, at the right of the map, injected by the view. */
+  /** The pane of the roadbook, at the left of the map, injected by the view. */
   @FXML
   private VBox roadbookPane;
+  /** The pane of the editor of the box selected, at the right of the map, injected by the view. */
+  @FXML
+  private VBox editorPane;
+  /** The text shown in the pane of the editor while no box is selected, injected by the view. */
+  @FXML
+  private Label editorEmpty;
   /** The number of boxes of the roadbook, injected by the view. */
   @FXML
   private Label roadbookCount;
@@ -484,15 +491,18 @@ final class MainController {
     seed.getParent().visibleProperty().bind(seed.textProperty().isNotEmpty());
     seed.getParent().managedProperty().bind(seed.getParent().visibleProperty());
     StackPane.setMargin(routeCard, new Insets(CARD_MARGIN));
-    split.setDividerPositions(ROADBOOK_DIVIDER);
+    split.setDividerPositions(ROADBOOK_DIVIDER, EDITOR_DIVIDER);
     SplitPane.setResizableWithParent(roadbookPane, false);
+    SplitPane.setResizableWithParent(editorPane, false);
     boxList.setCellFactory(list -> new BoxCell());
     boxList.setAccessibleText(texts.getString(ROADBOOK_TITLE));
     roadbookEmpty.visibleProperty().bind(Bindings.isEmpty(boxList.getItems()));
     boxEditor = new BoxEditor(texts, locale, CATALOGUE, edit -> changeEdits(edits.with(edit), edit.place()),
                               place -> changeEdits(edits.withRemoved(place), null));
-    boxEditor.getNode().maxHeightProperty().bind(roadbookPane.heightProperty().multiply(EDITOR_SHARE));
-    roadbookPane.getChildren().add(boxEditor.getNode());
+    VBox.setVgrow(boxEditor.getNode(), Priority.ALWAYS);
+    editorPane.getChildren().add(boxEditor.getNode());
+    editorEmpty.visibleProperty().bind(boxEditor.getNode().visibleProperty().not());
+    editorEmpty.managedProperty().bind(editorEmpty.visibleProperty());
     boxList.getSelectionModel().selectedItemProperty().addListener((property, before, selected) -> {
       if (!redrawing) {
         showBox(selected);
@@ -952,7 +962,7 @@ final class MainController {
   /**
    * Scrolls the strip as little as needed for a box to be seen whole: a box selected by a change (a box added below
    * the boxes seen, found by the maintainer on 2026-11-15, was selected out of sight). The panel is laid out first,
-   * with the editor of the box shown under the strip, which leaves the strip less room.
+   * with the editor of the box shown beside it.
    *
    * @param index the index of the box in the strip.
    */

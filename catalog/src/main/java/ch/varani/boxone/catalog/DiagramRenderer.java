@@ -1,8 +1,10 @@
 package ch.varani.boxone.catalog;
 
 import ch.varani.boxone.core.BoxSymbol;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Notes;
+import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 
@@ -32,7 +34,9 @@ import java.util.Optional;
  *       the exit, from the centre to the base of the arrow; the symbols of one road spread evenly along it, in their
  *       order from the centre. A symbol of the road is turned with it, never upside down; a symbol drawn upright
  *       stands beside the road, on the side farther from the other roads (the right one, looking from the centre, if
- *       both are as far). A box without tulip has no road: its symbols are not drawn;</li>
+ *       both are as far). A box without tulip has no road: its symbols of the road are not drawn;</li>
+ *   <li>the symbols placed freely, upright, centred on their points ({@link DiagramPoint}: from the centre, in halves
+ *       of the side of the image), with or without tulip;</li>
  *   <li>the danger mark last, on top: as many marks as its level, side by side in the top left corner, in red
  *       (§5.8.4).</li>
  * </ol>
@@ -48,6 +52,8 @@ public final class DiagramRenderer {
 
   /** The degrees of a half turn. */
   private static final double HALF_TURN = 180;
+  /** The span of the paths of a symbol drawn as an icon, in pixels: the paths of the catalogue and a margin. */
+  static final double ICON_SPAN = 44;
   /** The degrees of a quarter turn: beyond it, a symbol of the road would be upside down. */
   private static final double QUARTER_TURN = 90;
 
@@ -84,6 +90,76 @@ public final class DiagramRenderer {
   }
 
   /**
+   * Draws the diagram of a box as pixels, for a window that shows it as it changes (the editor of the tulip, where the
+   * symbols placed freely are dragged) without encoding an image.
+   *
+   * @param tulip the tulip of the box, or empty.
+   * @param notes the notes of the box.
+   * @param catalogue the catalogue.
+   *
+   * @return the colours of the pixels of the image, of the size of the tulips of the catalogue, row by row from the top
+   *         left, each a colour in ARGB, opaque.
+   */
+  public static int[] argb(final Optional<Tulip> tulip, final Notes notes, final Catalogue catalogue) {
+    final int size = catalogue.tulip().size();
+    return image(tulip, notes, catalogue).getRGB(0, 0, size, size, null, 0, size);
+  }
+
+  /**
+   * Draws a symbol alone, as an icon of a list (the choice of the symbol in the editor of the notes): centred on the
+   * background of the tulips, at the scale that brings its paths, {@value #ICON_SPAN} px across, to the side of the
+   * icon.
+   *
+   * @param symbol the symbol.
+   * @param catalogue the catalogue.
+   * @param side the side of the icon, in pixels.
+   *
+   * @return the colours of the pixels of the icon, row by row from the top left, each a colour in ARGB, opaque.
+   */
+  public static int[] icon(final Symbol symbol, final Catalogue catalogue, final int side) {
+    final BufferedImage image = new BufferedImage(side, side, BufferedImage.TYPE_INT_RGB);
+    final Graphics2D graphics = TulipRenderer.graphics(image);
+    try {
+      graphics.setColor(catalogue.tulip().background());
+      graphics.fillRect(0, 0, side, side);
+      draw(graphics, catalogue.symbols().get(symbol), AffineTransform.getTranslateInstance(side / 2.0, side / 2.0),
+           side / ICON_SPAN);
+    } finally {
+      graphics.dispose();
+    }
+    return image.getRGB(0, 0, side, side, null, 0, side);
+  }
+
+  /**
+   * Gives the pixel of a point of the diagram.
+   *
+   * @param point the point, from the centre in halves of the side.
+   * @param size the side of the image, in pixels.
+   *
+   * @return the pixel, from the top left corner of the image.
+   */
+  public static Point2D pixel(final DiagramPoint point, final double size) {
+    final double half = size / 2;
+    return new Point2D.Double(half + point.x() * half, half + point.y() * half);
+  }
+
+  /**
+   * Gives the point of the diagram of a pixel, brought within the image.
+   *
+   * @param x the abscissa of the pixel, from the left edge of the image.
+   * @param y the ordinate of the pixel, from the top edge of the image.
+   * @param size the side of the image, in pixels.
+   *
+   * @return the point of the diagram, its coordinates clamped from {@value DiagramPoint#MIN} to
+   *         {@value DiagramPoint#MAX}.
+   */
+  public static DiagramPoint point(final double x, final double y, final double size) {
+    final double half = size / 2;
+    return new DiagramPoint(Math.clamp((x - half) / half, DiagramPoint.MIN, DiagramPoint.MAX),
+                            Math.clamp((y - half) / half, DiagramPoint.MIN, DiagramPoint.MAX));
+  }
+
+  /**
    * Draws the diagram of a box.
    *
    * @param tulip the tulip of the box, or empty.
@@ -99,6 +175,11 @@ public final class DiagramRenderer {
     final Graphics2D graphics = TulipRenderer.graphics(image);
     try {
       tulip.ifPresent(drawn -> symbols(graphics, drawn, notes.symbols(), catalogue));
+      for (final BoxSymbol symbol : on(notes.symbols(), SymbolPlace.FREE)) {
+        final Point2D centre = pixel(symbol.at().orElseThrow(), style.size());
+        draw(graphics, catalogue.symbols().get(symbol.symbol()),
+             AffineTransform.getTranslateInstance(centre.getX(), centre.getY()), catalogue.notes().symbolScale());
+      }
       notes.danger().ifPresent(danger -> danger(graphics, danger.level(), catalogue.notes()));
     } finally {
       graphics.dispose();
@@ -186,7 +267,7 @@ public final class DiagramRenderer {
         transform = AffineTransform.getTranslateInstance(point.getX(), point.getY());
         transform.rotate(Math.toRadians(upright(road.angle())));
       }
-      draw(graphics, drawing, transform);
+      draw(graphics, drawing, transform, catalogue.notes().symbolScale());
     }
   }
 
@@ -242,20 +323,25 @@ public final class DiagramRenderer {
   }
 
   /**
-   * Draws the parts of a symbol, each stroked or filled in its colour.
+   * Draws the parts of a symbol, each stroked or filled in its colour, at a scale.
    *
    * @param graphics the graphics of the image.
    * @param drawing the drawing of the symbol.
-   * @param transform where it is drawn: from the frame of the symbol to the image.
+   * @param placed where it is drawn: from the frame of the symbol to the image.
+   * @param scale how many times the size of its paths the symbol is drawn, its lines too.
    */
-  private static void draw(final Graphics2D graphics, final SymbolDrawing drawing, final AffineTransform transform) {
+  private static void draw(final Graphics2D graphics, final SymbolDrawing drawing, final AffineTransform placed,
+                           final double scale) {
+    final AffineTransform transform = new AffineTransform(placed);
+    transform.scale(scale, scale);
     for (final SymbolPart part : drawing.parts()) {
       final Path2D path = SvgPath.parse(part.path());
       graphics.setColor(part.colour());
       if (part.filled()) {
         graphics.fill(transform.createTransformedShape(path));
       } else {
-        graphics.setStroke(new BasicStroke((float) part.width(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        graphics.setStroke(new BasicStroke((float) (part.width() * scale), BasicStroke.CAP_ROUND,
+                                           BasicStroke.JOIN_ROUND));
         graphics.draw(transform.createTransformedShape(path));
       }
     }

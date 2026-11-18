@@ -2,9 +2,14 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.catalog.TulipStyle;
+import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.JunctionShape;
+import ch.varani.boxone.core.Notes;
+import ch.varani.boxone.core.Symbol;
+import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import javafx.event.ActionEvent;
 import javafx.event.EventType;
@@ -38,7 +43,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -77,6 +81,12 @@ final class TulipEditorTest {
   private static final int AHEAD_INDEX = 1;
   /** The index of the branch to the right, the exit. */
   private static final int RIGHT_INDEX = 2;
+  /** The coordinate of the symbols placed freely in the tests, from the centre, in halves of the side. */
+  private static final double SYMBOL_AT = 0.6;
+  /** A shift within the grab of a symbol, in halves of the side: 4 px in an image of 200 px. */
+  private static final double NEARBY = 0.04;
+  /** The precision of a point of the diagram read from a pixel, in halves of the side. */
+  private static final double PIXEL = 0.02;
   /** The crossroads generated, the exit to the right. */
   private static final Tulip CROSSROADS = new Tulip(
       JunctionShape.CROSSING, BranchKind.TARMAC, List.of(LEFT, 0, RIGHT),
@@ -87,9 +97,10 @@ final class TulipEditorTest {
    *
    * @param editor the editor.
    * @param corrections the tulips it gave, in their order.
+   * @param moves the notes it gave, a symbol placed freely moved, in their order.
    * @param other a field of the window, which takes the focus from the editor.
    */
-  private record Shown(TulipEditor editor, List<Tulip> corrections, TextField other) {
+  private record Shown(TulipEditor editor, List<Tulip> corrections, List<Notes> moves, TextField other) {
 
     /**
      * Returns a node of the editor.
@@ -99,7 +110,7 @@ final class TulipEditorTest {
      * @return the node.
      */
     Node node(final String id) {
-      return editor.getNode().lookup("#" + id);
+      return editor.getNode().getScene().lookup("#" + id);
     }
 
     /**
@@ -190,15 +201,16 @@ final class TulipEditorTest {
    */
   private static Shown show(final FxRobot robot) {
     final List<Tulip> corrections = new ArrayList<>();
+    final List<Notes> moves = new ArrayList<>();
     final AtomicReference<Shown> shown = new AtomicReference<>();
     robot.interact(() -> {
-      final TulipEditor editor = new TulipEditor(TEXTS, LOCALE, STYLE, corrections::add);
+      final TulipEditor editor = new TulipEditor(TEXTS, LOCALE, Catalogue.fia(), corrections::add, moves::add);
       final TextField other = new TextField();
       final Stage stage = new Stage();
-      editor.show(JUNCTION, Optional.of(CROSSROADS), Optional.of(CROSSROADS));
-      stage.setScene(new Scene(new VBox(other, editor.getNode())));
+      editor.show(JUNCTION, Optional.of(CROSSROADS), Optional.of(CROSSROADS), Notes.NONE);
+      stage.setScene(new Scene(new VBox(other, editor.getPad(), editor.getNode())));
       stage.show();
-      shown.set(new Shown(editor, corrections, other));
+      shown.set(new Shown(editor, corrections, moves, other));
     });
     return shown.get();
   }
@@ -242,6 +254,71 @@ final class TulipEditorTest {
   }
 
   /**
+   * Sends an event of the mouse to the tulip drawn, at a point of the diagram.
+   *
+   * @param robot the TestFX robot.
+   * @param shown the editor shown.
+   * @param type the type of the event.
+   * @param point the point of the diagram.
+   */
+  private static void mouseAt(final FxRobot robot, final Shown shown, final EventType<MouseEvent> type,
+                              final DiagramPoint point) {
+    final double[] coordinates = shown.editor().pixel(point);
+    final Point2D pixel = new Point2D(coordinates[0], coordinates[1]);
+    robot.interact(() -> {
+      final Node pad = shown.node(TulipEditor.PAD_ID);
+      final Point2D scene = pad.localToScene(pixel);
+      pad.fireEvent(new MouseEvent(type, scene.getX(), scene.getY(), scene.getX(), scene.getY(), MouseButton.PRIMARY,
+                                   1, false, false, false, false, true, false, false, false, false, false, null));
+    });
+  }
+
+  /**
+   * A symbol placed freely is dragged by its centre, the nearest one taken, and its new place given when it is dropped;
+   * a symbol dropped where it was taken changes nothing; a press beside the symbols drags nothing.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Phase 5: a symbol beside the road is dragged in the tulip, and its place applied when dropped")
+  void dragSymbolTest(final FxRobot robot) {
+    final DiagramPoint church = new DiagramPoint(SYMBOL_AT, -SYMBOL_AT);
+    final DiagramPoint near = new DiagramPoint(SYMBOL_AT + NEARBY, -SYMBOL_AT);
+    final DiagramPoint lake = new DiagramPoint(-SYMBOL_AT, SYMBOL_AT);
+    final DiagramPoint target = new DiagramPoint(-SYMBOL_AT, -SYMBOL_AT);
+    final Notes notes = Notes.NONE.withSymbols(List.of(new BoxSymbol(Symbol.BUMP, SymbolPlace.EXIT),
+                                                       BoxSymbol.free(Symbol.LAKE, lake),
+                                                       BoxSymbol.free(Symbol.CHURCH, church)));
+    final Shown shown = show(robot);
+    robot.interact(() -> shown.editor().show(JUNCTION, Optional.of(CROSSROADS), Optional.of(CROSSROADS), notes));
+    mouseAt(robot, shown, MouseEvent.MOUSE_PRESSED, church);
+    mouseAt(robot, shown, MouseEvent.MOUSE_RELEASED, church);
+    final int unmoved = shown.moves().size();
+    mouseAt(robot, shown, MouseEvent.MOUSE_PRESSED, new DiagramPoint(0, -SYMBOL_AT));
+    mouseAt(robot, shown, MouseEvent.MOUSE_DRAGGED, target);
+    mouseAt(robot, shown, MouseEvent.MOUSE_RELEASED, target);
+    final int beside = shown.moves().size();
+    mouseAt(robot, shown, MouseEvent.MOUSE_PRESSED, near);
+    mouseAt(robot, shown, MouseEvent.MOUSE_DRAGGED, target);
+    mouseAt(robot, shown, MouseEvent.MOUSE_RELEASED, target);
+    final List<BoxSymbol> moved = shown.moves().getLast().symbols();
+    robot.interact(() -> shown.editor().show(OTHER, Optional.empty(), Optional.empty(), notes));
+    mouseAt(robot, shown, MouseEvent.MOUSE_PRESSED, lake);
+    mouseAt(robot, shown, MouseEvent.MOUSE_DRAGGED, target);
+    mouseAt(robot, shown, MouseEvent.MOUSE_RELEASED, target);
+    assertAll(
+        () -> assertEquals(0, unmoved),
+        () -> assertEquals(0, beside),
+        () -> assertEquals(Symbol.LAKE, shown.moves().getLast().symbols().get(1).symbol()),
+        () -> assertEquals(-SYMBOL_AT, shown.moves().getLast().symbols().get(1).at().orElseThrow().y(), PIXEL),
+        () -> assertEquals(2, shown.moves().size()),
+        () -> assertEquals(notes.symbols().subList(0, 2), moved.subList(0, 2)),
+        () -> assertEquals(Symbol.CHURCH, moved.getLast().symbol()),
+        () -> assertEquals(-SYMBOL_AT, moved.getLast().at().orElseThrow().x(), PIXEL),
+        () -> assertEquals(List.of(), shown.corrections()));
+  }
+
+  /**
    * Gives the style classes of the handles, the entry first.
    *
    * @param shown the editor shown.
@@ -255,12 +332,12 @@ final class TulipEditorTest {
   /**
    * The editor shows the tulip with a handle per branch and for the entry, the exit selected; the form names the
    * branches, the exit marked, and gives the angle of the exit and its bounds; the exit can be neither taken nor
-   * removed, the tulip generated not brought back; a box without tulip hides the editor.
+   * removed, the tulip generated not brought back; a box without tulip shows its diagram without handles.
    *
    * @param robot the TestFX robot.
    */
   @Test
-  @DisplayName("Phase 5: the editor of the tulip shows its branches, the exit selected, hidden without tulip")
+  @DisplayName("Phase 5: the editor of the tulip shows its branches, the exit selected, no handle without tulip")
   void shownTest(final FxRobot robot) {
     final Shown shown = show(robot);
     final boolean visible = shown.editor().getNode().isVisible();
@@ -272,7 +349,7 @@ final class TulipEditorTest {
     final boolean removeDisabled = shown.button(TulipEditor.REMOVE_ID).isDisable();
     final boolean resetDisabled = shown.button(TulipEditor.RESET_ID).isDisable();
     final boolean addEnabled = !shown.button(TulipEditor.ADD_ID).isDisable();
-    robot.interact(() -> shown.editor().show(OTHER, Optional.empty(), Optional.empty()));
+    robot.interact(() -> shown.editor().show(OTHER, Optional.empty(), Optional.empty(), Notes.NONE));
     assertAll(
         () -> assertTrue(visible),
         () -> assertEquals(List.of("Arrivée, en bas", "90° à gauche", "Tout droit", "90° à droite (itinéraire)"),
@@ -284,7 +361,7 @@ final class TulipEditorTest {
         () -> assertTrue(removeDisabled),
         () -> assertTrue(resetDisabled),
         () -> assertTrue(addEnabled),
-        () -> assertFalse(shown.editor().getNode().isVisible()));
+        () -> assertEquals(List.of(), shown.handles()));
   }
 
   /**
@@ -457,7 +534,7 @@ final class TulipEditorTest {
     robot.interact(() -> shown.branch().getSelectionModel().select(AHEAD_INDEX + 1));
     robot.interact(() -> shown.angle().requestFocus());
     robot.interact(() -> shown.angle().setText(String.valueOf(HALF_RIGHT)));
-    robot.interact(() -> shown.editor().show(OTHER, Optional.empty(), Optional.empty()));
+    robot.interact(() -> shown.editor().show(OTHER, Optional.empty(), Optional.empty(), Notes.NONE));
     robot.interact(() -> shown.other().requestFocus());
     assertEquals(List.of(), shown.corrections());
   }
@@ -510,18 +587,20 @@ final class TulipEditorTest {
     final Optional<Tulip> generated = Optional.of(CROSSROADS);
     robot.interact(() -> shown.branch().getSelectionModel().select(LEFT_INDEX + 1));
     robot.interact(() -> shown.editor().show(JUNCTION, generated,
-                                             Optional.of(CROSSROADS.withKind(RIGHT_INDEX, BranchKind.TRACK))));
+                                             Optional.of(CROSSROADS.withKind(RIGHT_INDEX, BranchKind.TRACK)),
+                                             Notes.NONE));
     final List<Boolean> same = selectedHandles(shown);
-    robot.interact(() -> shown.editor().show(JUNCTION, generated, Optional.of(CROSSROADS.withoutBranch(LEFT_INDEX))));
+    robot.interact(() -> shown.editor().show(JUNCTION, generated, Optional.of(CROSSROADS.withoutBranch(LEFT_INDEX)),
+                                             Notes.NONE));
     final List<Boolean> gone = selectedHandles(shown);
     robot.interact(() -> shown.branch().getSelectionModel().select(0));
-    robot.interact(() -> shown.editor().show(JUNCTION, generated, generated));
+    robot.interact(() -> shown.editor().show(JUNCTION, generated, generated, Notes.NONE));
     final List<Boolean> entry = selectedHandles(shown);
-    robot.interact(() -> shown.editor().show(OTHER, generated, generated));
+    robot.interact(() -> shown.editor().show(OTHER, generated, generated, Notes.NONE));
     final List<Boolean> other = selectedHandles(shown);
     robot.interact(() -> shown.branch().getSelectionModel().select(LEFT_INDEX + 1));
-    robot.interact(() -> shown.editor().show(OTHER, Optional.empty(), Optional.empty()));
-    robot.interact(() -> shown.editor().show(OTHER, generated, generated));
+    robot.interact(() -> shown.editor().show(OTHER, Optional.empty(), Optional.empty(), Notes.NONE));
+    robot.interact(() -> shown.editor().show(OTHER, generated, generated, Notes.NONE));
     assertAll(
         () -> assertEquals(List.of(false, true, false, false), same),
         () -> assertEquals(List.of(false, false, true), gone),

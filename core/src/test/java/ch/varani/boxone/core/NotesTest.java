@@ -107,13 +107,15 @@ final class NotesTest {
    * Too many abbreviations, or too many symbols on one road, are rejected.
    */
   @Test
-  @DisplayName("Phase 5: more than 6 abbreviations, or more than 2 symbols on a road, are rejected")
+  @DisplayName("Phase 5: more than 6 abbreviations, 2 symbols on a road or 4 placed freely are rejected")
   void tooManyTest() {
     final List<Abbreviation> abbreviations = Collections.nCopies(Notes.MAX_ABBREVIATIONS + 1, Abbreviation.AT);
     final List<BoxSymbol> entry = Collections.nCopies(Notes.MAX_SYMBOLS + 1,
                                                       new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY));
     final List<BoxSymbol> exit = Collections.nCopies(Notes.MAX_SYMBOLS + 1,
                                                      new BoxSymbol(Symbol.BUMP, SymbolPlace.EXIT));
+    final List<BoxSymbol> free = Collections.nCopies(Notes.MAX_FREE_SYMBOLS + 1,
+                                                     BoxSymbol.free(Symbol.TREE, new DiagramPoint(0, 0)));
     assertAll(
         () -> assertEquals(ValidationError.INVALID_NOTES,
                            assertThrows(DomainException.class,
@@ -121,7 +123,11 @@ final class NotesTest {
         () -> assertEquals(ValidationError.INVALID_NOTES,
                            assertThrows(DomainException.class, () -> Notes.NONE.withSymbols(entry)).getError()),
         () -> assertEquals(ValidationError.INVALID_NOTES,
-                           assertThrows(DomainException.class, () -> Notes.NONE.withSymbols(exit)).getError()));
+                           assertThrows(DomainException.class, () -> Notes.NONE.withSymbols(exit)).getError()),
+        () -> assertEquals(ValidationError.INVALID_NOTES,
+                           assertThrows(DomainException.class, () -> Notes.NONE.withSymbols(free)).getError()),
+        () -> assertEquals(Notes.MAX_FREE_SYMBOLS,
+                           Notes.NONE.withSymbols(free.subList(1, free.size())).symbols().size()));
   }
 
   /**

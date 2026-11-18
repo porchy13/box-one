@@ -5,6 +5,7 @@ import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.BoxSymbol;
 import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.Danger;
+import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.DomainException;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
@@ -476,20 +477,43 @@ public final class OpenRallyReader {
     }
 
     /**
-     * Reads a symbol of the notes of a box: its name and its place.
+     * Reads a symbol of the notes of a box: its name, its place and, placed freely, its point.
      *
      * @param xml the parser, on the start of the element of the symbol.
      *
      * @return the symbol.
      *
-     * @throws ReadException if a value is missing or is not one of {@link Symbol} or {@link SymbolPlace}.
+     * @throws ReadException if a value is missing or is not one of {@link Symbol} or {@link SymbolPlace}, a coordinate
+     *                       not a number or beyond the diagram, or the symbol not placed as its kind asks
+     *                       ({@link BoxSymbol}).
      */
     private static BoxSymbol symbol(final XMLStreamReader xml) throws ReadException {
       final String name = required(xml.getAttributeValue(null, OpenRallyWriter.NAME));
       final String place = required(xml.getAttributeValue(null, OpenRallyWriter.PLACE));
+      final String x = xml.getAttributeValue(null, OpenRallyWriter.X);
+      final Optional<DiagramPoint> at = x == null ? Optional.empty() : Optional.of(diagramPoint(
+          decimal(x), decimal(xml.getAttributeValue(null, OpenRallyWriter.Y))));
       try {
-        return new BoxSymbol(Symbol.valueOf(name), SymbolPlace.valueOf(place));
-      } catch (IllegalArgumentException _) {
+        return new BoxSymbol(Symbol.valueOf(name), SymbolPlace.valueOf(place), at);
+      } catch (DomainException | IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
+     * Gives a point of the diagram.
+     *
+     * @param x the abscissa.
+     * @param y the ordinate.
+     *
+     * @return the point.
+     *
+     * @throws ReadException if a coordinate is beyond the diagram.
+     */
+    private static DiagramPoint diagramPoint(final double x, final double y) throws ReadException {
+      try {
+        return new DiagramPoint(x, y);
+      } catch (DomainException _) {
         throw new ReadException(ReadError.INVALID);
       }
     }

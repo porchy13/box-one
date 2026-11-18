@@ -34,7 +34,8 @@ import java.util.regex.Pattern;
  *       {@link HeadingRule};</li>
  *   <li>{@code notes}: an object of the colours {@code danger} and {@code text}, the SVG path {@code mark}, the lengths
  *       {@code markGap}, {@code margin} (positive, at most a quarter of the size of the tulip), {@code beside} (at most
- *       half of it), {@code font} (at most the size) and {@code minFont} (at most the font) — {@link NoteStyle};</li>
+ *       half of it), the scale {@code symbolScale} ({@value #MIN_SCALE} to {@value #MAX_SCALE}), {@code font} (at
+ *       most the size) and {@code minFont} (at most the font) — {@link NoteStyle};</li>
  *   <li>{@code abbreviations}: an object giving the text of each {@link Abbreviation}, by its name, at most
  *       {@value #MAX_ABBREVIATION} characters, none missing nor unknown;</li>
  *   <li>{@code symbols}: an object giving the drawing of each {@link Symbol}, by its name, none missing nor unknown: an
@@ -183,8 +184,25 @@ final class CatalogueReader {
     SvgPath.parse(mark);
     final double font = number(node, "font", size);
     return new NoteStyle(colour(node, "danger"), mark, number(node, "markGap", width), number(node, "margin", width),
-                         number(node, "beside", size / 2.0), colour(node, "text"), font,
+                         number(node, "beside", size / 2.0), symbolScale(node), colour(node, "text"), font,
                          number(node, "minFont", font));
+  }
+
+  /**
+   * Reads the scale of the symbols: from {@value #MIN_SCALE} to {@value #MAX_SCALE}.
+   *
+   * @param node the object {@code notes}.
+   *
+   * @return the scale.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if the scale is missing or beyond its bounds.
+   */
+  private static double symbolScale(final JsonNode node) {
+    final double scale = number(node, "symbolScale", MAX_SCALE);
+    if (scale < MIN_SCALE) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+    return scale;
   }
 
   /**
