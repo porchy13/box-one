@@ -116,8 +116,9 @@ final class OpenRallyReaderTest {
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(REMOVED),
       List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(HEADING), HeadingDisplay.SHOWN,
-                          Optional.of(new TulipEdit(CROSSROADS, CORRECTED)), NOTES),
-              new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN).withNotes(Notes.NONE.withText(TEXT))));
+                          Optional.of(new TulipEdit(CROSSROADS, CORRECTED)), Optional.of(NOTES)),
+              new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN)
+                                 .withNotes(Optional.of(Notes.NONE.withText(TEXT)))));
   /** The correction of a box, opened, in the files of the failures. */
   private static final String BOX = "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"RULE\">";
   /** A tulip generated, straight ahead, in the files of the failures. */

@@ -2,6 +2,7 @@ package ch.varani.boxone.routing;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Junction;
+import ch.varani.boxone.core.RoadFeature;
 import ch.varani.boxone.core.Route;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
@@ -9,11 +10,14 @@ import com.graphhopper.GraphHopper;
 import com.graphhopper.ResponsePath;
 import com.graphhopper.config.CHProfile;
 import com.graphhopper.config.Profile;
+import com.graphhopper.routing.ev.DefaultImportRegistry;
 import com.graphhopper.routing.ev.EnumEncodedValue;
+import com.graphhopper.routing.ev.ImportUnit;
 import com.graphhopper.routing.ev.RoadAccess;
 import com.graphhopper.json.Statement;
 import com.graphhopper.routing.ev.RoadClass;
 import com.graphhopper.routing.ev.RoadEnvironment;
+import com.graphhopper.routing.ev.SimpleBooleanEncodedValue;
 import com.graphhopper.routing.ev.Subnetwork;
 import com.graphhopper.routing.ev.Toll;
 import com.graphhopper.routing.util.DefaultSnapFilter;
@@ -30,6 +34,7 @@ import com.graphhopper.util.details.PathDetail;
 import com.graphhopper.util.exceptions.PointNotFoundException;
 import com.graphhopper.util.shapes.GHPoint;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -77,9 +82,12 @@ public final class GraphHopperRouter implements Router {
    * expressways; it adds the environment of the road ({@code road_environment}) too, which tells the ferries. The
    * toll ({@code toll}) tells the toll roads (issue #11 of GitLab): the graphs imported before it do not know it. The
    * surface ({@code surface}) tells the roads without a hard surface, drawn as tracks by the tulips (phase 4): the
-   * graphs imported before it tell the tracks by their class only.
+   * graphs imported before it tell the tracks by their class only. The value of Box One {@value FeatureParser#KEY}
+   * marks the roads holding a level crossing or a barrier (phase 5, increment 3b): its parser keeps their places
+   * ({@link FeatureIndex}).
    */
-  static final String ENCODED_VALUES = "car_access, car_average_speed, road_access, toll, surface";
+  static final String ENCODED_VALUES = "car_access, car_average_speed, road_access, toll, surface, "
+                                       + FeatureParser.KEY;
   /**
    * The access of the roads open to everyone: the others (residents, customers, delivery, private, agricultural,
    * forestry) are driven through by a route with waypoints only around its start and its finish.
@@ -130,6 +138,8 @@ public final class GraphHopperRouter implements Router {
   private final boolean tolls;
   /** The reader of the junctions of the routes, in the graph (phase 4). */
   private final JunctionReader junctionReader;
+  /** The reader of the features of the map along the routes (phase 5, increment 3b). */
+  private final FeatureReader featureReader;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -139,8 +149,9 @@ public final class GraphHopperRouter implements Router {
    * Creates a router on an engine whose graph is loaded.
    *
    * @param hopper the engine, with its graph loaded.
+   * @param features the places of the level crossings and the barriers of its map.
    */
-  GraphHopperRouter(final GraphHopper hopper) {
+  GraphHopperRouter(final GraphHopper hopper, final FeatureIndex features) {
     this.hopper = hopper;
     this.roads = new DefaultSnapFilter(hopper.createWeighting(hopper.getProfile(PROFILE), new PMap()),
                                        hopper.getEncodingManager().getBooleanEncodedValue(Subnetwork.key(PROFILE)));
@@ -149,6 +160,7 @@ public final class GraphHopperRouter implements Router {
     this.tolls = hopper.getEncodingManager().hasEncodedValue(Toll.KEY);
     this.junctionReader = new JunctionReader(hopper.getBaseGraph(), hopper.getLocationIndex(), roads,
                                              hopper.getEncodingManager());
+    this.featureReader = new FeatureReader(hopper.getLocationIndex(), roads, hopper.getEncodingManager(), features);
   }
 
   /**
@@ -159,19 +171,22 @@ public final class GraphHopperRouter implements Router {
    *
    * @return the router of the new graph.
    *
-   * @throws RoutingException {@link RoutingError#INVALID_MAP} if the extract cannot be read or imported.
+   * @throws RoutingException {@link RoutingError#INVALID_MAP} if the extract cannot be read or imported, or the
+   *                          places of its features cannot be saved.
    */
   public static GraphHopperRouter importMap(final Path map, final Path graph) {
-    final GraphHopper hopper = engine(graph);
+    final FeatureIndex features = new FeatureIndex();
+    final GraphHopper hopper = engine(graph, features);
     hopper.setOSMFile(map.toString());
     hopper.clean();
     try {
       hopper.importOrLoad();
-    } catch (final RuntimeException e) {
+      features.save(graph);
+    } catch (final RuntimeException | IOException e) {
       hopper.close();
       throw new RoutingException(RoutingError.INVALID_MAP, e);
     }
-    return new GraphHopperRouter(hopper);
+    return new GraphHopperRouter(hopper, features);
   }
 
   /**
@@ -181,13 +196,16 @@ public final class GraphHopperRouter implements Router {
    *
    * @return the router of the graph, or nothing if the folder holds no graph.
    *
-   * @throws RoutingException {@link RoutingError#INVALID_GRAPH} if the graph of the folder cannot be loaded.
+   * @throws RoutingException {@link RoutingError#INVALID_GRAPH} if the graph of the folder, or the places of its
+   *                          features, cannot be loaded.
    */
   public static Optional<GraphHopperRouter> load(final Path graph) {
-    final GraphHopper hopper = engine(graph);
+    final GraphHopper hopper = engine(graph, new FeatureIndex());
     final boolean loaded;
+    final FeatureIndex features;
     try {
       loaded = hopper.load();
+      features = FeatureIndex.load(graph);
     } catch (final RuntimeException e) {
       hopper.close();
       throw new RoutingException(RoutingError.INVALID_GRAPH, e);
@@ -196,27 +214,37 @@ public final class GraphHopperRouter implements Router {
       hopper.close();
       return Optional.empty();
     }
-    return Optional.of(new GraphHopperRouter(hopper));
+    return Optional.of(new GraphHopperRouter(hopper, features));
   }
 
   /**
    * Configures an engine for the profile of a car, its graph in a folder. The lines of its routes keep every point of
    * the roads, not simplified (phase 4): the junctions are read in the graph from these points, the place where a
-   * route leaves the ring of a roundabout among them.
+   * route leaves the ring of a roundabout among them. Nor are the roads of the graph simplified by the import
+   * (phase 5, increment 3b): a node on a straight road, as a level crossing, would leave the line, and the features
+   * found on it would no longer be at a point of the routes. The parsers of GraphHopper are those of its import, plus
+   * {@link FeatureParser} for the value {@value FeatureParser#KEY}.
    *
    * @param graph the folder of the graph.
+   * @param features receives the places of the level crossings and the barriers found by an import.
    *
    * @return the engine, without graph yet.
    */
-  static GraphHopper engine(final Path graph) {
+  static GraphHopper engine(final Path graph, final FeatureIndex features) {
     final CustomModel model = CustomModel.merge(GHUtility.loadCustomModelFromJar(CAR_MODEL),
                                                 GHUtility.loadCustomModelFromJar(AVOID_PRIVATE_MODEL));
     final GraphHopper hopper = new GraphHopper();
     hopper.setGraphHopperLocation(graph.toString());
     hopper.setEncodedValuesString(ENCODED_VALUES);
+    final DefaultImportRegistry defaults = new DefaultImportRegistry();
+    hopper.setImportRegistry(name -> FeatureParser.KEY.equals(name)
+        ? ImportUnit.create(name, properties -> new SimpleBooleanEncodedValue(name),
+                            (lookup, properties) -> new FeatureParser(lookup.getBooleanEncodedValue(name), features))
+        : defaults.createImportUnit(name));
     hopper.setProfiles(new Profile(PROFILE).setCustomModel(model).setTurnCostsConfig(TurnCostsConfig.car()));
     hopper.getCHPreparationHandler().setCHProfiles(new CHProfile(PROFILE));
     hopper.getRouterConfig().setSimplifyResponse(false);
+    hopper.getReaderConfig().setMaxWayPointDistance(0);
     return hopper;
   }
 
@@ -272,6 +300,17 @@ public final class GraphHopperRouter implements Router {
   @Override
   public List<Junction> junctions(final Route route) {
     return junctionReader.junctions(route);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The level crossings and the barriers are those found during the import ({@link FeatureIndex}); a graph imported
+   * before has none. The tracks are read on the roads of the graph ({@link FeatureReader}).</p>
+   */
+  @Override
+  public List<RoadFeature> features(final Route route) {
+    return featureReader.features(route);
   }
 
   /**

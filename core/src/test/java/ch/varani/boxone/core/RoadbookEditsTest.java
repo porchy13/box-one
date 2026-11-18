@@ -29,7 +29,8 @@ final class RoadbookEditsTest {
   /** A shift of the total distance, in metres. */
   private static final double SHIFT = 25;
   /** The notes of a box: the abbreviation "keep to the left". */
-  private static final Notes NOTES = Notes.NONE.withAbbreviations(List.of(Abbreviation.KEEP_LEFT));
+  private static final Optional<Notes> NOTES = Optional.of(Notes.NONE.withAbbreviations(
+      List.of(Abbreviation.KEEP_LEFT)));
 
   /**
    * No change is empty, and has no correction.

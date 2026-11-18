@@ -288,12 +288,13 @@ final class BoxEditor {
     mark(total, totalHint, false);
     mark(heading, headingHint, false);
     filling = false;
-    tulipEditor.show(row.place(), generated.tulip(), row.box().tulip(), selected.edit().notes());
+    final Notes notes = selected.edit().notes().orElse(generated.notes());
+    tulipEditor.show(row.place(), generated.tulip(), row.box().tulip(), notes);
     tulipTab.setDisable(row.box().tulip().isEmpty());
     if (tulipTab.isDisable() && tulipTab.isSelected()) {
       tabs.getSelectionModel().selectFirst();
     }
-    notesEditor.show(selected.edit().notes(), row.box().tulip().isPresent());
+    notesEditor.show(notes, row.box().tulip().isPresent());
   }
 
   /**
@@ -310,12 +311,15 @@ final class BoxEditor {
   }
 
   /**
-   * Applies the notes changed in the editor of the notes, or a symbol moved in the editor of the tulip.
+   * Applies the notes changed in the editor of the notes, or a symbol moved in the editor of the tulip: the notes
+   * typed, or none if they are the notes generated (those noted from the map included, increment 3b).
    *
    * @param notes the notes of the box.
    */
   private void applyNotes(final Notes notes) {
-    corrects.accept(selection.edit().withNotes(notes));
+    final Optional<Notes> typed = notes.equals(selection.row().generated().notes()) ? Optional.empty()
+                                                                                    : Optional.of(notes);
+    corrects.accept(selection.edit().withNotes(typed));
   }
 
   /**

@@ -39,8 +39,10 @@ import java.util.stream.Stream;
  *       along the route): the shift is then ignored. The partial distances are computed again from the totals;</li>
  *   <li>{@link #retain(RoadbookEdits, Route)}: on a new route, a box added is kept if its place is within
  *       {@value #NEAR_ROUTE} m of the line, at the nearest point of it; a box removed if the line passes within
- *       {@value #SAME_PLACE} m of its place; a correction if a box of the new roadbook is within {@value #SAME_PLACE}
- *       m of its place. Each change kept is moved to its place on the new route, the others are dropped.</li>
+ *       {@value #SAME_PLACE} m of its place; a correction likewise, the line with the boxes added and removed kept
+ *       (the box of a feature of the map, {@link FeatureNotes}, is not a maneuver of the route: increment 3b); a
+ *       correction where the new roadbook has no box changes nothing. Each change kept is moved to its place on the
+ *       new route, the others are dropped.</li>
  * </ol>
  * <p>The changes are idempotent: applied twice, or to a route that already holds them, they give the same roadbook.
  * A roadbook is saved with its route as generated and its changes beside it, so that a box added can still be moved
@@ -178,7 +180,7 @@ public final class RoadbookEditor {
         }
         display = edit.get().display();
         tulip = tulip(tulip, edit.get().tulip());
-        notes = edit.get().notes();
+        notes = edit.get().notes().orElse(notes);
       }
       corrected.add(new Box(box.number(), box.position(), total, total - previous, heading, tulip, display, notes));
       previous = total;
@@ -193,7 +195,7 @@ public final class RoadbookEditor {
    * @param route the new route, as generated.
    *
    * @return the boxes added near the line, at its nearest points; the boxes removed where the line passes; the
-   *         corrections of the boxes of the new roadbook, at their places.
+   *         corrections where the line passes, at their places.
    */
   public static RoadbookEdits retain(final RoadbookEdits edits, final Route route) {
     RoadbookEdits kept = RoadbookEdits.NONE;
@@ -209,13 +211,9 @@ public final class RoadbookEditor {
         kept = kept.withAdded(point.get());
       }
     }
-    final Route changed = route(route, kept);
-    final List<GeoPoint> places = new ArrayList<>();
-    places.add(changed.start());
-    changed.maneuvers().forEach(index -> places.add(changed.points().get(index)));
-    places.add(changed.finish());
+    final List<GeoPoint> line = route(route, kept).points();
     for (final BoxEdit edit : edits.boxes()) {
-      final Optional<GeoPoint> place = within(places, edit.place());
+      final Optional<GeoPoint> place = within(line, edit.place());
       if (place.isPresent() && kept.edit(place.get()).isEmpty()) {
         kept = kept.with(edit.at(place.get()));
       }

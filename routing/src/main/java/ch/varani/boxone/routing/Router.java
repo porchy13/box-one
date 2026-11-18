@@ -2,6 +2,7 @@ package ch.varani.boxone.routing;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Junction;
+import ch.varani.boxone.core.RoadFeature;
 import ch.varani.boxone.core.Route;
 
 import java.util.List;
@@ -87,6 +88,22 @@ public interface Router extends AutoCloseable {
    */
   default List<Junction> junctions(final Route route) {
     return route.maneuvers().stream().map(maneuver -> JunctionReader.along(route.points(), maneuver)).toList();
+  }
+
+  /**
+   * Reads the features of the map along a route, noted automatically in its roadbook (development plan, phase 5,
+   * increment 3b): its level crossings, its barriers (gates and cattle grids) and the places where it leaves the
+   * tarmac for a track.
+   *
+   * <p>By default, for a router without the roads of a map, there are none.</p>
+   *
+   * @param route a route computed on the map of the router, or read back from a roadbook exported from it, with the
+   *              boxes added and removed by the user.
+   *
+   * @return the features, in the order of the route, each at a point of its line.
+   */
+  default List<RoadFeature> features(final Route route) {
+    return List.of();
   }
 
   /**

@@ -383,7 +383,7 @@ public final class OpenRallyReader {
           if (corrections.isEmpty() || noted == corrections.size() - 1) {
             throw new ReadException(ReadError.INVALID);
           }
-          corrections.add(corrections.removeLast().withNotes(notes(xml)));
+          corrections.add(corrections.removeLast().withNotes(Optional.of(notes(xml))));
           noted = corrections.size() - 1;
         }
         case OpenRallyWriter.SYMBOL -> {
@@ -391,7 +391,7 @@ public final class OpenRallyReader {
             throw new ReadException(ReadError.INVALID);
           }
           final BoxEdit last = corrections.removeLast();
-          corrections.add(last.withNotes(withSymbol(last.notes(), symbol(xml))));
+          corrections.add(last.withNotes(Optional.of(withSymbol(last.notes().orElseThrow(), symbol(xml)))));
         }
         default -> throw new ReadException(ReadError.INVALID);
       }
@@ -582,7 +582,7 @@ public final class OpenRallyReader {
       final OptionalInt typed = heading == null ? OptionalInt.empty() : OptionalInt.of(integer(heading));
       final String display = required(xml.getAttributeValue(null, OpenRallyWriter.DISPLAY));
       try {
-        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display), Optional.empty(), Notes.NONE);
+        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display), Optional.empty(), Optional.empty());
       } catch (DomainException | IllegalArgumentException _) {
         throw new ReadException(ReadError.INVALID);
       }

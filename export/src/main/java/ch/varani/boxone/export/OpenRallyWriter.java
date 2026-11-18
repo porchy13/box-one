@@ -389,7 +389,7 @@ public final class OpenRallyWriter {
     }
     for (final BoxEdit edit : edits.boxes()) {
       final Optional<TulipEdit> tulip = edit.tulip();
-      final boolean content = tulip.isPresent() || !edit.notes().isEmpty();
+      final boolean content = tulip.isPresent() || edit.notes().isPresent();
       if (content) {
         xml.open(BOX_ONE, BOX);
       } else {
@@ -405,8 +405,8 @@ public final class OpenRallyWriter {
         tulip(xml, GENERATED, tulip.get().generated());
         tulip(xml, TULIP, tulip.get().tulip());
       }
-      if (!edit.notes().isEmpty()) {
-        notes(xml, edit.notes());
+      if (edit.notes().isPresent()) {
+        notes(xml, edit.notes().get());
       }
       if (content) {
         xml.close();
@@ -421,7 +421,7 @@ public final class OpenRallyWriter {
    * point.
    *
    * @param xml the writer, inside the correction of a box.
-   * @param notes the notes, not empty.
+   * @param notes the notes typed by the user: {@link Notes#NONE}, an element without attribute, for notes removed.
    *
    * @throws XMLStreamException if the stream cannot be written.
    */

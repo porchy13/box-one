@@ -9,7 +9,9 @@ import ch.varani.boxone.core.Symbol;
 import java.awt.Color;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -66,6 +68,10 @@ final class CatalogueTest {
     assertAll(
         () -> assertEquals("kpL", fia.abbreviations().get(Abbreviation.KEEP_LEFT)),
         () -> assertEquals("FRO", fia.abbreviations().get(Abbreviation.FOLLOW_ROAD)),
+        () -> assertEquals(List.of("DN", "DNX", "DNT", "L1", "L2", "L3"),
+                           Stream.of(Abbreviation.DUNE, Abbreviation.MANY_DUNES, Abbreviation.SMALL_DUNE,
+                                     Abbreviation.DUNES_LEVEL_1, Abbreviation.DUNES_LEVEL_2,
+                                     Abbreviation.DUNES_LEVEL_3).map(fia.abbreviations()::get).toList()),
         () -> assertEquals(Abbreviation.values().length, fia.abbreviations().size()),
         () -> assertEquals(Symbol.values().length, fia.symbols().size()),
         () -> assertTrue(fia.symbols().get(Symbol.BUMP).upright()),

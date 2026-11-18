@@ -173,7 +173,7 @@ final class SmokeTest {
         final Route route = router.route(STATION, CASTLE);
         final Roadbook generated = RoadbookGenerator.generate(route, router.junctions(route));
         final RoadbookEdits edits = RoadbookEdits.NONE.with(new BoxEdit(generated.boxes().getFirst().position())
-                                                                .withNotes(NOTES));
+                                                                .withNotes(Optional.of(NOTES)));
         OpenRallyWriter.save(RoadbookEditor.roadbook(generated, edits), origin, edits,
                              SMOKE_FOLDER,
                              Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE),

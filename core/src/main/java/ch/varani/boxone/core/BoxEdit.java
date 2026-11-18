@@ -12,7 +12,8 @@ import java.util.OptionalInt;
  * changes and still passes there (decision of the maintainer, 2026-11-14). The total distance is corrected by a
  * <i>shift</i> added to the distance computed along the route, which stays right when the start moves; the partial
  * distances follow the totals. The heading typed replaces the heading computed, the tulip corrected the tulip
- * generated, as long as the junction gives the same tulip ({@link TulipEdit}); the notes are those of the box.</p>
+ * generated, as long as the junction gives the same tulip ({@link TulipEdit}); the notes typed replace the notes
+ * generated, those noted from the map included (increment 3b), until the user changes them.</p>
  *
  * <p><b>Preconditions</b>: a place; a finite shift; a heading, when present, between {@value Box#MIN_HEADING} and
  * {@value Box#MAX_HEADING}; a display; a tulip, when present; notes. Otherwise the correction is rejected.</p>
@@ -26,10 +27,10 @@ import java.util.OptionalInt;
  * @param heading the heading typed by the user, in degrees; empty for the heading computed.
  * @param display whether the heading is shown.
  * @param tulip the correction of the tulip; empty for the tulip generated.
- * @param notes the notes of the box; {@link Notes#NONE} for none.
+ * @param notes the notes of the box; empty for the notes generated, {@link Notes#NONE} for none.
  */
 public record BoxEdit(GeoPoint place, double shift, OptionalInt heading, HeadingDisplay display,
-                      Optional<TulipEdit> tulip, Notes notes) {
+                      Optional<TulipEdit> tulip, Optional<Notes> notes) {
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -44,7 +45,7 @@ public record BoxEdit(GeoPoint place, double shift, OptionalInt heading, Heading
    *                {@value Box#MAX_HEADING}, or empty.
    * @param display whether the heading is shown.
    * @param tulip the correction of the tulip, or empty.
-   * @param notes the notes of the box.
+   * @param notes the notes of the box; empty for the notes generated.
    *
    * @throws NullPointerException if the place, the heading, the display, the tulip or the notes are {@code null}.
    * @throws DomainException {@link ValidationError#INVALID_DISTANCE} if the shift is not a finite number,
@@ -72,7 +73,7 @@ public record BoxEdit(GeoPoint place, double shift, OptionalInt heading, Heading
    * @throws NullPointerException if the place is {@code null}.
    */
   public BoxEdit(final GeoPoint place) {
-    this(place, 0, OptionalInt.empty(), HeadingDisplay.RULE, Optional.empty(), Notes.NONE);
+    this(place, 0, OptionalInt.empty(), HeadingDisplay.RULE, Optional.empty(), Optional.empty());
   }
 
   // *******************************************************************************************************************
@@ -81,7 +82,7 @@ public record BoxEdit(GeoPoint place, double shift, OptionalInt heading, Heading
 
   /**
    * Tells whether the correction changes nothing: no shift, the heading computed, shown as the catalogue decides, the
-   * tulip generated, no notes.
+   * tulip and the notes generated.
    *
    * @return {@code true} if the box is left as it was generated.
    */
@@ -158,13 +159,13 @@ public record BoxEdit(GeoPoint place, double shift, OptionalInt heading, Heading
   /**
    * Returns the correction with other notes.
    *
-   * @param newNotes the notes of the box; {@link Notes#NONE} for none.
+   * @param newNotes the notes of the box; empty for the notes generated, {@link Notes#NONE} for none.
    *
    * @return the correction with the new notes.
    *
    * @throws NullPointerException if the notes are {@code null}.
    */
-  public BoxEdit withNotes(final Notes newNotes) {
+  public BoxEdit withNotes(final Optional<Notes> newNotes) {
     return new BoxEdit(place, shift, heading, display, tulip, newNotes);
   }
 

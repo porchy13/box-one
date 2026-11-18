@@ -55,4 +55,24 @@ final class RouterTest {
     assertEquals(0, junction.branches().get(1), TOLERANCE);
   }
 
+  /**
+   * A router without the roads of a map gives no feature of the map along a route.
+   */
+  @Test
+  @DisplayName("Phase 5: a router without map gives no feature")
+  void defaultFeaturesTest() {
+    final Router router = new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+        return new Route(points, List.of(1), 0, Duration.ZERO);
+      }
+
+      @Override
+      public void close() {
+        // Nothing to release.
+      }
+    };
+    assertEquals(List.of(), router.features(router.route(List.of(STATION, EAST, NORTH))));
+  }
+
 }

@@ -434,7 +434,8 @@ final class BoxEditorTest {
   @DisplayName("Phase 5: the notes of a box are shown and changed in its editor, kept with its other corrections")
   void notesTest(final FxRobot robot) throws IOException {
     final Shown shown = show(robot, Optional.of(TURN));
-    final BoxEdit shifted = new BoxEdit(JUNCTION).withShift(1).withNotes(Notes.NONE.withText("BIG ROCKS"));
+    final Notes typed = Notes.NONE.withText("BIG ROCKS");
+    final BoxEdit shifted = new BoxEdit(JUNCTION).withShift(1).withNotes(Optional.of(typed));
     select(robot, shown, JUNCTION_INDEX, shifted);
     final String text = field(shown, NotesEditor.TEXT_ID).getText();
     final boolean symbolsAtJunction = !shown.editor().getNode().lookup("#" + NotesEditor.PLACE_ID).isDisabled();
@@ -446,8 +447,27 @@ final class BoxEditorTest {
         () -> assertEquals("BIG ROCKS", text),
         () -> assertTrue(symbolsAtJunction),
         () -> assertFalse(symbolsAtStart),
-        () -> assertEquals(List.of(shifted.withNotes(shifted.notes().withDanger(Optional.of(Danger.LEVEL_1)))),
+        () -> assertEquals(List.of(shifted.withNotes(Optional.of(typed.withDanger(Optional.of(Danger.LEVEL_1))))),
                            shown.corrections()));
+  }
+
+  /**
+   * Notes changed back to the notes generated are no notes typed: the box keeps the notes generated, those of the map
+   * included (phase 5, increment 3b).
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws IOException never: the tulip can be drawn.
+   */
+  @Test
+  @DisplayName("Phase 5: notes changed back to the notes generated are not kept as notes typed")
+  void generatedNotesTest(final FxRobot robot) throws IOException {
+    final Shown shown = show(robot, Optional.of(TURN));
+    final Notes typed = Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1));
+    select(robot, shown, JUNCTION_INDEX, new BoxEdit(JUNCTION).withNotes(Optional.of(typed)));
+    final ComboBox<?> danger = (ComboBox<?>) shown.editor().getNode().lookup("#" + NotesEditor.DANGER_ID);
+    robot.interact(() -> danger.getSelectionModel().select(0));
+    assertEquals(List.of(new BoxEdit(JUNCTION)), shown.corrections());
   }
 
   /**

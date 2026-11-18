@@ -144,8 +144,9 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   and exported; it is kept while the route crosses the junction the same way (from the same road, to the same road):
   if the route changes there, the tulip read on the map comes back.
 - **Notes**: under the tulip of the box selected, its notes, after the lexicon of the FIA: the danger (none, or one to
-  three exclamation marks, drawn in red in the tulip); the abbreviations of the lexicon (at most 6, added one after the
-  other in the order they are read, the one selected removed), and a line of free text in English (at most 32
+  three exclamation marks, drawn in red in the tulip); the abbreviations of the lexicon, those of the dunes included
+  (at most 6, added one after the other in the order they are read, the one selected removed), and a line of free
+  text in English (at most 32
   characters), written under the heading in the roadbook; the symbols of the lexicon that stand on the road (rail road
   of a level crossing, bump, dip hole, compression, ditch, summit, over or under a bridge, step up or down, fence,
   cattle or wall gate, wading, concrete pass, tunnel, up or down hill, cut danger, crest), before or after the
@@ -155,6 +156,11 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   the mouse, or their position typed in percent from the centre (at the start and at the finish too). The symbols and
   the abbreviations are chosen in lists with a search (case and accents ignored), each symbol drawn beside its name;
   a cross at the end of a line, or Del, removes it.
+- **Notes from the map**: the level crossings (the rail road), the gates and cattle grids (the fence or cattle gate),
+  the tunnels (the tunnel), the bridges the route drives over (over a bridge), the fords (wading) and the places where the route leaves the tarmac for a track (the abbreviation of the track, "P" in the catalogue of
+  the FIA, and a danger of level 1) are noted from the map, in the box of the junction within 50 m of them, before or after it, or in a box of
+  their own; they are changed or removed as the other notes, and "Reset the box" brings them back. A map imported
+  before this feature must be imported again for the level crossings, the barriers and the fords on a node.
 - **Layout**: the roadbook at the left of the map, the editor of the box selected at its right, its tulip at the top
   and its fields in five tabs: Box, Tulip, Symbols, Abbreviations, Notes (the danger and the free text); a symbol or an
   abbreviation is chosen first, the elements of the box listed under the choice. The notes are exported: the danger as the danger of OpenRally, the

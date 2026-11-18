@@ -90,6 +90,18 @@ public enum Abbreviation {
   /** Small, written as text ("SMALL"). */
   SMALL,
   /** Follow, written as text ("FOLLOW"). */
-  FOLLOW
+  FOLLOW,
+  /** A dune ("DN"; decision of the maintainer, 2026-11-18: the abbreviations of the dunes). */
+  DUNE,
+  /** Many dunes ("DNX"). */
+  MANY_DUNES,
+  /** A small dune, French <i>dunette</i> ("DNT"). */
+  SMALL_DUNE,
+  /** Dunes of the difficulty level 1 ("L1"). */
+  DUNES_LEVEL_1,
+  /** Dunes of the difficulty level 2 ("L2"). */
+  DUNES_LEVEL_2,
+  /** Dunes of the difficulty level 3 ("L3"). */
+  DUNES_LEVEL_3
 
 }

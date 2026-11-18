@@ -248,9 +248,8 @@ final class RoadbookEditorTest {
     final Notes notes = Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1))
                                   .withAbbreviations(List.of(Abbreviation.FOLLOW_ROAD))
                                   .withSymbols(List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT)));
-    final List<Box> boxes = RoadbookEditor.roadbook(RoadbookGenerator.generate(route()),
-                                                    RoadbookEdits.NONE.with(new BoxEdit(NORTH).withNotes(notes)))
-                                          .boxes();
+    final RoadbookEdits edits = RoadbookEdits.NONE.with(new BoxEdit(NORTH).withNotes(Optional.of(notes)));
+    final List<Box> boxes = RoadbookEditor.roadbook(RoadbookGenerator.generate(route()), edits).boxes();
     assertAll(
         () -> assertEquals(Notes.NONE, boxes.get(0).notes()),
         () -> assertEquals(notes, boxes.get(1).notes()),

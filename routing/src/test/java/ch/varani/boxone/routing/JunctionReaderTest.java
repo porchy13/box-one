@@ -168,11 +168,11 @@ final class JunctionReaderTest {
    */
   @BeforeAll
   static void importMap() throws URISyntaxException {
-    final GraphHopper hopper = GraphHopperRouter.engine(graph);
+    final GraphHopper hopper = GraphHopperRouter.engine(graph, new FeatureIndex());
     hopper.setOSMFile(Path.of(JunctionReaderTest.class.getResource(MAP).toURI()).toString());
     hopper.setMinNetworkSize(0);
     hopper.importOrLoad();
-    router = new GraphHopperRouter(hopper);
+    router = new GraphHopperRouter(hopper, new FeatureIndex());
   }
 
   /**
@@ -371,12 +371,12 @@ final class JunctionReaderTest {
   @Test
   @DisplayName("Phase 4: a map imported before the surfaces tells the tracks by their class only")
   void noSurfaceTest(@TempDir final Path folder) throws URISyntaxException {
-    final GraphHopper hopper = GraphHopperRouter.engine(folder);
+    final GraphHopper hopper = GraphHopperRouter.engine(folder, new FeatureIndex());
     hopper.setEncodedValuesString(PHASE_3_VALUES);
     hopper.setOSMFile(Path.of(JunctionReaderTest.class.getResource(MAP).toURI()).toString());
     hopper.setMinNetworkSize(0);
     hopper.importOrLoad();
-    try (GraphHopperRouter old = new GraphHopperRouter(hopper)) {
+    try (GraphHopperRouter old = new GraphHopperRouter(hopper, new FeatureIndex())) {
       final Route route = new Route(List.of(B_SOUTH_END, B_CROSSING, B_BEND, B_EAST_END), List.of(1), 0,
                                     Duration.ZERO);
       assertEquals(List.of(BranchKind.TARMAC, BranchKind.TARMAC, BranchKind.TRACK, BranchKind.TARMAC,

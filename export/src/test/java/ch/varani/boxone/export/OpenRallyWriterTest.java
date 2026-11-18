@@ -126,16 +126,18 @@ final class OpenRallyWriterTest {
                                                        BoxSymbol.free(Symbol.CHURCH, new DiagramPoint(0.5, -0.25))));
   /**
    * The changes of the user: a box added at the bend, the box of the junction corrected, a track to the left added to
-   * its tulip, with notes, a text at the finish, a danger at the bend, and the heading of the start hidden.
+   * its tulip, with notes, a text at the finish, a danger at the bend, a heading shown near the finish, and the heading
+   * of the start hidden, its notes removed.
    */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(JUNCTION),
       List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(TYPED_HEADING), HeadingDisplay.SHOWN,
                           Optional.of(new TulipEdit(GENERATED, GENERATED.withBranch(ADDED_LEFT, BranchKind.TRACK))),
-                          NOTES),
-              new BoxEdit(FINISH).withNotes(Notes.NONE.withText(TEXT)),
-              new BoxEdit(BEND).withNotes(Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1))),
-              new BoxEdit(START).withDisplay(HeadingDisplay.HIDDEN)));
+                          Optional.of(NOTES)),
+              new BoxEdit(FINISH).withNotes(Optional.of(Notes.NONE.withText(TEXT))),
+              new BoxEdit(BEND).withNotes(Optional.of(Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1)))),
+              new BoxEdit(CLICKED_FINISH).withDisplay(HeadingDisplay.SHOWN),
+              new BoxEdit(START).withDisplay(HeadingDisplay.HIDDEN).withNotes(Optional.of(Notes.NONE))));
   /** The roadbook of the tests: three boxes on a line of four points. */
   private static final Roadbook ROADBOOK = new Roadbook(
       new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1), LENGTH, Duration.ofMinutes(3)),
@@ -417,7 +419,8 @@ final class OpenRallyWriterTest {
         () -> assertEquals("-90 0 90", tulips.getFirst().getAttribute(OpenRallyWriter.ANGLES)),
         () -> assertEquals("TRACK TARMAC TARMAC", tulips.getFirst().getAttribute(OpenRallyWriter.KINDS)),
         () -> assertEquals("2", tulips.getFirst().getAttribute(OpenRallyWriter.EXIT)),
-        () -> assertFalse(boxes.getLast().hasChildNodes()),
+        () -> assertEquals(boxes.getLast(), boxOne(document, OpenRallyWriter.NOTES).getLast().getParentNode()),
+        () -> assertFalse(boxes.get(boxes.size() - 2).hasChildNodes()),
         () -> assertEquals("0.0", boxes.getLast().getAttribute(OpenRallyWriter.SHIFT)),
         () -> assertFalse(boxes.getLast().hasAttribute(OpenRallyWriter.HEADING)),
         () -> assertEquals("HIDDEN", boxes.getLast().getAttribute(OpenRallyWriter.DISPLAY)),
@@ -426,7 +429,7 @@ final class OpenRallyWriterTest {
 
   /**
    * The corrections of the boxes hold their notes: the danger, the abbreviations and the text as attributes, absent
-   * when empty, then the symbols as elements, their names and their places.
+   * when empty, then the symbols as elements, their names and their places; notes removed are an empty element.
    *
    * @throws Exception if the file cannot be written or read.
    */
@@ -455,8 +458,10 @@ final class OpenRallyWriterTest {
                                    notes.get(1).hasAttribute(OpenRallyWriter.ABBREVIATIONS),
                                    notes.get(1).getAttribute(OpenRallyWriter.TEXT))),
         () -> assertFalse(notes.get(1).hasChildNodes()),
-        () -> assertEquals(List.of("1", false), List.of(notes.getLast().getAttribute(OpenRallyWriter.DANGER),
-                                                        notes.getLast().hasAttribute(OpenRallyWriter.TEXT))));
+        () -> assertEquals(List.of("1", false), List.of(notes.get(2).getAttribute(OpenRallyWriter.DANGER),
+                                                        notes.get(2).hasAttribute(OpenRallyWriter.TEXT))),
+        () -> assertEquals(0, notes.getLast().getAttributes().getLength()),
+        () -> assertFalse(notes.getLast().hasChildNodes()));
   }
 
   /**

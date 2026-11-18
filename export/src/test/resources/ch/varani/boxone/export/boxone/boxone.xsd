@@ -301,6 +301,12 @@
       <xsd:enumeration value="BIG"/>
       <xsd:enumeration value="SMALL"/>
       <xsd:enumeration value="FOLLOW"/>
+      <xsd:enumeration value="DUNE"/>
+      <xsd:enumeration value="MANY_DUNES"/>
+      <xsd:enumeration value="SMALL_DUNE"/>
+      <xsd:enumeration value="DUNES_LEVEL_1"/>
+      <xsd:enumeration value="DUNES_LEVEL_2"/>
+      <xsd:enumeration value="DUNES_LEVEL_3"/>
     </xsd:restriction>
   </xsd:simpleType>
   <xsd:complexType name="tulipType">

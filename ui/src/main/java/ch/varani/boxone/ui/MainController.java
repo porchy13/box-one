@@ -2,6 +2,7 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
 import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.core.RoadFeature;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
@@ -15,6 +16,7 @@ import ch.varani.boxone.export.Origin;
 import ch.varani.boxone.export.ReadError;
 import ch.varani.boxone.export.ReadException;
 import ch.varani.boxone.export.RoadbookFile;
+import ch.varani.boxone.roadbook.FeatureNotes;
 import ch.varani.boxone.roadbook.RoadbookEditor;
 import ch.varani.boxone.roadbook.RoadbookGenerator;
 import ch.varani.boxone.routing.RoadKind;
@@ -919,18 +921,24 @@ final class MainController {
 
   /**
    * Generates the roadbook of a route with the boxes added and removed by the user, the tulips of its junctions read
-   * on the map, if any; the corrections of the boxes are applied to it by {@link RoadbookEditor#roadbook}.
+   * on the map, if any, and the notes of the features of the map along it (phase 5, increment 3b: a box of its own
+   * for a feature far from the junctions, {@link FeatureNotes}); the corrections of the boxes are applied to it by
+   * {@link RoadbookEditor#roadbook}.
    *
    * @param shown the route, as computed or opened.
    * @param changes the changes of the user.
-   * @param on the router of the map, or {@code null} without map: the roadbook has no tulips.
+   * @param on the router of the map, or {@code null} without map: the roadbook has no tulips and no notes.
    *
    * @return the roadbook generated from the route with its boxes added and removed.
    */
   static Roadbook generate(final Route shown, final RoadbookEdits changes, final Router on) {
     final Route changed = RoadbookEditor.route(shown, changes);
-    return on == null ? RoadbookGenerator.generate(changed)
-                      : RoadbookGenerator.generate(changed, on.junctions(changed));
+    if (on == null) {
+      return RoadbookGenerator.generate(changed);
+    }
+    final List<RoadFeature> features = on.features(changed);
+    final Route boxed = FeatureNotes.route(changed, features, changes.removed());
+    return FeatureNotes.noted(RoadbookGenerator.generate(boxed, on.junctions(boxed)), features);
   }
 
   /**

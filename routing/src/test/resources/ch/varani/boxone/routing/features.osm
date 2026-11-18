@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="Box One tests">
+  <!-- A road from the west to the east, then a track, and the features along them -->
+  <node id="1" version="1" lat="46.7000000" lon="6.4000000"/>
+  <node id="2" version="1" lat="46.7000000" lon="6.4020000">
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="3" version="1" lat="46.7000000" lon="6.4050000">
+    <tag k="barrier" v="gate"/>
+  </node>
+  <node id="4" version="1" lat="46.7000000" lon="6.4080000">
+    <tag k="highway" v="give_way"/>
+  </node>
+  <node id="5" version="1" lat="46.7000000" lon="6.4100000"/>
+  <node id="6" version="1" lat="46.7000000" lon="6.4150000">
+    <tag k="barrier" v="cattle_grid"/>
+  </node>
+  <node id="7" version="1" lat="46.7000000" lon="6.4200000"/>
+  <node id="8" version="1" lat="46.7000000" lon="6.4220000"/>
+  <node id="9" version="1" lat="46.7000000" lon="6.4240000"/>
+  <node id="10" version="1" lat="46.7000000" lon="6.4260000"/>
+  <node id="11" version="1" lat="46.7000000" lon="6.4280000"/>
+  <node id="12" version="1" lat="46.7000000" lon="6.4300000">
+    <tag k="ford" v="yes"/>
+  </node>
+  <node id="13" version="1" lat="46.7000000" lon="6.4320000"/>
+  <node id="14" version="1" lat="46.7000000" lon="6.4340000"/>
+  <node id="20" version="1" lat="46.7020000" lon="6.4100000"/>
+  <node id="30" version="1" lat="46.6980000" lon="6.4020000"/>
+  <node id="31" version="1" lat="46.7020000" lon="6.4020000"/>
+  <node id="40" version="1" lat="46.7020000" lon="6.4150000"/>
+  <node id="41" version="1" lat="46.7040000" lon="6.4150000">
+    <tag k="barrier" v="bollard"/>
+  </node>
+  <!-- The tarmac road, through the level crossing and the gate, to the junction -->
+  <way id="1" version="1">
+    <nd ref="1"/>
+    <nd ref="2"/>
+    <nd ref="3"/>
+    <nd ref="4"/>
+    <nd ref="5"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <!-- The track after the junction, through the cattle grid -->
+  <way id="2" version="1">
+    <nd ref="5"/>
+    <nd ref="6"/>
+    <nd ref="7"/>
+    <tag k="highway" v="track"/>
+  </way>
+  <!-- A road to the north at the junction -->
+  <way id="3" version="1">
+    <nd ref="5"/>
+    <nd ref="20"/>
+    <tag k="highway" v="residential"/>
+  </way>
+  <!-- The railway crossed -->
+  <way id="4" version="1">
+    <nd ref="30"/>
+    <nd ref="2"/>
+    <nd ref="31"/>
+    <tag k="railway" v="rail"/>
+  </way>
+  <!-- A footway with a bollard, not noted -->
+  <way id="5" version="1">
+    <nd ref="6"/>
+    <nd ref="40"/>
+    <nd ref="41"/>
+    <tag k="highway" v="footway"/>
+  </way>
+  <!-- A bridge of two ways, a track, a tunnel, a ford on a node, then a ford on the road -->
+  <way id="6" version="1">
+    <nd ref="7"/>
+    <nd ref="8"/>
+    <tag k="highway" v="track"/>
+    <tag k="bridge" v="yes"/>
+  </way>
+  <way id="7" version="1">
+    <nd ref="8"/>
+    <nd ref="9"/>
+    <tag k="highway" v="track"/>
+    <tag k="bridge" v="yes"/>
+  </way>
+  <way id="8" version="1">
+    <nd ref="9"/>
+    <nd ref="10"/>
+    <tag k="highway" v="track"/>
+  </way>
+  <way id="9" version="1">
+    <nd ref="10"/>
+    <nd ref="11"/>
+    <tag k="highway" v="track"/>
+    <tag k="tunnel" v="yes"/>
+  </way>
+  <way id="10" version="1">
+    <nd ref="11"/>
+    <nd ref="12"/>
+    <nd ref="13"/>
+    <tag k="highway" v="track"/>
+  </way>
+  <way id="11" version="1">
+    <nd ref="13"/>
+    <nd ref="14"/>
+    <tag k="highway" v="track"/>
+    <tag k="ford" v="yes"/>
+  </way>
+</osm>

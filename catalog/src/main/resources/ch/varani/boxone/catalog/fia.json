@@ -72,7 +72,13 @@
     "BETWEEN": "BTW",
     "BIG": "BIG",
     "SMALL": "SMALL",
-    "FOLLOW": "FOLLOW"
+    "FOLLOW": "FOLLOW",
+    "DUNE": "DN",
+    "MANY_DUNES": "DNX",
+    "SMALL_DUNE": "DNT",
+    "DUNES_LEVEL_1": "L1",
+    "DUNES_LEVEL_2": "L2",
+    "DUNES_LEVEL_3": "L3"
   },
   "symbols": {
     "RAIL_ROAD": {

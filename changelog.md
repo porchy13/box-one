@@ -85,6 +85,15 @@ All notable changes of the project are documented in this file.
   Notes; in Symbols and Abbreviations, the choice first, the elements of the box under it. The notes are shown in the roadbook, exported for Terra Pirata (the danger,
   the tulip with its symbols, the description as an image) and kept with the roadbook when it is saved and opened
   again. Each change can be undone.
+- **Notes from the map**: the level crossings, the gates and cattle grids, the tunnels, the bridges, the fords, and the
+  places where the route leaves the tarmac for a track are noted in the roadbook from the map: the rail road, the gate
+  or the cattle gate, the tunnel, over a bridge or wading on the road,
+  and the abbreviation of the track with a danger of level 1, in the box of the junction within 50 m of them, or in a
+  box of their own. They
+  are changed and removed as the other notes, and "Reset the box" brings them back; a box of a feature removed by the
+  user stays removed. The map must be imported again (File › Open a map…) for the level crossings and the barriers.
+- **Abbreviations of the dunes**: the abbreviations of the dunes of the lexicon of the FIA, DN (dune), DNX (many
+  dunes), DNT (small dune) and L1 to L3 (difficulty level of the dunes), among the abbreviations of a box.
 - **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the
   start and the finish are moved by dragging their marker, or by the context menu of the map (right-click, "Place the
   start here", "Place the finish here"); the start or the finish of a detour moved generates the detour again, with

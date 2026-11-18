@@ -285,7 +285,7 @@ final class GraphHopperRouterTest {
    * @return the middle of the first segment of the first road matching, inside the road.
    */
   private static GeoPoint pillar(final BiPredicate<RoadAccess, RoadClass> kind) {
-    final GraphHopper hopper = GraphHopperRouter.engine(graph);
+    final GraphHopper hopper = GraphHopperRouter.engine(graph, new FeatureIndex());
     try {
       assertTrue(hopper.load());
       final EnumEncodedValue<RoadAccess> access = hopper.getEncodingManager()
@@ -513,11 +513,11 @@ final class GraphHopperRouterTest {
   @Test
   @DisplayName("Issue #11: a map imported before the toll roads must be imported again to forbid them")
   void outdatedTest(@TempDir final Path folder) throws URISyntaxException {
-    final GraphHopper hopper = GraphHopperRouter.engine(folder);
+    final GraphHopper hopper = GraphHopperRouter.engine(folder, new FeatureIndex());
     hopper.setEncodedValuesString(PHASE_3_VALUES);
     hopper.setOSMFile(kindsMap().toString());
     hopper.importOrLoad();
-    try (GraphHopperRouter outdated = new GraphHopperRouter(hopper)) {
+    try (GraphHopperRouter outdated = new GraphHopperRouter(hopper, new FeatureIndex())) {
       final List<GeoPoint> toll = row(RoadKind.TOLL);
       final Set<RoadKind> tolls = Set.of(RoadKind.TOLL);
       assertAll(

@@ -39,7 +39,7 @@ final class BoxEditTest {
   private static final Optional<TulipEdit> TULIP = Optional.of(new TulipEdit(STRAIGHT, STRAIGHT.withBranch(
       90, BranchKind.TRACK)));
   /** The notes of the box: a danger of level 1. */
-  private static final Notes NOTES = Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1));
+  private static final Optional<Notes> NOTES = Optional.of(Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1)));
 
   /**
    * A correction keeps its values, and changes one of them at a time.
@@ -61,7 +61,8 @@ final class BoxEditTest {
   }
 
   /**
-   * A correction without shift, heading nor display changes nothing; any of them changes the box.
+   * A correction without shift, heading, display, tulip nor notes typed changes nothing; any of them changes the box,
+   * notes removed included (the notes generated, those of the map, are then taken away).
    */
   @Test
   @DisplayName("Phase 5: a correction changes nothing without shift, heading typed, display chosen, tulip nor notes")
@@ -74,7 +75,9 @@ final class BoxEditTest {
         () -> assertFalse(none.withDisplay(HeadingDisplay.HIDDEN).isEmpty()),
         () -> assertFalse(none.withTulip(TULIP).isEmpty()),
         () -> assertTrue(none.withTulip(TULIP).withTulip(Optional.empty()).isEmpty()),
-        () -> assertFalse(none.withNotes(NOTES).isEmpty()));
+        () -> assertFalse(none.withNotes(NOTES).isEmpty()),
+        () -> assertFalse(none.withNotes(Optional.of(Notes.NONE)).isEmpty()),
+        () -> assertTrue(none.withNotes(NOTES).withNotes(Optional.empty()).isEmpty()));
   }
 
   /**
