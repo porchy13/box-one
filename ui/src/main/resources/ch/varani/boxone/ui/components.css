@@ -202,6 +202,14 @@
     -fx-border-width: 0 0 1 0;
 }
 
+/* A box of a speed zone (phase 5, increment 5): framed in orange (FIA, Appendix III, §5.9.1); the frame of the box
+   selected prevails. */
+.roadbook-strip .box-paper.speed-zone {
+    -fx-border-color: -c-wp-orange;
+    -fx-border-width: 2;
+    -fx-padding: 6 10 7 10;
+}
+
 .roadbook-strip .box-cell:selected .box-paper {
     -fx-border-color: -c-accent;
     -fx-border-width: 3;
@@ -253,6 +261,19 @@
 
 .roadbook-strip .box-waypoint.waypoint-wpe {
     -fx-background-color: -c-ink, -c-wp-blue;
+}
+
+/* The start of a speed zone in orange, its finish in green (§5.9.2), their two letters smaller. */
+.roadbook-strip .box-waypoint.waypoint-dz, .roadbook-strip .box-waypoint.waypoint-fz {
+    -fx-font-size: 0.69em;
+}
+
+.roadbook-strip .box-waypoint.waypoint-dz {
+    -fx-background-color: -c-ink, -c-wp-orange;
+}
+
+.roadbook-strip .box-waypoint.waypoint-fz {
+    -fx-background-color: -c-ink, -c-wp-green;
 }
 
 .roadbook-strip .box-waypoint.waypoint-wpn {

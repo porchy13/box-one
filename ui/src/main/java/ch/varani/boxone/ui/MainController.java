@@ -626,13 +626,15 @@ final class MainController {
   /**
    * Places a waypoint where the user asked it, by the context menu of the map (phase 5, increment 4; decision of the
    * maintainer, 2026-11-18): on the box of the roadbook within {@value RoadbookEditor#NEAR_ROUTE} m of the nearest
-   * point of the route shown, the nearest one, or on a box added there; a masked waypoint (WPM) with the radii of the
-   * FIA, its kind and its radii then chosen in the editor of the box, which is selected. A place far from the route is
-   * said in the status bar.
+   * point of the route shown, the nearest one, or on a box added there; a masked waypoint (WPM), or the start (DZ, at
+   * {@value Waypoint#DEFAULT_SPEED} km/h) or the finish (FZ) of a speed zone (increment 5; decision of the maintainer,
+   * 2026-11-19), with the radii of the FIA, its kind, its radii and its speed then chosen in the editor of the box,
+   * which is selected. A place far from the route is said in the status bar.
    *
+   * @param kind the kind of the waypoint.
    * @param place the place asked.
    */
-  private void addWaypoint(final GeoPoint place) {
+  private void addWaypoint(final WaypointKind kind, final GeoPoint place) {
     final Optional<GeoPoint> onRoute = RoadbookEditor.project(route, place);
     if (onRoute.isEmpty()) {
       setStatus(ADD_FAR);
@@ -644,7 +646,7 @@ final class MainController {
     final GeoPoint at = near.orElse(onRoute.get());
     final RoadbookEdits changed = near.isPresent() ? edits : edits.withAdded(at);
     changeEdits(changed.with(changed.edit(at).orElse(new BoxEdit(at))
-                                    .withWaypoint(Optional.of(Waypoint.of(WaypointKind.WPM)))), at);
+                                    .withWaypoint(Optional.of(Waypoint.of(kind)))), at);
   }
 
   /**

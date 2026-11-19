@@ -2,6 +2,7 @@ package ch.varani.boxone.ui;
 
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.WaypointKind;
 import ch.varani.boxone.ui.map.MapBridge;
 import javafx.concurrent.Worker;
 import javafx.geometry.Point2D;
@@ -11,6 +12,7 @@ import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import netscape.javascript.JSObject;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
@@ -65,6 +67,10 @@ final class MapView {
   static final String ADD_BOX = "map.addBox";
   /** The key of the item of the context menu placing a waypoint on the route (phase 5, increment 4). */
   static final String ADD_WAYPOINT = "map.addWaypoint";
+  /** The key of the item of the context menu placing the start of a speed zone on the route (increment 5). */
+  static final String START_ZONE = "map.startZone";
+  /** The key of the item of the context menu placing the finish of a speed zone on the route (increment 5). */
+  static final String FINISH_ZONE = "map.finishZone";
   /** The kind of the marker of the start, for the page. */
   private static final String START_KIND = "start";
   /** The kind of the marker of the finish, for the page. */
@@ -92,8 +98,8 @@ final class MapView {
   private final ContextMenu menu = new ContextMenu();
   /** The item of the context menu adding a box, enabled while a route is shown. */
   private final MenuItem addBox = new MenuItem();
-  /** The item of the context menu placing a waypoint, enabled while a route is shown. */
-  private final MenuItem addWaypoint = new MenuItem();
+  /** The items of the context menu placing a waypoint, a start or a finish of a speed zone, enabled with a route. */
+  private final List<MenuItem> waypointItems;
   /** The place where the context menu was asked, or {@code null} before the first one. */
   private GeoPoint menuPlace;
   /** The tiles of the background map, or {@code null} before the first ones. */
@@ -125,12 +131,13 @@ final class MapView {
    * @param moves receives the start or the finish moved by the user, its marker dropped or by the context menu, and its
    *              new place.
    * @param adds receives the place where the user adds a box, by the context menu.
-   * @param waypoints receives the place where the user places a waypoint, by the context menu.
+   * @param waypoints receives the kind and the place of a waypoint placed by the user, by the context menu: a WPM, or
+   *                  the start (DZ) or the finish (FZ) of a speed zone.
    * @param boxMoves receives the place where the user drops the box selected, dragged along the route.
    */
   MapView(final ResourceBundle texts, final Consumer<GeoPoint> clicks,
           final BiConsumer<Itinerary.End, GeoPoint> moves, final Consumer<GeoPoint> adds,
-          final Consumer<GeoPoint> waypoints, final Consumer<GeoPoint> boxMoves) {
+          final BiConsumer<WaypointKind, GeoPoint> waypoints, final Consumer<GeoPoint> boxMoves) {
     this.texts = texts;
     this.bridge = new MapBridge(clicks, place -> moves.accept(Itinerary.End.START, place),
                                 place -> moves.accept(Itinerary.End.FINISH, place), this::showMenu, boxMoves);
@@ -141,9 +148,11 @@ final class MapView {
     placeFinish.setOnAction(event -> moves.accept(Itinerary.End.FINISH, menuPlace));
     addBox.setText(texts.getString(ADD_BOX));
     addBox.setOnAction(event -> adds.accept(menuPlace));
-    addWaypoint.setText(texts.getString(ADD_WAYPOINT));
-    addWaypoint.setOnAction(event -> waypoints.accept(menuPlace));
-    menu.getItems().setAll(placeStart, placeFinish, addBox, addWaypoint);
+    waypointItems = List.of(waypointItem(ADD_WAYPOINT, WaypointKind.WPM, waypoints),
+                            waypointItem(START_ZONE, WaypointKind.DZ, waypoints),
+                            waypointItem(FINISH_ZONE, WaypointKind.FZ, waypoints));
+    menu.getItems().setAll(placeStart, placeFinish, addBox);
+    menu.getItems().addAll(waypointItems);
     final WebEngine engine = view.getEngine();
     engine.getLoadWorker().stateProperty().addListener((property, before, after) -> {
       if (after == Worker.State.SUCCEEDED) {
@@ -283,6 +292,22 @@ final class MapView {
   // *******************************************************************************************************************
 
   /**
+   * Creates an item of the context menu placing a waypoint where the menu was asked.
+   *
+   * @param key the key of the text of the item.
+   * @param kind the kind of the waypoint placed.
+   * @param waypoints receives the kind and the place of the waypoint.
+   *
+   * @return the item.
+   */
+  private MenuItem waypointItem(final String key, final WaypointKind kind,
+                                final BiConsumer<WaypointKind, GeoPoint> waypoints) {
+    final MenuItem item = new MenuItem(texts.getString(key));
+    item.setOnAction(event -> waypoints.accept(kind, menuPlace));
+    return item;
+  }
+
+  /**
    * Shows the context menu of a place of the map, where the pointer is; a box can be added while a route is shown.
    *
    * @param place the place.
@@ -291,7 +316,7 @@ final class MapView {
   private void showMenu(final GeoPoint place, final Point2D position) {
     menuPlace = place;
     addBox.setDisable(route == null && detour == null);
-    addWaypoint.setDisable(addBox.isDisable());
+    waypointItems.forEach(item -> item.setDisable(addBox.isDisable()));
     menu.hide();
     final Point2D screen = view.localToScreen(position);
     menu.show(view, screen.getX(), screen.getY());

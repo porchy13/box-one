@@ -48,6 +48,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(ApplicationExtension.class)
 final class MainControllerEditorTest {
 
+  /** The waypoints placed by the context menu of the map in the test of the waypoints: two WPM and a DZ. */
+  private static final int WAYPOINTS_PLACED = 3;
   /** The rank of the item "Add a box here" in the context menu of the map; "Add a waypoint here" follows it. */
   private static final int ADD_BOX_ITEM = 2;
   /** The latitude of the station of Yverdon-les-Bains. */
@@ -261,7 +263,8 @@ final class MainControllerEditorTest {
   /**
    * "Add a waypoint here" places a masked waypoint on a box added where the user right-clicks near the route, away
    * from the boxes, and selects it; near a box, on that box, without adding one; far from the route, the status bar
-   * says so. The waypoints are in the roadbook exported.
+   * says so; "Start a speed zone here" places a DZ, framed in the strip, a DZ on the box with a WPM replacing it, and a
+   * DZ after it finishing its zone. The waypoints are in the roadbook exported.
    *
    * @param robot the TestFX robot.
    *
@@ -291,6 +294,12 @@ final class MainControllerEditorTest {
     robot.interact(MapPages.menu().getItems().get(ADD_BOX_ITEM + 1)::fire);
     final String far = text(robot, window, "status");
     robot.interact(MapPages.menu()::hide);
+    MapPages.contextMenu(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(MapPages.menu().getItems().get(ADD_BOX_ITEM + 2)::fire);
+    robot.interact(background::runAll);
+    MapPages.contextMenu(robot, view, HALFWAY_LATITUDE, NEAR_LONGITUDE);
+    robot.interact(MapPages.menu().getItems().get(ADD_BOX_ITEM + 2)::fire);
+    robot.interact(background::runAll);
     fire(robot, window, "saveAsItem");
     robot.interact(background::runAll);
     final List<Optional<WaypointKind>> kinds = boxes.getItems().stream()
@@ -301,9 +310,11 @@ final class MainControllerEditorTest {
         () -> assertEquals(TURNING_BOXES + 1, boxes.getItems().size()),
         () -> assertEquals(TEXTS.getString(MainController.ADD_FAR), far),
         () -> assertEquals(Optional.of(WaypointKind.WPM), kinds.getFirst()),
-        () -> assertEquals(Optional.of(WaypointKind.WPM), kinds.get(1)),
-        () -> assertEquals(Optional.empty(), kinds.getLast()),
-        () -> assertEquals(2, OpenRallyReader.read(file).edits().boxes().stream()
+        () -> assertEquals(Optional.of(WaypointKind.DZ), kinds.get(1)),
+        () -> assertEquals(Optional.of(WaypointKind.DZ), kinds.getLast()),
+        () -> assertTrue(((BoxRow) boxes.getItems().getLast()).sign().isPresent()),
+        () -> assertTrue(((BoxRow) boxes.getItems().getLast()).zone().orElseThrow().finished().isPresent()),
+        () -> assertEquals(WAYPOINTS_PLACED, OpenRallyReader.read(file).edits().boxes().stream()
             .filter(edit -> edit.waypoint().isPresent()).count()));
   }
 

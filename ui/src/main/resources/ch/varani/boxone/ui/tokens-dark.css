@@ -15,5 +15,8 @@
     -c-wp-blue: #1E50C8;
     -c-wp-red: #E3262B;
     -c-wp-yellow: #FFD400;
+    /* The circles of the speed zones and their frame (§5.9.1 and §5.9.2), as the zones of the catalogue of the FIA. */
+    -c-wp-orange: #F39200;
+    -c-wp-green: #3AAA35;
     -c-shadow: rgba(0, 0, 0, 0.40);
 }

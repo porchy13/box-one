@@ -109,6 +109,7 @@ final class CatalogueReaderTest {
                           "notes.danger=red", "notes.text=-", "notes.mark=M 0", "notes.markGap=60",
                           "notes.margin=0", "notes.beside=150",
                           "notes.symbolScale=0.5", "notes.symbolScale=5", "notes.font=300", "notes.minFont=40",
+                          "notes.zone=-", "notes.sign=150", "notes.ring=30",
                           ".abbreviations=[]",
                           ".symbols=-", "abbreviations.FOLLOW_ROAD=-", "abbreviations.FOLLOW_ROAD=\" \"",
                           "abbreviations.FOLLOW_ROAD=ABCDEFGHIJKLMNOPQ", "abbreviations.UNKNOWN=U", "symbols.BUMP=-",

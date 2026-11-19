@@ -14,7 +14,11 @@ import java.util.Objects;
  * (decision of the maintainer, 2026-11-17: larger symbols); a symbol drawn upright stands {@code beside} the road, from
  * its line to its centre. The
  * description is written in the colour {@code text}, in a bold sans-serif font of {@code font} pixels at most, smaller
- * down to {@code minFont} pixels if it does not fit in the image, which has the size of the image of the tulip.</p>
+ * down to {@code minFont} pixels if it does not fit in the image, which has the size of the image of the tulip. The
+ * speed limit of a speed zone (phase 5, increment 5; FIA, 2026 Cross-Country Rally Sporting Regulations, Appendix III,
+ * §5.9.5 and §5.13) is drawn in the description as a sign: a disc of {@code sign} pixels across, on the background of
+ * the tulips, ringed in the colour {@code zone} by a ring {@code ring} pixels wide, the speed in it in the colour of
+ * the text; struck out at the finish of the zone, by a line half as wide as the ring, in the colour of the text.</p>
  *
  * <p><b>Preconditions</b>, checked by the reader of the catalogues: positive, finite lengths, the smallest font not
  * larger than the largest; a mark that is a valid path ({@link SvgPath}).</p>
@@ -30,9 +34,12 @@ import java.util.Objects;
  * @param text the colour of the description.
  * @param font the size of the font of the description, in pixels, when it fits.
  * @param minFont the smallest size of the font of the description, in pixels.
+ * @param zone the colour of the ring of the sign of a speed limit.
+ * @param sign the diameter of the sign of a speed limit, in pixels.
+ * @param ring the width of the ring of the sign of a speed limit, in pixels.
  */
 public record NoteStyle(Color danger, String mark, double markGap, double margin, double beside, double symbolScale,
-                        Color text, double font, double minFont) {
+                        Color text, double font, double minFont, Color zone, double sign, double ring) {
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -50,6 +57,9 @@ public record NoteStyle(Color danger, String mark, double markGap, double margin
    * @param text the colour of the description.
    * @param font the size of the font of the description, in pixels.
    * @param minFont the smallest size of the font of the description, in pixels.
+   * @param zone the colour of the ring of the sign of a speed limit.
+   * @param sign the diameter of the sign of a speed limit, in pixels.
+   * @param ring the width of the ring of the sign of a speed limit, in pixels.
    *
    * @throws NullPointerException if a colour or the mark is {@code null}.
    */
@@ -57,6 +67,7 @@ public record NoteStyle(Color danger, String mark, double markGap, double margin
     Objects.requireNonNull(danger);
     Objects.requireNonNull(mark);
     Objects.requireNonNull(text);
+    Objects.requireNonNull(zone);
   }
 
 }

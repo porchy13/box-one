@@ -35,7 +35,8 @@ import java.util.regex.Pattern;
  *   <li>{@code notes}: an object of the colours {@code danger} and {@code text}, the SVG path {@code mark}, the lengths
  *       {@code markGap}, {@code margin} (positive, at most a quarter of the size of the tulip), {@code beside} (at most
  *       half of it), the scale {@code symbolScale} ({@value #MIN_SCALE} to {@value #MAX_SCALE}), {@code font} (at
- *       most the size) and {@code minFont} (at most the font) — {@link NoteStyle};</li>
+ *       most the size) and {@code minFont} (at most the font), the colour {@code zone}, the lengths {@code sign} (at
+ *       most half the size) and {@code ring} (at most a quarter of the sign) — {@link NoteStyle};</li>
  *   <li>{@code abbreviations}: an object giving the text of each {@link Abbreviation}, by its name, at most
  *       {@value #MAX_ABBREVIATION} characters, none missing nor unknown;</li>
  *   <li>{@code symbols}: an object giving the drawing of each {@link Symbol}, by its name, none missing nor unknown: an
@@ -183,9 +184,11 @@ final class CatalogueReader {
     final String mark = text(node, "mark");
     SvgPath.parse(mark);
     final double font = number(node, "font", size);
+    final double sign = number(node, "sign", size / 2.0);
     return new NoteStyle(colour(node, "danger"), mark, number(node, "markGap", width), number(node, "margin", width),
                          number(node, "beside", size / 2.0), symbolScale(node), colour(node, "text"), font,
-                         number(node, "minFont", font));
+                         number(node, "minFont", font), colour(node, "zone"), sign,
+                         number(node, "ring", sign / WIDTHS_PER_SIDE));
   }
 
   /**

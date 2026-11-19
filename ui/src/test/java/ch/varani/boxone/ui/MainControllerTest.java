@@ -1005,7 +1005,9 @@ final class MainControllerTest {
     assertAll(
         () -> assertTrue(showing),
         () -> assertEquals(List.of(TEXTS.getString(MapView.PLACE_START), TEXTS.getString(MapView.PLACE_FINISH),
-                                   TEXTS.getString(MapView.ADD_BOX), TEXTS.getString(MapView.ADD_WAYPOINT)), labels),
+                                   TEXTS.getString(MapView.ADD_BOX), TEXTS.getString(MapView.ADD_WAYPOINT),
+                                   TEXTS.getString(MapView.START_ZONE), TEXTS.getString(MapView.FINISH_ZONE)),
+                           labels),
         () -> assertTrue(addDisabled),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_START), finish),
         () -> assertEquals(TEXTS.getString(MainController.STATUS_ROUTING), routing),

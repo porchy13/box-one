@@ -18,14 +18,16 @@ import java.util.function.Consumer;
 /**
  * The editor of the waypoint of the box selected, in the tab Box of {@link BoxEditor} (development plan, phase 5,
  * increment 4; decisions of the maintainer, 2026-11-18: the seven waypoints of the FIA, their radii those of the FIA,
- * changed by the user).
+ * changed by the user; increment 5, decision of the maintainer, 2026-11-19: the start and the finish of a speed zone,
+ * DZ and FZ, the DZ with its speed limit).
  *
  * <p>The kind is chosen in a list (none, then the kinds of {@link WaypointKind}): a kind chosen gives the waypoint with
  * the radii of the FIA (§43.1.6), "none" gives no waypoint placed (the box keeps the waypoint generated: a WPS for a
  * danger of level 3). The radius of opening (empty for none) and the radius of validation, in whole metres, are
  * applied when Enter is pressed or when their field loses the focus; a radius beyond the bounds of {@link Waypoint}
  * marks its field and is not applied; a value that does not change the waypoint is not applied. Each caption gives
- * the radius of the FIA for the kind.</p>
+ * the radius of the FIA for the kind. The speed limit of a DZ, in whole km/h, is applied likewise; its field is
+ * disabled for the other kinds.</p>
  *
  * <p>Confined to the JavaFX Application Thread.</p>
  */
@@ -59,6 +61,14 @@ final class WaypointEditor {
   static final String OPEN_ID = "waypointOpen";
   /** The identifier of the field of the radius of validation. */
   static final String CLEAR_ID = "waypointClear";
+  /** The key of the label of the speed limit. */
+  static final String SPEED_LABEL = "waypoint.speed";
+  /** The key of the caption of the speed limit, with its bounds. */
+  static final String SPEED_HINT = "waypoint.speedHint";
+  /** The key of the caption of a speed limit that is not valid. */
+  static final String SPEED_ERROR = "waypoint.speedError";
+  /** The identifier of the field of the speed limit. */
+  static final String SPEED_ID = "waypointSpeed";
   /** The style class of a field whose value is not valid. */
   private static final String INVALID = "invalid";
   /** The style class of a caption that tells an error. */
@@ -88,6 +98,10 @@ final class WaypointEditor {
   private final TextField clear = new TextField();
   /** The caption of the radius of validation. */
   private final Label clearHint = new Label();
+  /** The speed limit of a DZ, in km/h; empty for the other kinds. */
+  private final TextField speed = new TextField();
+  /** The caption of the speed limit. */
+  private final Label speedHint = new Label();
   /** The waypoint of the box shown, or empty. */
   private Optional<Waypoint> shown = Optional.empty();
   /** Whether the editor is being filled with a box: its changes are not the user's. */
@@ -111,27 +125,25 @@ final class WaypointEditor {
     kind.setId(KIND_ID);
     open.setId(OPEN_ID);
     clear.setId(CLEAR_ID);
+    speed.setId(SPEED_ID);
     kind.getItems().add(texts.getString(NONE));
     for (final WaypointKind each : WaypointKind.values()) {
       kind.getItems().add(texts.getString(KIND_KEYS + each.name()));
     }
     kind.setMaxWidth(Double.MAX_VALUE);
     box.getChildren().addAll(label(KIND_LABEL, kind), kind, caption(kindHint), label(OPEN_LABEL, open), open,
-                             caption(openHint), label(CLEAR_LABEL, clear), clear, caption(clearHint));
+                             caption(openHint), label(CLEAR_LABEL, clear), clear, caption(clearHint),
+                             label(SPEED_LABEL, speed), speed, caption(speedHint));
     box.getStyleClass().add("form");
     kind.getSelectionModel().selectedIndexProperty().addListener((property, before, index) -> applyKind());
-    open.setOnAction(event -> applyRadii());
-    clear.setOnAction(event -> applyRadii());
-    open.focusedProperty().addListener((_, _, _) -> {
-      if (!open.isFocused()) {
-        applyRadii();
-      }
-    });
-    clear.focusedProperty().addListener((_, _, _) -> {
-      if (!clear.isFocused()) {
-        applyRadii();
-      }
-    });
+    for (final TextField field : new TextField[] {open, clear, speed}) {
+      field.setOnAction(event -> applyValues());
+      field.focusedProperty().addListener((_, _, _) -> {
+        if (!field.isFocused()) {
+          applyValues();
+        }
+      });
+    }
     show(Optional.empty());
   }
 
@@ -155,7 +167,8 @@ final class WaypointEditor {
   /**
    * Shows the waypoint of a box.
    *
-   * @param waypoint the waypoint of the box, or empty: the radii are then disabled.
+   * @param waypoint the waypoint of the box, or empty: the radii are then disabled; the speed limit is disabled but
+   *                 for a DZ.
    */
   void show(final Optional<Waypoint> waypoint) {
     filling = true;
@@ -164,10 +177,14 @@ final class WaypointEditor {
     kindHint.setText(waypoint.isEmpty() ? texts.getString(KIND_HINT) : "");
     open.setText(waypoint.flatMap(placed -> boxed(placed.open())).map(String::valueOf).orElse(""));
     clear.setText(waypoint.map(placed -> String.valueOf(placed.clear())).orElse(""));
+    speed.setText(waypoint.flatMap(placed -> boxed(placed.speed())).map(String::valueOf).orElse(""));
     open.setDisable(waypoint.isEmpty());
     clear.setDisable(waypoint.isEmpty());
-    mark(open, openHint, false, waypoint.map(placed -> hint(placed.kind().open())).orElse(""));
-    mark(clear, clearHint, false, waypoint.map(placed -> hint(OptionalInt.of(placed.kind().clear()))).orElse(""));
+    speed.setDisable(waypoint.filter(placed -> placed.kind().hasSpeed()).isEmpty());
+    mark(open, openHint, false, waypoint.map(placed -> hint(placed.kind().open())).orElse(""), ERROR_TEXT);
+    mark(clear, clearHint, false, waypoint.map(placed -> hint(OptionalInt.of(placed.kind().clear()))).orElse(""),
+         ERROR_TEXT);
+    mark(speed, speedHint, false, speed.isDisable() ? "" : texts.getString(SPEED_HINT), SPEED_ERROR);
     filling = false;
   }
 
@@ -182,14 +199,15 @@ final class WaypointEditor {
     final int index = kind.getSelectionModel().getSelectedIndex();
     final Optional<Waypoint> chosen = index == 0 ? Optional.empty()
                                                  : Optional.of(Waypoint.of(WaypointKind.values()[index - 1]));
-    shown = chosen;
     applies.accept(chosen);
+    show(chosen);
   }
 
   /**
-   * Applies the radii typed, if they are valid and change the waypoint; otherwise marks the field that is not valid.
+   * Applies the radii and the speed limit typed, if they are valid and change the waypoint; otherwise marks the fields
+   * that are not valid.
    */
-  private void applyRadii() {
+  private void applyValues() {
     if (shown.isEmpty()) {
       return;
     }
@@ -197,12 +215,17 @@ final class WaypointEditor {
                                                                    : radius(open.getText()).map(OptionalInt::of);
     final Optional<Integer> validation = radius(clear.getText());
     final WaypointKind current = shown.get().kind();
-    mark(open, openHint, opening.isEmpty(), hint(current.open()));
-    mark(clear, clearHint, validation.isEmpty(), hint(OptionalInt.of(current.clear())));
-    if (opening.isEmpty() || validation.isEmpty()) {
+    final Optional<OptionalInt> limit = current.hasSpeed() ? speed(speed.getText()).map(OptionalInt::of)
+                                                           : Optional.of(OptionalInt.empty());
+    mark(open, openHint, opening.isEmpty(), hint(current.open()), ERROR_TEXT);
+    mark(clear, clearHint, validation.isEmpty(), hint(OptionalInt.of(current.clear())), ERROR_TEXT);
+    if (current.hasSpeed()) {
+      mark(speed, speedHint, limit.isEmpty(), texts.getString(SPEED_HINT), SPEED_ERROR);
+    }
+    if (opening.isEmpty() || validation.isEmpty() || limit.isEmpty()) {
       return;
     }
-    final Waypoint typed = new Waypoint(current, opening.get(), validation.get());
+    final Waypoint typed = new Waypoint(current, opening.get(), validation.get(), limit.get());
     if (!typed.equals(shown.get())) {
       shown = Optional.of(typed);
       applies.accept(shown);
@@ -220,6 +243,22 @@ final class WaypointEditor {
     try {
       final int metres = Integer.parseInt(text.strip());
       return Waypoint.isRadius(metres) ? Optional.of(metres) : Optional.empty();
+    } catch (NumberFormatException _) {
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Reads a speed limit typed.
+   *
+   * @param text the text of the field.
+   *
+   * @return the speed, in km/h, or empty if the text is not a whole number within the bounds of {@link Waypoint}.
+   */
+  static Optional<Integer> speed(final String text) {
+    try {
+      final int kilometresPerHour = Integer.parseInt(text.strip());
+      return Waypoint.isSpeed(kilometresPerHour) ? Optional.of(kilometresPerHour) : Optional.empty();
     } catch (NumberFormatException _) {
       return Optional.empty();
     }
@@ -245,15 +284,17 @@ final class WaypointEditor {
    * @param caption its caption.
    * @param invalid whether the value of the field is invalid.
    * @param hint the caption of the field when it is valid.
+   * @param error the key of the caption of the field when it is invalid.
    */
-  private void mark(final TextField field, final Label caption, final boolean invalid, final String hint) {
+  private void mark(final TextField field, final Label caption, final boolean invalid, final String hint,
+                    final String error) {
     field.getStyleClass().remove(INVALID);
     caption.getStyleClass().remove(ERROR);
     caption.setText(hint);
     if (invalid) {
       field.getStyleClass().add(INVALID);
       caption.getStyleClass().add(ERROR);
-      caption.setText(texts.getString(ERROR_TEXT));
+      caption.setText(texts.getString(error));
     }
   }
 

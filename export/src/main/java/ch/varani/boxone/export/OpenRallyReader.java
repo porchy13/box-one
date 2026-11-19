@@ -408,22 +408,26 @@ public final class OpenRallyReader {
 
     /**
      * Reads the waypoint of the correction of a box (phase 5, increment 4): its kind, its radius of opening, if it has
-     * one, and its radius of validation.
+     * one, its radius of validation and, for the start of a speed zone (increment 5), its speed limit.
      *
      * @param xml the parser, on the start of the element of the waypoint.
      *
      * @return the waypoint.
      *
      * @throws ReadException if a value is missing or invalid: a kind that is not one of {@link WaypointKind}, a radius
-     *                       that is not a whole number of metres within the bounds of {@link Waypoint}.
+     *                       that is not a whole number of metres within the bounds of {@link Waypoint}, a speed that is
+     *                       not a whole number of km/h within its bounds, missing for a DZ or present for another
+     *                       kind.
      */
     private static Waypoint waypoint(final XMLStreamReader xml) throws ReadException {
       final String kind = required(xml.getAttributeValue(null, OpenRallyWriter.KIND));
       final String open = xml.getAttributeValue(null, OpenRallyWriter.OPEN);
       final OptionalInt opening = open == null ? OptionalInt.empty() : OptionalInt.of(integer(open));
       final int clear = integer(xml.getAttributeValue(null, OpenRallyWriter.CLEAR));
+      final String speed = xml.getAttributeValue(null, OpenRallyWriter.SPEED);
+      final OptionalInt limit = speed == null ? OptionalInt.empty() : OptionalInt.of(integer(speed));
       try {
-        return new Waypoint(WaypointKind.valueOf(kind), opening, clear);
+        return new Waypoint(WaypointKind.valueOf(kind), opening, clear, limit);
       } catch (DomainException | IllegalArgumentException _) {
         throw new ReadException(ReadError.INVALID);
       }

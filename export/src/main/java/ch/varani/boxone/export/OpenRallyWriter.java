@@ -11,9 +11,11 @@ import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.SpeedZone;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
 import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -25,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -57,7 +60,8 @@ import java.util.stream.Collectors;
  *       of the danger mark of its notes, phase 5); the diagram of the box ({@code tulip}): its tulip, with the
  *       symbols and the danger mark of its notes, drawn with the catalogue ({@link DiagramRenderer}) as a PNG image in
  *       base64 ({@value #PNG_DATA}…, the only drawing Terra Pirata shows, phase 0), written if the box has a tulip or
- *       notes for its diagram; its description ({@code notes}): the abbreviations and the text of its notes
+ *       notes for its diagram; its description ({@code notes}): the sign of the speed limit at the start and at the
+ *       finish of a speed zone ({@link SpeedZone}), the abbreviations and the text of its notes
  *       ({@link DescriptionRenderer}), likewise, written if it has some;</li>
  *   <li>the track ({@code trk}) of the route, point by point.</li>
  * </ol>
@@ -158,6 +162,8 @@ public final class OpenRallyWriter {
   static final String WAYPOINT = "waypoint";
   /** The attribute of the kind of a waypoint of Box One. */
   static final String KIND = "kind";
+  /** The speed limit of the start of a speed zone, in km/h: an element of OpenRally, an attribute of Box One. */
+  static final String SPEED = "speed";
   /** The attribute of the abbreviations of the notes of a box, names of {@link ch.varani.boxone.core.Abbreviation}. */
   static final String ABBREVIATIONS = "abbreviations";
   /** The attribute of the free text of the notes of a box; absent if it has none. */
@@ -293,12 +299,17 @@ public final class OpenRallyWriter {
       stream.writeAttribute("version", VERSION);
       stream.writeAttribute("creator", CREATOR);
       metadata(xml, roadbook, origin, edits, name, description);
+      final List<Optional<SpeedZone>> zones = SpeedZone.along(roadbook.boxes());
       int waypoints = 0;
-      for (final Box box : roadbook.boxes()) {
+      for (int i = 0; i < roadbook.boxes().size(); i++) {
+        final Box box = roadbook.boxes().get(i);
         if (box.waypoint().isPresent()) {
           waypoints++;
         }
-        waypoint(xml, box, box.number() == roadbook.boxes().size(), waypoints, catalogue);
+        if (finishes(zones.get(i))) {
+          waypoints++;
+        }
+        waypoint(xml, box, box.number() == roadbook.boxes().size(), waypoints, zones.get(i), catalogue);
       }
       track(xml, roadbook, name);
       xml.close();
@@ -447,8 +458,8 @@ public final class OpenRallyWriter {
   }
 
   /**
-   * Writes the waypoint placed by the user on a box: its kind, its radius of opening, if any, and its radius of
-   * validation, as attributes.
+   * Writes the waypoint placed by the user on a box: its kind, its radius of opening, if any, its radius of
+   * validation and, for the start of a speed zone, its speed limit, as attributes.
    *
    * @param xml the writer, inside the correction of a box.
    * @param waypoint the waypoint placed.
@@ -462,6 +473,9 @@ public final class OpenRallyWriter {
       xml.attribute(OPEN, Integer.toString(waypoint.open().getAsInt()));
     }
     xml.attribute(CLEAR, Integer.toString(waypoint.clear()));
+    if (waypoint.speed().isPresent()) {
+      xml.attribute(SPEED, Integer.toString(waypoint.speed().getAsInt()));
+    }
   }
 
   /**
@@ -528,19 +542,23 @@ public final class OpenRallyWriter {
    * finish of the stage, the waypoint of the box (phase 5, increment 4: the element of its kind, {@code wpm},
    * {@code wps}…, its radii of opening and of validation, the radius of opening left out when it has none, and its
    * number among the waypoints of the roadbook as its name, as in the reference files of phase 0), its diagram and
-   * its description.
+   * its description, with the sign of the speed limit at the start and at the finish of a speed zone (increment 5); a
+   * DZ that finishes another zone is written after a FZ with the radii of the FIA (§37.2.3: "FZ50 DZ90").
    *
    * @param xml the writer, inside the element {@code gpx}.
    * @param box the box.
    * @param last whether the box is the last one, the box of the finish.
-   * @param number the number of the waypoint of the box among those of the roadbook, from 1; not read without one.
+   * @param number the number of the waypoint of the box among those of the roadbook, from 1; not read without one; a
+   *               DZ that finishes another zone has the number after the FZ written before it.
+   * @param zone the part of a speed zone the box is, or empty.
    * @param catalogue the catalogue of symbols that draws the tulip and tells whether the heading is shown.
    *
    * @throws XMLStreamException if the stream cannot be written.
    * @throws IOException if the diagram or the description cannot be drawn.
    */
   private static void waypoint(final Indented xml, final Box box, final boolean last, final int number,
-                               final Catalogue catalogue) throws XMLStreamException, IOException {
+                               final Optional<SpeedZone> zone, final Catalogue catalogue)
+      throws XMLStreamException, IOException {
     xml.open(GPX, "wpt");
     position(xml, box.position());
     xml.text(GPX, "name", Integer.toString(box.number()));
@@ -559,25 +577,58 @@ public final class OpenRallyWriter {
     if (last) {
       xml.empty(OPENRALLY, "ass");
     }
+    if (finishes(zone)) {
+      control(xml, Waypoint.of(WaypointKind.FZ), number - 1);
+    }
     if (box.waypoint().isPresent()) {
-      final Waypoint waypoint = box.waypoint().get();
-      xml.empty(OPENRALLY, waypoint.kind().name().toLowerCase(Locale.ROOT));
-      if (waypoint.open().isPresent()) {
-        xml.attribute(OPEN, Integer.toString(waypoint.open().getAsInt()));
-      }
-      xml.attribute(CLEAR, Integer.toString(waypoint.clear()));
-      xml.attribute(NAME, Integer.toString(number));
+      control(xml, box.waypoint().get(), number);
     }
     if (box.tulip().isPresent() || notes.hasDiagram()) {
       final byte[] png = DiagramRenderer.png(box.tulip(), notes, catalogue);
       xml.cdata(OPENRALLY, TULIP, PNG_DATA + Base64.getEncoder().encodeToString(png));
     }
-    if (notes.hasDescription()) {
-      final byte[] png = DescriptionRenderer.png(notes, catalogue);
+    if (DescriptionRenderer.has(notes, zone)) {
+      final byte[] png = DescriptionRenderer.png(notes, zone, catalogue);
       xml.cdata(OPENRALLY, NOTES, PNG_DATA + Base64.getEncoder().encodeToString(png));
     }
     xml.close();
     xml.close();
+  }
+
+  /**
+   * Tells whether a box finishes a speed zone at its DZ, which starts another one.
+   *
+   * @param zone the part of a speed zone the box is, or empty.
+   *
+   * @return {@code true} if the box starts a zone and finishes another.
+   */
+  private static boolean finishes(final Optional<SpeedZone> zone) {
+    return zone.filter(part -> part.finished().isPresent()).isPresent();
+  }
+
+  /**
+   * Writes the waypoint placed on a box: the element of its kind ({@code wpm}, {@code dz}…), its radii of opening and
+   * of validation, the radius of opening left out when it has none, and its number among the waypoints of the roadbook
+   * as its name; then, for the start of a speed zone, its speed limit ({@code speed}, in km/h, the units of the
+   * roadbook).
+   *
+   * @param xml the writer, inside the extensions of the waypoint of a box.
+   * @param waypoint the waypoint of the box.
+   * @param number the number of the waypoint among those of the roadbook, from 1.
+   *
+   * @throws XMLStreamException if the stream cannot be written.
+   */
+  private static void control(final Indented xml, final Waypoint waypoint, final int number)
+      throws XMLStreamException {
+    xml.empty(OPENRALLY, waypoint.kind().name().toLowerCase(Locale.ROOT));
+    if (waypoint.open().isPresent()) {
+      xml.attribute(OPEN, Integer.toString(waypoint.open().getAsInt()));
+    }
+    xml.attribute(CLEAR, Integer.toString(waypoint.clear()));
+    xml.attribute(NAME, Integer.toString(number));
+    if (waypoint.speed().isPresent()) {
+      xml.text(OPENRALLY, SPEED, Integer.toString(waypoint.speed().getAsInt()));
+    }
   }
 
   /**

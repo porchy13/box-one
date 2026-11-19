@@ -10,8 +10,11 @@ import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.SpeedZone;
 import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.SymbolPlace;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,11 +51,51 @@ final class BoxRowTest {
   private static final double LENGTH = 345.4;
   /** The heading of the start, in degrees: south. */
   private static final int SOUTH = 180;
+  /** The speed limit of the zone of the tests, in km/h. */
+  private static final int SLOW = 30;
   /** The notes of the start: a danger of level 2, follow the road, a text, a bump after the start. */
   private static final Notes NOTES = new Notes(Optional.of(Danger.LEVEL_2),
                                                List.of(Abbreviation.FOLLOW_ROAD, Abbreviation.AND_NEXT), "BIG ROCKS",
                                                List.of(new BoxSymbol(Symbol.BUMP, SymbolPlace.EXIT),
                                                        new BoxSymbol(Symbol.DITCH, SymbolPlace.EXIT)));
+
+  /**
+   * The boxes of a speed zone have its part; its start and its finish the sign of its speed, read by the readers of the
+   * screen with the speed limit or its end; the boxes inside it neither; a DZ inside a zone both its end and its new
+   * speed.
+   *
+   * @throws IOException if a diagram cannot be drawn.
+   */
+  @Test
+  @DisplayName("Phase 5: the strip shows the sign of the speed limit at the start and at the finish of a speed zone")
+  void zonesTest() throws IOException {
+    final Waypoint start = new Waypoint(WaypointKind.DZ, WaypointKind.DZ.open(), WaypointKind.DZ.clear(),
+                                        OptionalInt.of(SLOW));
+    final Roadbook roadbook = new Roadbook(
+        new Route(List.of(STATION, CASTLE), List.of(), LENGTH, Duration.ofMinutes(1)),
+        List.of(new Box(1, STATION, 0, 0, OptionalInt.of(SOUTH), Optional.empty(), HeadingDisplay.RULE, Notes.NONE,
+                        Optional.of(start)),
+                new Box(2, STATION, 1, 1, OptionalInt.of(SOUTH), Optional.empty()),
+                new Box(3, STATION, 2, 1, OptionalInt.of(SOUTH), Optional.empty(), HeadingDisplay.RULE, Notes.NONE,
+                        Optional.of(Waypoint.of(WaypointKind.DZ))),
+                new Box(4, CASTLE, LENGTH, LENGTH - 2, OptionalInt.empty(), Optional.empty(), HeadingDisplay.RULE,
+                        Notes.NONE, Optional.of(Waypoint.of(WaypointKind.FZ)))));
+    final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Catalogue.fia(), LOCALE, TEXTS);
+    assertAll(
+        () -> assertEquals(List.of(Optional.of(new SpeedZone(SLOW, SpeedZone.Part.START)),
+                                   Optional.of(new SpeedZone(SLOW, SpeedZone.Part.INSIDE)),
+                                   Optional.of(new SpeedZone(Waypoint.DEFAULT_SPEED, SpeedZone.Part.START,
+                                                             OptionalInt.of(SLOW))),
+                                   Optional.of(new SpeedZone(Waypoint.DEFAULT_SPEED, SpeedZone.Part.FINISH))),
+                           rows.stream().map(BoxRow::zone).toList()),
+        () -> assertEquals(List.of(true, false, true, true),
+                           rows.stream().map(row -> row.sign().isPresent()).toList()),
+        () -> assertTrue(rows.get(2).description().endsWith(
+            ", waypoint DZ, fin de la limite de vitesse 30 km/h, limite de vitesse 50 km/h")),
+        () -> assertTrue(rows.getFirst().description().endsWith(", waypoint DZ, limite de vitesse 30 km/h")),
+        () -> assertTrue(rows.get(1).description().endsWith("depuis la précédente")),
+        () -> assertTrue(rows.getLast().description().endsWith(", waypoint FZ, fin de la limite de vitesse 50 km/h")));
+  }
 
   /**
    * A box with notes has its description, its paragraphs on lines, and a diagram even without tulip; a box without

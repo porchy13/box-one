@@ -11,8 +11,8 @@ mode. The name refers to the very first box of a roadbook.
 
 The project is at its beginning: the application shows a map, computes the fastest route between two places,
 generates detours within a budget of time, and exports the roadbook of the route for Terra Pirata, with the tulip of
-each junction drawn after the lexicon of the FIA; its boxes, their tulips and their notes can be corrected; the
-waypoints, the speed zones, the other exports and the training mode come in the next versions (see
+each junction drawn after the lexicon of the FIA; its boxes, their tulips, their notes, their waypoints and the speed
+zones can be corrected; the other exports and the training mode come in the next versions (see
 [`changelog.md`](changelog.md)).
 
 Licensed under the [Apache License, Version 2.0](LICENSE) (see also [`NOTICE`](NOTICE)). Routing data © OpenStreetMap
@@ -166,6 +166,13 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   on a box added there) or in the tab Box of the editor, with the radii of opening and of validation of the FIA,
   changed there; a box with a danger of level 3 is a WPS. Each is marked in the roadbook by its letter in a circle, in
   the colours of the FIA (but the WPP), and exported for Terra Pirata with its radii.
+- **Speed zones**: the start (DZ) and the finish (FZ) of a speed zone, placed by the context menu of the map ("Start
+  a speed zone here", "Finish the speed zone here") or in the tab Box of the editor, with the radii of the FIA and the
+  speed limit of the DZ (50 km/h by default, 10 to 130 km/h); a DZ inside a zone finishes it at the same box and
+  starts another one, its box showing both the FZ and the DZ, and both speeds. In the roadbook,
+  the DZ in an orange circle, the FZ in a green one, the boxes of the zone framed in orange, and the sign of the speed
+  limit in the description of the start and of the finish (struck out); exported for Terra Pirata with the speed of
+  the DZ and the sign in the image of the notes.
 - **Layout**: the roadbook at the left of the map, the editor of the box selected at its right, its tulip at the top
   and its fields in five tabs: Box, Tulip, Symbols, Abbreviations, Notes (the danger and the free text); a symbol or an
   abbreviation is chosen first, the elements of the box listed under the choice. The notes are exported: the danger as the danger of OpenRally, the
@@ -195,7 +202,7 @@ page of the map) with:
 
 | Module | Role |
 |--------|------|
-| `core` | Domain model (geographic points, routes and their maneuvers, the geometry of their junctions, roadbooks, their boxes, their tulips and their notes, the changes of the user to a roadbook; then the waypoints and the speed zones). No dependency outside the JDK. |
+| `core` | Domain model (geographic points, routes and their maneuvers, the geometry of their junctions, roadbooks, their boxes, their tulips and their notes, the changes of the user to a roadbook, its waypoints and its speed zones). No dependency outside the JDK. |
 | `graphhopper` | GraphHopper as one JPMS module (`graphhopper-core`, `graphhopper-web-api` and `osm-legal-default-speeds-jvm` regrouped, as they cannot go on the module path apart). No code of its own. |
 | `routing` | The fastest route by car between two points, possibly through waypoints, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers and the roads of the junction of each (roundabouts included). |
 | `detour` | Detours: routes through random waypoints drawn in an ellipse around the start and the finish, within a budget of time, reproducible from their seed. |

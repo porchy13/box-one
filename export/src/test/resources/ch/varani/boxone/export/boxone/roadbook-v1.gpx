@@ -30,6 +30,9 @@
             <boxone:notes text="BIG ROCKS"/>
             <boxone:waypoint kind="WPC" clear="300"/>
           </boxone:box>
+          <boxone:box lat="46.777800" lon="6.640500" shift="0.0" display="RULE">
+            <boxone:waypoint kind="DZ" open="1000" clear="90" speed="30"/>
+          </boxone:box>
         </boxone:edits>
       </boxone:route>
     </extensions>

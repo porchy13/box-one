@@ -118,6 +118,10 @@ final class OpenRallyReaderTest {
   private static final int OPENING = 600;
   /** The radius of validation of the waypoint of the reference file, in metres. */
   private static final int CLEARING = 50;
+  /** The speed limit of the speed zone of the reference file, in km/h. */
+  private static final int SLOW = 30;
+  /** The place of the start of the speed zone of the reference file. */
+  private static final GeoPoint ZONE = new GeoPoint(46.7778, 6.6405);
   /** The changes of the user of the tests, as in the reference file of version 1. */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(REMOVED),
@@ -126,7 +130,10 @@ final class OpenRallyReaderTest {
                           Optional.of(new Waypoint(WaypointKind.WPM, OptionalInt.of(OPENING), CLEARING))),
               new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN)
                                  .withNotes(Optional.of(Notes.NONE.withText(TEXT)))
-                                 .withWaypoint(Optional.of(Waypoint.of(WaypointKind.WPC)))));
+                                 .withWaypoint(Optional.of(Waypoint.of(WaypointKind.WPC))),
+              new BoxEdit(ZONE).withWaypoint(Optional.of(new Waypoint(WaypointKind.DZ, WaypointKind.DZ.open(),
+                                                                      WaypointKind.DZ.clear(),
+                                                                      OptionalInt.of(SLOW))))));
   /** The correction of a box, opened, in the files of the failures. */
   private static final String BOX = "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"RULE\">";
   /** A tulip generated, straight ahead, in the files of the failures. */
@@ -429,6 +436,9 @@ final class OpenRallyReaderTest {
       "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"WPM\" clear=\"0\"/>" + END,
       "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"WPM\" open=\"x\" clear=\"90\"/>" + END,
       "</boxone:route>|" + BOX + "<boxone:waypoint open=\"800\" clear=\"90\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"DZ\" clear=\"90\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"WPM\" clear=\"90\" speed=\"30\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"DZ\" clear=\"90\" speed=\"x\"/>" + END,
       "</boxone:route>|" + BOX + "<boxone:unknown/>" + END})
   @DisplayName("Issue #5: a roadbook with a value missing or out of its bounds is refused as invalid")
   void invalidTest(final String target, final String replacement) {

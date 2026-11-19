@@ -7,6 +7,7 @@ import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.Roadbook;
+import ch.varani.boxone.core.SpeedZone;
 import javafx.scene.image.Image;
 
 import java.io.ByteArrayInputStream;
@@ -24,8 +25,10 @@ import java.util.stream.Collectors;
  * A box of the roadbook as the strip of the window shows it (DESIGN.md §14): its number, its distances in kilometres
  * written in the format of the language, its diagram drawn by the catalogue (its tulip, with the symbols and the
  * danger mark of its notes), its heading where the catalogue shows it, and its description (the abbreviations and the
- * free text of its notes), as in the roadbook exported, and its place, shown on the map when it is selected; and the
- * box itself, as corrected by the user and as generated, for its editor (development plan, phase 5).
+ * free text of its notes), as in the roadbook exported, and its place, shown on the map when it is selected; the part
+ * of a speed zone it is (phase 5, increment 5: framed, the sign of the speed limit at the start and at the finish of
+ * the zone, drawn by the catalogue); and the box itself, as corrected by the user and as generated, for its editor
+ * (development plan, phase 5).
  *
  * <p>Built off the JavaFX Application Thread ({@link #rows(Roadbook, Roadbook, Catalogue, Locale, ResourceBundle)}):
  * the diagrams are drawn there. Immutable, its image loaded once built.</p>
@@ -37,12 +40,16 @@ import java.util.stream.Collectors;
  * @param heading the heading shown, or empty.
  * @param tulip the image of the diagram, or empty for the boxes without tulip nor notes for their diagram.
  * @param notes the description of the box, its lines separated by line feeds; empty if it has none.
- * @param description the text of the box for the readers of the screen: its number, its distances and its notes.
+ * @param description the text of the box for the readers of the screen: its number, its distances, its notes, its
+ *                    waypoint and its speed limit.
+ * @param zone the part of a speed zone the box is, or empty outside any zone.
+ * @param sign the image of the sign of the speed limit, at the start and at the finish of a zone; empty otherwise.
  * @param box the box shown, with the corrections of the user.
  * @param generated the box as generated from the route, without the corrections of the user.
  */
 record BoxRow(int number, GeoPoint place, String total, String partial, Optional<String> heading,
-              Optional<Image> tulip, String notes, String description, Box box, Box generated) {
+              Optional<Image> tulip, String notes, String description, Optional<SpeedZone> zone, Optional<Image> sign,
+              Box box, Box generated) {
 
   // *******************************************************************************************************************
   // Constants
@@ -66,6 +73,10 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
   static final String LINE = "\n";
   /** The separator of the parts of the text of a box for the readers of the screen, and of the names of symbols. */
   static final String PARTS = ", ";
+  /** The key of the speed limit at the start of a speed zone for the readers of the screen, with the speed. */
+  static final String SPEED_TEXT = "roadbook.speed";
+  /** The key of the speed limit at the finish of a speed zone for the readers of the screen, with the speed. */
+  static final String SPEED_END_TEXT = "roadbook.speedEnd";
   /** The key of the heading of a box. */
   static final String HEADING_TEXT = "roadbook.heading";
 
@@ -89,9 +100,11 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
   static List<BoxRow> rows(final Roadbook generated, final Roadbook roadbook, final Catalogue catalogue,
                            final Locale locale, final ResourceBundle texts) throws IOException {
     final NumberFormat kilometres = kilometres(locale);
+    final List<Optional<SpeedZone>> zones = SpeedZone.along(roadbook.boxes());
     final List<BoxRow> rows = new ArrayList<>(roadbook.boxes().size());
     for (int i = 0; i < roadbook.boxes().size(); i++) {
       final Box box = roadbook.boxes().get(i);
+      final Optional<SpeedZone> zone = zones.get(i);
       final String total = kilometres.format(box.total() / METRES_PER_KILOMETRE);
       final String partial = kilometres.format(box.partial() / METRES_PER_KILOMETRE);
       final Optional<String> heading = catalogue.headings().shows(box)
@@ -107,9 +120,14 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
       final String description = new MessageFormat(texts.getString(BOX_TEXT), locale)
           .format(new Object[] {box.number(), total, partial}) + notes(box.notes(), notes, locale, texts)
           + box.waypoint().map(waypoint -> PARTS + new MessageFormat(texts.getString(WAYPOINT_TEXT), locale)
-              .format(new Object[] {waypoint.kind().name()})).orElse("");
-      rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, notes, description, box,
-                          generated.boxes().get(i)));
+              .format(new Object[] {waypoint.kind().name()})).orElse("")
+          + zone.filter(SpeedZone::isSigned).map(signed -> PARTS + speed(signed, locale, texts)).orElse("");
+      Optional<Image> sign = Optional.empty();
+      if (zone.filter(SpeedZone::isSigned).isPresent()) {
+        sign = Optional.of(new Image(new ByteArrayInputStream(DescriptionRenderer.sign(zone.get(), catalogue))));
+      }
+      rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, notes, description, zone,
+                          sign, box, generated.boxes().get(i)));
     }
     return rows;
   }
@@ -143,6 +161,26 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
                                     .format(new Object[] {names}));
     }
     return text.toString();
+  }
+
+  /**
+   * Gives the speed limit of the start or of the finish of a speed zone for the readers of the screen: the end of the
+   * zone a start finishes first, if any.
+   *
+   * @param zone the part of the speed zone, its start or its finish.
+   * @param locale the locale of the application.
+   * @param texts the texts of the user interface.
+   *
+   * @return the speed limit, or its end, or both.
+   */
+  private static String speed(final SpeedZone zone, final Locale locale, final ResourceBundle texts) {
+    final String key = zone.part() == SpeedZone.Part.START ? SPEED_TEXT : SPEED_END_TEXT;
+    final String speed = new MessageFormat(texts.getString(key), locale).format(new Object[] {zone.speed()});
+    if (zone.finished().isEmpty()) {
+      return speed;
+    }
+    return new MessageFormat(texts.getString(SPEED_END_TEXT), locale)
+               .format(new Object[] {zone.finished().getAsInt()}) + PARTS + speed;
   }
 
   /**

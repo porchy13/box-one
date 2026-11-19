@@ -32,7 +32,10 @@
     "symbolScale": 1.5,
     "text": "#000000",
     "font": 30,
-    "minFont": 12
+    "minFont": 12,
+    "zone": "#F39200",
+    "sign": 84,
+    "ring": 9
   },
   "abbreviations": {
     "TRACK": "P",

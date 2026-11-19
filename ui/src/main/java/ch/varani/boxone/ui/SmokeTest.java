@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -127,14 +128,15 @@ final class SmokeTest {
       StartupNotice.PARAGRAPHS.forEach(Languages.bundle(locale)::getString);
     }
     check(MainController.icons().stream().noneMatch(Image::isError), "The icon of the window cannot be loaded");
-    check(inked(DescriptionRenderer.png(NOTES, Catalogue.fia())), "The notes cannot be written: no font found");
+    check(inked(DescriptionRenderer.png(NOTES, Optional.empty(), Catalogue.fia())),
+          "The notes cannot be written: no font found");
     final CountDownLatch events = new CountDownLatch(2);
     // The page holds its bridge by a weak reference only: the map is kept until its events, or a collection drops it.
     final AtomicReference<MapView> kept = new AtomicReference<>();
     Platform.runLater(() -> {
       final Consumer<GeoPoint> counted = place -> events.countDown();
-      final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), counted,
-                                       (end, place) -> events.countDown(), counted, counted, counted);
+      final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), counted, counted(events), counted,
+                                       counted(events), counted);
       kept.set(map);
       map.setPlaces(STATION, null);
       map.setOnLoaded(() -> {
@@ -146,6 +148,18 @@ final class SmokeTest {
     Reference.reachabilityFence(kept);
     Platform.exit();
     check(reached, "The page of the map did not load, or its clicks and its markers do not reach the application");
+  }
+
+  /**
+   * Gives a receiver of an event of the map with a kind and a place, which counts it down.
+   *
+   * @param <T> the kind of the event: the end moved, or the kind of the waypoint placed.
+   * @param events the events awaited.
+   *
+   * @return the receiver.
+   */
+  private static <T> BiConsumer<T, GeoPoint> counted(final CountDownLatch events) {
+    return (kind, place) -> events.countDown();
   }
 
   /**

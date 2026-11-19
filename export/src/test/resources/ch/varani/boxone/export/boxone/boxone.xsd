@@ -143,11 +143,22 @@
           <xsd:enumeration value="WPV"/>
           <xsd:enumeration value="WPE"/>
           <xsd:enumeration value="WPP"/>
+          <xsd:enumeration value="DZ"/>
+          <xsd:enumeration value="FZ"/>
         </xsd:restriction>
       </xsd:simpleType>
     </xsd:attribute>
     <xsd:attribute name="open" type="radiusType"/>
     <xsd:attribute name="clear" type="radiusType" use="required"/>
+    <!-- The speed limit of a DZ, in km/h (phase 5, increment 5); only on a DZ. -->
+    <xsd:attribute name="speed">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:int">
+          <xsd:minInclusive value="10"/>
+          <xsd:maxInclusive value="130"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
   </xsd:complexType>
 
   <xsd:complexType name="notesType">

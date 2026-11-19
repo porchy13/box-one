@@ -42,6 +42,8 @@ final class WaypointEditorTest {
   private static final int OPENING = 600;
   /** A radius of validation typed, in metres. */
   private static final int CLEARING = 50;
+  /** A speed limit typed, in km/h. */
+  private static final int SLOW = 30;
 
   /**
    * The editor shown in a window, and the waypoints it applies.
@@ -169,6 +171,41 @@ final class WaypointEditorTest {
                            shown.applied()),
         () -> assertEquals(Optional.of(CLEARING), WaypointEditor.radius(" 50 ")),
         () -> assertEquals(Optional.empty(), WaypointEditor.radius(String.valueOf(Waypoint.MAX_RADIUS + 1))));
+  }
+
+  /**
+   * The speed limit is enabled for a DZ only, 50 km/h by default; a speed typed is applied, one beyond its bounds marks
+   * its field with its own caption and is not applied; a FZ chosen has no speed.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Phase 5: the speed limit of a DZ typed is applied, one beyond 10 to 130 km/h marked, none for a FZ")
+  void speedTest(final FxRobot robot) {
+    final Shown shown = show(robot);
+    final TextField speed = field(shown, WaypointEditor.SPEED_ID);
+    final boolean disabled = speed.isDisable();
+    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.DZ))));
+    final String fifty = speed.getText();
+    final boolean enabled = !speed.isDisable();
+    type(robot, speed, String.valueOf(Waypoint.MAX_SPEED + 1));
+    final boolean marked = speed.getStyleClass().contains("invalid");
+    type(robot, speed, String.valueOf(SLOW));
+    @SuppressWarnings("unchecked")
+    final ComboBox<String> kind = (ComboBox<String>) shown.editor().getNode().lookup("#" + WaypointEditor.KIND_ID);
+    robot.interact(() -> kind.getSelectionModel().select(WaypointKind.FZ.ordinal() + 1));
+    assertAll(
+        () -> assertTrue(disabled),
+        () -> assertEquals(String.valueOf(Waypoint.DEFAULT_SPEED), fifty),
+        () -> assertTrue(enabled),
+        () -> assertTrue(marked),
+        () -> assertTrue(speed.isDisable()),
+        () -> assertEquals("", speed.getText()),
+        () -> assertEquals(List.of(Optional.of(new Waypoint(WaypointKind.DZ, WaypointKind.DZ.open(),
+                                                            WaypointKind.DZ.clear(), OptionalInt.of(SLOW))),
+                                   Optional.of(Waypoint.of(WaypointKind.FZ))), shown.applied()),
+        () -> assertEquals(Optional.of(SLOW), WaypointEditor.speed(" 30 ")),
+        () -> assertEquals(Optional.empty(), WaypointEditor.speed("x")));
   }
 
 }
