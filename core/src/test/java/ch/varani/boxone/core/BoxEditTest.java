@@ -40,15 +40,18 @@ final class BoxEditTest {
       90, BranchKind.TRACK)));
   /** The notes of the box: a danger of level 1. */
   private static final Optional<Notes> NOTES = Optional.of(Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1)));
+  /** The waypoint of the box: a masked waypoint with the radii of the FIA. */
+  private static final Optional<Waypoint> WAYPOINT = Optional.of(Waypoint.of(WaypointKind.WPM));
 
   /**
    * A correction keeps its values, and changes one of them at a time.
    */
   @Test
-  @DisplayName("Phase 5: a correction keeps its place, its shift, its heading, its display, its tulip and its notes")
+  @DisplayName("Phase 5: a correction keeps its place, its shift, its heading, its display, its tulip, its notes and "
+               + "its waypoint")
   void valuesTest() {
     final BoxEdit edit = new BoxEdit(STATION).withShift(SHIFT).withHeading(WEST).withDisplay(HeadingDisplay.SHOWN)
-                                             .withTulip(TULIP).withNotes(NOTES);
+                                             .withTulip(TULIP).withNotes(NOTES).withWaypoint(WAYPOINT);
     final BoxEdit moved = edit.at(CASTLE);
     assertAll(
         () -> assertEquals(STATION, edit.place()),
@@ -57,7 +60,8 @@ final class BoxEditTest {
         () -> assertEquals(HeadingDisplay.SHOWN, edit.display()),
         () -> assertEquals(TULIP, edit.tulip()),
         () -> assertEquals(NOTES, edit.notes()),
-        () -> assertEquals(new BoxEdit(CASTLE, SHIFT, WEST, HeadingDisplay.SHOWN, TULIP, NOTES), moved));
+        () -> assertEquals(WAYPOINT, edit.waypoint()),
+        () -> assertEquals(new BoxEdit(CASTLE, SHIFT, WEST, HeadingDisplay.SHOWN, TULIP, NOTES, WAYPOINT), moved));
   }
 
   /**
@@ -77,7 +81,8 @@ final class BoxEditTest {
         () -> assertTrue(none.withTulip(TULIP).withTulip(Optional.empty()).isEmpty()),
         () -> assertFalse(none.withNotes(NOTES).isEmpty()),
         () -> assertFalse(none.withNotes(Optional.of(Notes.NONE)).isEmpty()),
-        () -> assertTrue(none.withNotes(NOTES).withNotes(Optional.empty()).isEmpty()));
+        () -> assertTrue(none.withNotes(NOTES).withNotes(Optional.empty()).isEmpty()),
+        () -> assertFalse(none.withWaypoint(WAYPOINT).isEmpty()));
   }
 
   /**
@@ -110,20 +115,25 @@ final class BoxEditTest {
   }
 
   /**
-   * A missing place, heading, display, tulip or notes is a programming error.
+   * A missing place, heading, display, tulip, notes or waypoint is a programming error.
    */
   @Test
-  @DisplayName("A correction without its place, heading, display, tulip or notes is a programming error")
+  @DisplayName("A correction without its place, heading, display, tulip, notes or waypoint is a programming error")
   void nullTest() {
     final OptionalInt none = OptionalInt.empty();
     final Optional<TulipEdit> generated = Optional.empty();
     final HeadingDisplay rule = HeadingDisplay.RULE;
+    final BoxEdit edit = new BoxEdit(STATION);
     assertAll(
         () -> assertThrows(NullPointerException.class, () -> new BoxEdit(null)),
-        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, null, rule, generated, NOTES)),
-        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, null, generated, NOTES)),
-        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, rule, null, NOTES)),
-        () -> assertThrows(NullPointerException.class, () -> new BoxEdit(STATION, 0, none, rule, generated, null)));
+        () -> assertThrows(NullPointerException.class, () -> edit.withHeading(null)),
+        () -> assertThrows(NullPointerException.class, () -> edit.withDisplay(null)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new BoxEdit(STATION, 0, none, rule, null, NOTES, WAYPOINT)),
+        () -> assertThrows(NullPointerException.class, () -> edit.withNotes(null)),
+        () -> assertThrows(NullPointerException.class, () -> edit.withWaypoint(null)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new BoxEdit(STATION, 0, none, rule, generated, NOTES, null)));
   }
 
 }

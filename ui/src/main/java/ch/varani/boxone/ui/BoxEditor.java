@@ -9,6 +9,7 @@ import ch.varani.boxone.core.Notes;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -47,7 +48,8 @@ import java.util.regex.Pattern;
  * <p><b>Fields</b>: the total distance, in kilometres in the format of the language, the box of the start excepted
  * (always 0); the heading, in degrees, empty for the heading computed; whether the heading is shown: as the FIA asks
  * (the rule of the catalogue), always or never; the heading and its display are disabled at the finish, which has no
- * heading. Each caption gives the value computed, and an empty field takes it. A field is applied when Enter is
+ * heading; then the waypoint of the box (increment 4, {@link WaypointEditor}): its kind and its radii. Each caption
+ * gives the value computed, and an empty field takes it. A field is applied when Enter is
  * pressed or when it loses the focus, the display when it is chosen; a value that does not change the box is not
  * applied. Then the tulip of the box, but at the start and at the finish ({@link TulipEditor}): a tulip corrected is
  * kept with the tulip generated it replaces ({@link TulipEdit}), the tulip generated itself removes the correction.
@@ -146,6 +148,8 @@ final class BoxEditor {
   private final TulipEditor tulipEditor;
   /** The editor of the notes of the box. */
   private final NotesEditor notesEditor;
+  /** The editor of the waypoint of the box, in the tab Box (increment 4). */
+  private final WaypointEditor waypointEditor;
   /** The title, with the number of the box. */
   private final Label titleLabel = new Label();
   /** The field of the total distance. */
@@ -187,6 +191,7 @@ final class BoxEditor {
     this.corrects = corrects;
     tulipEditor = new TulipEditor(texts, locale, catalogue, this::applyTulip, this::applyNotes);
     notesEditor = new NotesEditor(texts, locale, catalogue, this::applyNotes);
+    waypointEditor = new WaypointEditor(texts, locale, this::applyWaypoint);
     total.setId(TOTAL_ID);
     heading.setId(HEADING_ID);
     display.setId(DISPLAY_ID);
@@ -204,7 +209,7 @@ final class BoxEditor {
     buttons.getStyleClass().add("field-row");
     form.getChildren().addAll(label(TOTAL_LABEL, total), total, caption(totalHint),
                               label(HEADING_LABEL, heading), heading, caption(headingHint),
-                              label(DISPLAY_LABEL, display), display, buttons);
+                              label(DISPLAY_LABEL, display), display, waypointEditor.getNode(), buttons);
     form.getStyleClass().addAll("form", "box-form");
     tulipTab.setText(texts.getString(TulipEditor.TITLE));
     tulipTab.setContent(scrolled(tulipEditor.getNode()));
@@ -295,6 +300,7 @@ final class BoxEditor {
       tabs.getSelectionModel().selectFirst();
     }
     notesEditor.show(notes, row.box().tulip().isPresent());
+    waypointEditor.show(row.box().waypoint());
   }
 
   /**
@@ -320,6 +326,15 @@ final class BoxEditor {
     final Optional<Notes> typed = notes.equals(selection.row().generated().notes()) ? Optional.empty()
                                                                                     : Optional.of(notes);
     corrects.accept(selection.edit().withNotes(typed));
+  }
+
+  /**
+   * Applies the waypoint placed in the editor of the waypoint.
+   *
+   * @param waypoint the waypoint placed, or empty for none: the box keeps the waypoint generated.
+   */
+  private void applyWaypoint(final Optional<Waypoint> waypoint) {
+    corrects.accept(selection.edit().withWaypoint(waypoint));
   }
 
   /**

@@ -161,6 +161,11 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   the FIA, and a danger of level 1) are noted from the map, in the box of the junction within 50 m of them, before or after it, or in a box of
   their own; they are changed or removed as the other notes, and "Reset the box" brings them back. A map imported
   before this feature must be imported again for the level crossings, the barriers and the fords on a node.
+- **Waypoints**: the seven waypoints of the FIA (masked WPM, navigation WPN, safety WPS, control WPC, visible WPV,
+  eclipse WPE, precise WPP), placed by the context menu of the map ("Add a waypoint here": on the box within 25 m, or
+  on a box added there) or in the tab Box of the editor, with the radii of opening and of validation of the FIA,
+  changed there; a box with a danger of level 3 is a WPS. Each is marked in the roadbook by its letter in a circle, in
+  the colours of the FIA (but the WPP), and exported for Terra Pirata with its radii.
 - **Layout**: the roadbook at the left of the map, the editor of the box selected at its right, its tulip at the top
   and its fields in five tabs: Box, Tulip, Symbols, Abbreviations, Notes (the danger and the free text); a symbol or an
   abbreviation is chosen first, the elements of the box listed under the choice. The notes are exported: the danger as the danger of OpenRally, the

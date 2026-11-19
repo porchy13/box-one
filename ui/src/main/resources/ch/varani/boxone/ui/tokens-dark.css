@@ -10,5 +10,10 @@
     /* The roadbook, drawn as on paper in both themes (DESIGN.md §14; FIA: "in colour on white background"). */
     -c-paper: #FFFFFF;
     -c-ink: #000000;
+    /* The circles of the waypoints in the roadbook (FIA, Appendix III, §5.12.3), the same in both themes. */
+    -c-wp-cyan: #00B4E6;
+    -c-wp-blue: #1E50C8;
+    -c-wp-red: #E3262B;
+    -c-wp-yellow: #FFD400;
     -c-shadow: rgba(0, 0, 0, 0.40);
 }

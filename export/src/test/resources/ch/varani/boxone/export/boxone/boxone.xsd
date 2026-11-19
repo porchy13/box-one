@@ -101,6 +101,7 @@
             <xsd:element name="tulip" type="tulipType"/>
           </xsd:sequence>
           <xsd:element name="notes" type="notesType" minOccurs="0"/>
+          <xsd:element name="waypoint" type="waypointType" minOccurs="0"/>
         </xsd:sequence>
         <xsd:attribute name="shift" type="xsd:double" use="required"/>
         <xsd:attribute name="heading">
@@ -122,6 +123,31 @@
         </xsd:attribute>
       </xsd:extension>
     </xsd:complexContent>
+  </xsd:complexType>
+
+  <xsd:simpleType name="radiusType">
+    <xsd:restriction base="xsd:int">
+      <xsd:minInclusive value="1"/>
+      <xsd:maxInclusive value="10000"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:complexType name="waypointType">
+    <xsd:attribute name="kind" use="required">
+      <xsd:simpleType>
+        <xsd:restriction base="xsd:token">
+          <xsd:enumeration value="WPM"/>
+          <xsd:enumeration value="WPN"/>
+          <xsd:enumeration value="WPS"/>
+          <xsd:enumeration value="WPC"/>
+          <xsd:enumeration value="WPV"/>
+          <xsd:enumeration value="WPE"/>
+          <xsd:enumeration value="WPP"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="open" type="radiusType"/>
+    <xsd:attribute name="clear" type="radiusType" use="required"/>
   </xsd:complexType>
 
   <xsd:complexType name="notesType">

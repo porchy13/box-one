@@ -19,6 +19,8 @@ import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -126,16 +128,17 @@ final class OpenRallyWriterTest {
                                                        BoxSymbol.free(Symbol.CHURCH, new DiagramPoint(0.5, -0.25))));
   /**
    * The changes of the user: a box added at the bend, the box of the junction corrected, a track to the left added to
-   * its tulip, with notes, a text at the finish, a danger at the bend, a heading shown near the finish, and the heading
-   * of the start hidden, its notes removed.
+   * its tulip, with notes and a masked waypoint, a text at the finish, a danger at the bend, a control waypoint near
+   * the start, a heading shown near the finish, and the heading of the start hidden, its notes removed.
    */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(JUNCTION),
       List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(TYPED_HEADING), HeadingDisplay.SHOWN,
                           Optional.of(new TulipEdit(GENERATED, GENERATED.withBranch(ADDED_LEFT, BranchKind.TRACK))),
-                          Optional.of(NOTES)),
+                          Optional.of(NOTES), Optional.of(Waypoint.of(WaypointKind.WPM))),
               new BoxEdit(FINISH).withNotes(Optional.of(Notes.NONE.withText(TEXT))),
               new BoxEdit(BEND).withNotes(Optional.of(Notes.NONE.withDanger(Optional.of(Danger.LEVEL_1)))),
+              new BoxEdit(CLICKED_START).withWaypoint(Optional.of(Waypoint.of(WaypointKind.WPC))),
               new BoxEdit(CLICKED_FINISH).withDisplay(HeadingDisplay.SHOWN),
               new BoxEdit(START).withDisplay(HeadingDisplay.HIDDEN).withNotes(Optional.of(Notes.NONE))));
   /** The roadbook of the tests: three boxes on a line of four points. */
@@ -260,6 +263,42 @@ final class OpenRallyWriterTest {
         () -> assertTrue(descriptions.getFirst().startsWith(OpenRallyWriter.PNG_DATA)),
         () -> assertEquals(List.of(), texts(waypoints.getLast(), OpenRallyWriter.OPENRALLY, OpenRallyWriter.TULIP)),
         () -> assertEquals(List.of(), texts(waypoints.getLast(), OpenRallyWriter.OPENRALLY, OpenRallyWriter.DANGER)),
+        () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
+            new StreamSource(new ByteArrayInputStream(output.toByteArray())))));
+  }
+
+  /**
+   * A box with a waypoint carries the element of its kind, its radii and its number among the waypoints of the
+   * roadbook, the radius of opening left out when it has none; a box without waypoint carries none; the file stays
+   * valid against the strict schema.
+   *
+   * @throws Exception if the file cannot be written, read or validated.
+   */
+  @Test
+  @DisplayName("Phase 5: the waypoint of a box is exported as the element of its kind, its radii and its number")
+  void boxWaypointTest() throws Exception {
+    final Roadbook roadbook = new Roadbook(
+        new Route(List.of(START, JUNCTION, BEND, FINISH), List.of(1), LENGTH, Duration.ofMinutes(3)),
+        List.of(new Box(1, START, 0, 0, OptionalInt.of(START_HEADING), Optional.empty(), HeadingDisplay.RULE,
+                        Notes.NONE, Optional.of(Waypoint.of(WaypointKind.WPS))),
+                new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(JUNCTION_HEADING),
+                        Optional.empty()),
+                new Box(3, FINISH, LENGTH, LENGTH - JUNCTION_TOTAL, OptionalInt.empty(), Optional.empty(),
+                        HeadingDisplay.RULE, Notes.NONE, Optional.of(Waypoint.of(WaypointKind.WPC)))));
+    final ByteArrayOutputStream output = new ByteArrayOutputStream();
+    OpenRallyWriter.write(roadbook, DETOUR, RoadbookEdits.NONE, NAME, DESCRIPTION, FIA, output);
+    final Document document = parse(output.toByteArray());
+    final Element safety = (Element) document.getElementsByTagNameNS(OpenRallyWriter.OPENRALLY, "wps").item(0);
+    final Element control = (Element) document.getElementsByTagNameNS(OpenRallyWriter.OPENRALLY, "wpc").item(0);
+    assertAll(
+        () -> assertEquals(List.of("1000", "30", "1"), List.of(safety.getAttribute(OpenRallyWriter.OPEN),
+                                                             safety.getAttribute(OpenRallyWriter.CLEAR),
+                                                             safety.getAttribute(OpenRallyWriter.NAME))),
+        () -> assertEquals(List.of(false, "300", "2"), List.of(control.hasAttribute(OpenRallyWriter.OPEN),
+                                                             control.getAttribute(OpenRallyWriter.CLEAR),
+                                                             control.getAttribute(OpenRallyWriter.NAME))),
+        () -> assertEquals("wpt", safety.getParentNode().getParentNode().getLocalName()),
+        () -> assertEquals(0, document.getElementsByTagNameNS(OpenRallyWriter.OPENRALLY, "wpm").getLength()),
         () -> assertDoesNotThrow(() -> OpenRallySchema.validateExport(
             new StreamSource(new ByteArrayInputStream(output.toByteArray())))));
   }
@@ -424,6 +463,11 @@ final class OpenRallyWriterTest {
         () -> assertEquals("0.0", boxes.getLast().getAttribute(OpenRallyWriter.SHIFT)),
         () -> assertFalse(boxes.getLast().hasAttribute(OpenRallyWriter.HEADING)),
         () -> assertEquals("HIDDEN", boxes.getLast().getAttribute(OpenRallyWriter.DISPLAY)),
+        () -> assertEquals(List.of(List.of("WPM", "800", "90"), List.of("WPC", "", "300")),
+                           boxOne(document, OpenRallyWriter.WAYPOINT).stream()
+                               .map(waypoint -> List.of(waypoint.getAttribute(OpenRallyWriter.KIND),
+                                                        waypoint.getAttribute(OpenRallyWriter.OPEN),
+                                                        waypoint.getAttribute(OpenRallyWriter.CLEAR))).toList()),
         () -> assertEquals(List.of(), boxOne(parse(writtenFastest()), OpenRallyWriter.EDITS)));
   }
 

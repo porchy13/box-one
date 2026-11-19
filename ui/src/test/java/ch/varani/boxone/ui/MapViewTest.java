@@ -106,7 +106,7 @@ final class MapViewTest {
     final AtomicReference<MapView> map = new AtomicReference<>();
     robot.interact(() -> {
       final MapView view = new MapView(Languages.bundle(Languages.ENGLISH), clicks::add, (end, place) -> { },
-                                       place -> { }, place -> { });
+                                       place -> { }, place -> { }, place -> { });
       view.setColors(Map.of("-c-accent", "#2D6A57"));
       view.setTiles(TILES);
       view.setZoom(ZoomSensitivity.LOW);
@@ -233,7 +233,7 @@ final class MapViewTest {
     final AtomicBoolean loadedBefore = new AtomicBoolean();
     robot.interact(() -> {
       final MapView fresh = new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { },
-                                        place -> { }, place -> { });
+                                        place -> { }, place -> { }, place -> { });
       fresh.setBox(SmokeTest.STATION, false);
       loadedBefore.set(fresh.isLoaded());
     });
@@ -271,7 +271,7 @@ final class MapViewTest {
     final AtomicReference<MapView> created = new AtomicReference<>();
     robot.interact(() -> {
       final MapView view = new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { },
-                                       place -> { }, dropped::add);
+                                       place -> { }, place -> { }, dropped::add);
       final Stage stage = new Stage();
       stage.setScene(new Scene(view.getNode(), WIDTH, HEIGHT));
       stage.show();
@@ -342,7 +342,7 @@ final class MapViewTest {
     final AtomicReference<MapView> map = new AtomicReference<>();
     robot.interact(() -> {
       map.set(new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { }, place -> { },
-                                place -> { }));
+                                place -> { }, place -> { }));
       map.get().setPlaces(SmokeTest.STATION, null);
       final Stage stage = new Stage();
       stage.setScene(new Scene(map.get().getNode(), WIDTH, HEIGHT));
@@ -456,7 +456,7 @@ final class MapViewTest {
         () -> assertEquals(List.of(), overControl),
         () -> assertEquals(1, overMap.size()),
         () -> assertEquals(List.of(texts.getString(MapView.PLACE_START), texts.getString(MapView.PLACE_FINISH),
-                                   texts.getString(MapView.ADD_BOX)),
+                                   texts.getString(MapView.ADD_BOX), texts.getString(MapView.ADD_WAYPOINT)),
                            overMap.getFirst().getItems().stream().map(MenuItem::getText).toList()),
         () -> assertFalse(overMap.getFirst().getItems().getLast().isDisable()));
   }

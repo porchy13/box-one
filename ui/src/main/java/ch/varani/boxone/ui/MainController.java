@@ -1,11 +1,14 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.core.BoxEdit;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.RoadFeature;
 import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.Detour;
 import ch.varani.boxone.detour.DetourException;
@@ -56,6 +59,7 @@ import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -480,7 +484,7 @@ final class MainController {
     final Theme theme = new Theme(scene, colors);
     settings = store.load();
     updateRecent();
-    map = new MapView(texts, this::clicked, this::moved, this::addBox, this::moveBox);
+    map = new MapView(texts, this::clicked, this::moved, this::addBox, this::addWaypoint, this::moveBox);
     map.setColors(theme.tokens());
     map.setTiles(settings.source());
     map.setZoom(settings.zoom());
@@ -617,6 +621,30 @@ final class MainController {
       return;
     }
     changeEdits(edits.withAdded(onRoute.get()), onRoute.get());
+  }
+
+  /**
+   * Places a waypoint where the user asked it, by the context menu of the map (phase 5, increment 4; decision of the
+   * maintainer, 2026-11-18): on the box of the roadbook within {@value RoadbookEditor#NEAR_ROUTE} m of the nearest
+   * point of the route shown, the nearest one, or on a box added there; a masked waypoint (WPM) with the radii of the
+   * FIA, its kind and its radii then chosen in the editor of the box, which is selected. A place far from the route is
+   * said in the status bar.
+   *
+   * @param place the place asked.
+   */
+  private void addWaypoint(final GeoPoint place) {
+    final Optional<GeoPoint> onRoute = RoadbookEditor.project(route, place);
+    if (onRoute.isEmpty()) {
+      setStatus(ADD_FAR);
+      return;
+    }
+    final Optional<GeoPoint> near = boxList.getItems().stream().map(BoxRow::place)
+        .min(Comparator.comparingDouble(box -> RoadbookEditor.distance(box, onRoute.get())))
+        .filter(box -> RoadbookEditor.distance(box, onRoute.get()) <= RoadbookEditor.NEAR_ROUTE);
+    final GeoPoint at = near.orElse(onRoute.get());
+    final RoadbookEdits changed = near.isPresent() ? edits : edits.withAdded(at);
+    changeEdits(changed.with(changed.edit(at).orElse(new BoxEdit(at))
+                                    .withWaypoint(Optional.of(Waypoint.of(WaypointKind.WPM)))), at);
   }
 
   /**

@@ -13,6 +13,7 @@ import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -149,6 +150,14 @@ public final class OpenRallyWriter {
   static final String NOTES = "notes";
   /** The attribute of the level of the danger of the notes of a box, from 1 to 3; the element of OpenRally. */
   static final String DANGER = "danger";
+  /** The attribute of the radius of opening of a waypoint, in metres (OpenRally), and of a waypoint of Box One. */
+  static final String OPEN = "open";
+  /** The attribute of the radius of validation of a waypoint, in metres (OpenRally), and of a waypoint of Box One. */
+  static final String CLEAR = "clear";
+  /** The element of the waypoint of the correction of a box, of Box One. */
+  static final String WAYPOINT = "waypoint";
+  /** The attribute of the kind of a waypoint of Box One. */
+  static final String KIND = "kind";
   /** The attribute of the abbreviations of the notes of a box, names of {@link ch.varani.boxone.core.Abbreviation}. */
   static final String ABBREVIATIONS = "abbreviations";
   /** The attribute of the free text of the notes of a box; absent if it has none. */
@@ -284,8 +293,12 @@ public final class OpenRallyWriter {
       stream.writeAttribute("version", VERSION);
       stream.writeAttribute("creator", CREATOR);
       metadata(xml, roadbook, origin, edits, name, description);
+      int waypoints = 0;
       for (final Box box : roadbook.boxes()) {
-        waypoint(xml, box, box.number() == roadbook.boxes().size(), catalogue);
+        if (box.waypoint().isPresent()) {
+          waypoints++;
+        }
+        waypoint(xml, box, box.number() == roadbook.boxes().size(), waypoints, catalogue);
       }
       track(xml, roadbook, name);
       xml.close();
@@ -370,7 +383,8 @@ public final class OpenRallyWriter {
 
   /**
    * Writes the changes of the user: the places of the boxes added, of the boxes removed, and the corrections of the
-   * boxes at their places, a tulip corrected after the tulip generated it replaces, then the notes.
+   * boxes at their places, a tulip corrected after the tulip generated it replaces, then the notes, then the waypoint
+   * (its kind, its radius of opening, if any, and its radius of validation).
    *
    * @param xml the writer, inside the route of Box One.
    * @param edits the changes, not empty.
@@ -388,31 +402,66 @@ public final class OpenRallyWriter {
       position(xml, place);
     }
     for (final BoxEdit edit : edits.boxes()) {
-      final Optional<TulipEdit> tulip = edit.tulip();
-      final boolean content = tulip.isPresent() || edit.notes().isPresent();
-      if (content) {
-        xml.open(BOX_ONE, BOX);
-      } else {
-        xml.empty(BOX_ONE, BOX);
-      }
-      position(xml, edit.place());
-      xml.attribute(SHIFT, Double.toString(edit.shift()));
-      if (edit.heading().isPresent()) {
-        xml.attribute(HEADING, Integer.toString(edit.heading().getAsInt()));
-      }
-      xml.attribute(DISPLAY, edit.display().name());
-      if (tulip.isPresent()) {
-        tulip(xml, GENERATED, tulip.get().generated());
-        tulip(xml, TULIP, tulip.get().tulip());
-      }
-      if (edit.notes().isPresent()) {
-        notes(xml, edit.notes().get());
-      }
-      if (content) {
-        xml.close();
-      }
+      boxEdit(xml, edit);
     }
     xml.close();
+  }
+
+  /**
+   * Writes the correction of a box: its place, its shift, its heading, if typed, and its display as attributes, then a
+   * tulip corrected after the tulip generated it replaces, then the notes, then the waypoint; an empty element without
+   * any of them.
+   *
+   * @param xml the writer, inside the changes of the user.
+   * @param edit the correction of the box.
+   *
+   * @throws XMLStreamException if the stream cannot be written.
+   */
+  private static void boxEdit(final Indented xml, final BoxEdit edit) throws XMLStreamException {
+    final Optional<TulipEdit> tulip = edit.tulip();
+    final boolean content = tulip.isPresent() || edit.notes().isPresent() || edit.waypoint().isPresent();
+    if (content) {
+      xml.open(BOX_ONE, BOX);
+    } else {
+      xml.empty(BOX_ONE, BOX);
+    }
+    position(xml, edit.place());
+    xml.attribute(SHIFT, Double.toString(edit.shift()));
+    if (edit.heading().isPresent()) {
+      xml.attribute(HEADING, Integer.toString(edit.heading().getAsInt()));
+    }
+    xml.attribute(DISPLAY, edit.display().name());
+    if (tulip.isPresent()) {
+      tulip(xml, GENERATED, tulip.get().generated());
+      tulip(xml, TULIP, tulip.get().tulip());
+    }
+    if (edit.notes().isPresent()) {
+      notes(xml, edit.notes().get());
+    }
+    if (edit.waypoint().isPresent()) {
+      waypointEdit(xml, edit.waypoint().get());
+    }
+    if (content) {
+      xml.close();
+    }
+  }
+
+  /**
+   * Writes the waypoint placed by the user on a box: its kind, its radius of opening, if any, and its radius of
+   * validation, as attributes.
+   *
+   * @param xml the writer, inside the correction of a box.
+   * @param waypoint the waypoint placed.
+   *
+   * @throws XMLStreamException if the stream cannot be written.
+   */
+  private static void waypointEdit(final Indented xml, final Waypoint waypoint) throws XMLStreamException {
+    xml.empty(BOX_ONE, WAYPOINT);
+    xml.attribute(KIND, waypoint.kind().name());
+    if (waypoint.open().isPresent()) {
+      xml.attribute(OPEN, Integer.toString(waypoint.open().getAsInt()));
+    }
+    xml.attribute(CLEAR, Integer.toString(waypoint.clear()));
   }
 
   /**
@@ -476,18 +525,22 @@ public final class OpenRallyWriter {
 
   /**
    * Writes the waypoint of a box: its place, its number, its total distance, its heading, its danger, the start or the
-   * finish of the stage, its diagram and its description.
+   * finish of the stage, the waypoint of the box (phase 5, increment 4: the element of its kind, {@code wpm},
+   * {@code wps}…, its radii of opening and of validation, the radius of opening left out when it has none, and its
+   * number among the waypoints of the roadbook as its name, as in the reference files of phase 0), its diagram and
+   * its description.
    *
    * @param xml the writer, inside the element {@code gpx}.
    * @param box the box.
    * @param last whether the box is the last one, the box of the finish.
+   * @param number the number of the waypoint of the box among those of the roadbook, from 1; not read without one.
    * @param catalogue the catalogue of symbols that draws the tulip and tells whether the heading is shown.
    *
    * @throws XMLStreamException if the stream cannot be written.
    * @throws IOException if the diagram or the description cannot be drawn.
    */
-  private static void waypoint(final Indented xml, final Box box, final boolean last, final Catalogue catalogue)
-      throws XMLStreamException, IOException {
+  private static void waypoint(final Indented xml, final Box box, final boolean last, final int number,
+                               final Catalogue catalogue) throws XMLStreamException, IOException {
     xml.open(GPX, "wpt");
     position(xml, box.position());
     xml.text(GPX, "name", Integer.toString(box.number()));
@@ -505,6 +558,15 @@ public final class OpenRallyWriter {
     }
     if (last) {
       xml.empty(OPENRALLY, "ass");
+    }
+    if (box.waypoint().isPresent()) {
+      final Waypoint waypoint = box.waypoint().get();
+      xml.empty(OPENRALLY, waypoint.kind().name().toLowerCase(Locale.ROOT));
+      if (waypoint.open().isPresent()) {
+        xml.attribute(OPEN, Integer.toString(waypoint.open().getAsInt()));
+      }
+      xml.attribute(CLEAR, Integer.toString(waypoint.clear()));
+      xml.attribute(NAME, Integer.toString(number));
     }
     if (box.tulip().isPresent() || notes.hasDiagram()) {
       final byte[] png = DiagramRenderer.png(box.tulip(), notes, catalogue);

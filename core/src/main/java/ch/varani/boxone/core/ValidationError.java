@@ -42,6 +42,8 @@ public enum ValidationError {
    * Notes of a box with too many abbreviations, a free text too long, not printable ASCII or with a space at its ends,
    * or too many symbols on a road of the tulip.
    */
-  INVALID_NOTES
+  INVALID_NOTES,
+  /** A waypoint whose radius of opening or of validation is not a whole number of metres from 1 to 10,000. */
+  INVALID_WAYPOINT
 
 }

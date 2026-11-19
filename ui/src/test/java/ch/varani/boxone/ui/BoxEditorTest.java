@@ -14,6 +14,8 @@ import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 import javafx.event.ActionEvent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -449,6 +451,24 @@ final class BoxEditorTest {
         () -> assertFalse(symbolsAtStart),
         () -> assertEquals(List.of(shifted.withNotes(Optional.of(typed.withDanger(Optional.of(Danger.LEVEL_1))))),
                            shown.corrections()));
+  }
+
+  /**
+   * The waypoint of the box selected is chosen in the tab Box, kept with the other corrections of the box.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws IOException never: the tulip can be drawn.
+   */
+  @Test
+  @DisplayName("Phase 5: the waypoint of a box is chosen in its editor, kept with its other corrections")
+  void waypointTest(final FxRobot robot) throws IOException {
+    final Shown shown = show(robot, Optional.of(TURN));
+    select(robot, shown, JUNCTION_INDEX, null);
+    final ComboBox<?> kind = (ComboBox<?>) shown.editor().getNode().lookup("#" + WaypointEditor.KIND_ID);
+    robot.interact(() -> kind.getSelectionModel().select(WaypointKind.WPC.ordinal() + 1));
+    assertEquals(List.of(new BoxEdit(JUNCTION).withWaypoint(Optional.of(Waypoint.of(WaypointKind.WPC)))),
+                 shown.corrections());
   }
 
   /**

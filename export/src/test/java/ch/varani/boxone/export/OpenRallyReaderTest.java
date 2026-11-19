@@ -19,6 +19,8 @@ import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -112,13 +114,19 @@ final class OpenRallyReaderTest {
                                                List.of(new BoxSymbol(Symbol.RAIL_ROAD, SymbolPlace.EXIT),
                                                        new BoxSymbol(Symbol.BUMP, SymbolPlace.ENTRY),
                                                        BoxSymbol.free(Symbol.CHURCH, new DiagramPoint(0.5, -0.25))));
+  /** The radius of opening of the waypoint of the reference file, in metres. */
+  private static final int OPENING = 600;
+  /** The radius of validation of the waypoint of the reference file, in metres. */
+  private static final int CLEARING = 50;
   /** The changes of the user of the tests, as in the reference file of version 1. */
   private static final RoadbookEdits EDITS = new RoadbookEdits(
       List.of(BEND), List.of(REMOVED),
       List.of(new BoxEdit(JUNCTION, SHIFT, OptionalInt.of(HEADING), HeadingDisplay.SHOWN,
-                          Optional.of(new TulipEdit(CROSSROADS, CORRECTED)), Optional.of(NOTES)),
+                          Optional.of(new TulipEdit(CROSSROADS, CORRECTED)), Optional.of(NOTES),
+                          Optional.of(new Waypoint(WaypointKind.WPM, OptionalInt.of(OPENING), CLEARING))),
               new BoxEdit(FINISH).withDisplay(HeadingDisplay.HIDDEN)
-                                 .withNotes(Optional.of(Notes.NONE.withText(TEXT)))));
+                                 .withNotes(Optional.of(Notes.NONE.withText(TEXT)))
+                                 .withWaypoint(Optional.of(Waypoint.of(WaypointKind.WPC)))));
   /** The correction of a box, opened, in the files of the failures. */
   private static final String BOX = "<boxone:box lat=\"46.78\" lon=\"6.642\" shift=\"0\" display=\"RULE\">";
   /** A tulip generated, straight ahead, in the files of the failures. */
@@ -133,6 +141,8 @@ final class OpenRallyReaderTest {
   private static final String OPEN_NOTES = "<boxone:notes>";
   /** A symbol of the notes of a box, in the files of the failures. */
   private static final String SYMBOL = "<boxone:symbol name=\"BUMP\" place=\"EXIT\"/>";
+  /** A masked waypoint, in the files of the failures. */
+  private static final String WAYPOINT = "<boxone:waypoint kind=\"WPM\" open=\"800\" clear=\"90\"/>";
   /** The end of the notes of a box, in the files of the failures. */
   private static final String END_NOTES = "</boxone:notes>";
   /** The end of the correction of a box, then of the route, in the files of the failures. */
@@ -410,7 +420,16 @@ final class OpenRallyReaderTest {
       "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"TREE\" place=\"FREE\" x=\"0\"/>"
           + END_NOTES + END,
       "</boxone:route>|" + BOX + OPEN_NOTES + "<boxone:symbol name=\"BUMP\" place=\"EXIT\" x=\"0\" y=\"0\"/>"
-          + END_NOTES + END})
+          + END_NOTES + END,
+      "</boxone:route>|" + WAYPOINT + "</boxone:route>",
+      "</boxone:route>|" + BOX + WAYPOINT + WAYPOINT + END,
+      "</boxone:route>|" + BOX + GENERATED + WAYPOINT + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"WPX\" clear=\"90\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"WPM\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"WPM\" clear=\"0\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint kind=\"WPM\" open=\"x\" clear=\"90\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:waypoint open=\"800\" clear=\"90\"/>" + END,
+      "</boxone:route>|" + BOX + "<boxone:unknown/>" + END})
   @DisplayName("Issue #5: a roadbook with a value missing or out of its bounds is refused as invalid")
   void invalidTest(final String target, final String replacement) {
     assertEquals(ReadError.INVALID, refused(MINIMAL.replace(target, replacement == null ? "" : replacement)));

@@ -60,6 +60,8 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
   static final String NOTES_TEXT = "roadbook.notes";
   /** The key of the symbols of a box for the readers of the screen, with their names. */
   static final String SYMBOLS_TEXT = "roadbook.symbols";
+  /** The key of the waypoint of a box for the readers of the screen, with its kind. */
+  static final String WAYPOINT_TEXT = "roadbook.waypoint";
   /** The separator of the lines of the description of a box. */
   static final String LINE = "\n";
   /** The separator of the parts of the text of a box for the readers of the screen, and of the names of symbols. */
@@ -103,7 +105,9 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
       }
       final String notes = String.join(LINE, DescriptionRenderer.paragraphs(box.notes(), catalogue));
       final String description = new MessageFormat(texts.getString(BOX_TEXT), locale)
-          .format(new Object[] {box.number(), total, partial}) + notes(box.notes(), notes, locale, texts);
+          .format(new Object[] {box.number(), total, partial}) + notes(box.notes(), notes, locale, texts)
+          + box.waypoint().map(waypoint -> PARTS + new MessageFormat(texts.getString(WAYPOINT_TEXT), locale)
+              .format(new Object[] {waypoint.kind().name()})).orElse("");
       rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, notes, description, box,
                           generated.boxes().get(i)));
     }

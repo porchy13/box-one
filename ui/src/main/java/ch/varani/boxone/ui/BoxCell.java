@@ -1,5 +1,7 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -9,9 +11,13 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
+import java.util.Locale;
+import java.util.Optional;
+
 /**
  * A box of the roadbook strip, drawn as on paper (DESIGN.md §14): at the left, the number of the box, small, to find
- * it again (asked by the maintainer, 2026-11-14), then the total distance, large, and the partial distance under it,
+ * it again (asked by the maintainer, 2026-11-14), the letter of its waypoint in a circle under it (phase 5, increment
+ * 4; FIA, Appendix III, §5.12.2: all but the WPP), then the total distance, large, and the partial distance under it,
  * small, both right-aligned; in the middle, the diagram (the tulip, the symbols and the danger mark of the notes); at
  * the right, the heading where the catalogue shows it, and the description under it (the abbreviations and the free
  * text of the notes, phase 5). The box has its number, its distances and its notes as accessible text.
@@ -26,6 +32,10 @@ final class BoxCell extends ListCell<BoxRow> {
 
   /** The side of the tulip in the strip, in pixels: half the image of the catalogue, as on a printed strip. */
   static final double TULIP_SIDE = 100;
+  /** The style class of the waypoint of a box. */
+  static final String WAYPOINT_STYLE = "box-waypoint";
+  /** The beginning of the style class of the kind of the waypoint of a box ({@code waypoint-wpm}…). */
+  static final String WAYPOINT_KIND_STYLE = "waypoint-";
 
   // *******************************************************************************************************************
   // Attributes
@@ -33,6 +43,8 @@ final class BoxCell extends ListCell<BoxRow> {
 
   /** The number of the box. */
   private final Label number = new Label();
+  /** The letter of the waypoint of the box in its circle, under the number; hidden without waypoint marked. */
+  private final Label waypoint = new Label();
   /** The total distance. */
   private final Label total = new Label();
   /** The partial distance. */
@@ -55,6 +67,8 @@ final class BoxCell extends ListCell<BoxRow> {
    */
   BoxCell() {
     number.getStyleClass().add("box-number");
+    waypoint.getStyleClass().add(WAYPOINT_STYLE);
+    waypoint.managedProperty().bind(waypoint.visibleProperty());
     total.getStyleClass().add("box-total");
     partial.getStyleClass().add("box-partial");
     heading.getStyleClass().add("box-heading");
@@ -72,7 +86,9 @@ final class BoxCell extends ListCell<BoxRow> {
     final VBox description = new VBox(heading, notes);
     description.getStyleClass().add("box-description");
     description.setAlignment(Pos.TOP_RIGHT);
-    row = new HBox(number, distances, tulip, space, description);
+    final VBox numbered = new VBox(number, waypoint);
+    numbered.setAlignment(Pos.TOP_RIGHT);
+    row = new HBox(numbered, distances, tulip, space, description);
     row.getStyleClass().add("box-paper");
     getStyleClass().add("box-cell");
   }
@@ -96,6 +112,13 @@ final class BoxCell extends ListCell<BoxRow> {
       return;
     }
     number.setText(String.valueOf(box.number()));
+    final Optional<WaypointKind> marked = box.box().waypoint().map(Waypoint::kind).filter(WaypointKind::isMarked);
+    waypoint.getStyleClass().setAll(WAYPOINT_STYLE);
+    marked.ifPresent(kind -> {
+      waypoint.setText(String.valueOf(kind.letter()));
+      waypoint.getStyleClass().add(WAYPOINT_KIND_STYLE + kind.name().toLowerCase(Locale.ROOT));
+    });
+    waypoint.setVisible(marked.isPresent());
     total.setText(box.total());
     partial.setText(box.partial());
     tulip.setImage(box.tulip().orElse(null));

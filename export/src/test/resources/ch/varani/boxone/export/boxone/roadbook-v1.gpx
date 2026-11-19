@@ -24,9 +24,11 @@
               <boxone:symbol name="BUMP" place="ENTRY"/>
               <boxone:symbol name="CHURCH" place="FREE" x="0.5" y="-0.25"/>
             </boxone:notes>
+            <boxone:waypoint kind="WPM" open="600" clear="50"/>
           </boxone:box>
           <boxone:box lat="46.778400" lon="6.641300" shift="0.0" display="HIDDEN">
             <boxone:notes text="BIG ROCKS"/>
+            <boxone:waypoint kind="WPC" clear="300"/>
           </boxone:box>
         </boxone:edits>
       </boxone:route>

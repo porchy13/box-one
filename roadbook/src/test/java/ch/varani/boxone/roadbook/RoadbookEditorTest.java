@@ -17,6 +17,8 @@ import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -237,6 +239,32 @@ final class RoadbookEditorTest {
             generated, RoadbookEdits.NONE.with(new BoxEdit(NORTH).withShift(SHIFT))).boxes().get(1).tulip()),
         () -> assertEquals(Optional.empty(), RoadbookEditor.roadbook(
             generated, RoadbookEdits.NONE.with(new BoxEdit(START).withTulip(corrected))).boxes().get(0).tulip()));
+  }
+
+  /**
+   * A box takes the waypoint placed by the user, even with a danger of level 3; a box with a danger of level 3 and no
+   * waypoint placed is a WPS with the radii of the FIA; the other boxes keep the waypoint generated, none.
+   */
+  @Test
+  @DisplayName("Phase 5: a box takes the waypoint placed; a danger of level 3 is a WPS; the other boxes have none")
+  void waypointTest() {
+    final Waypoint control = Waypoint.of(WaypointKind.WPC);
+    final Notes danger = Notes.NONE.withDanger(Optional.of(Danger.LEVEL_3));
+    final RoadbookEdits edits = RoadbookEdits.NONE.with(new BoxEdit(NORTH).withWaypoint(Optional.of(control)))
+                                                  .with(new BoxEdit(FINISH).withNotes(Optional.of(danger)))
+                                                  .with(new BoxEdit(START).withNotes(Optional.of(danger))
+                                                                          .withWaypoint(Optional.of(control)));
+    final List<Box> boxes = RoadbookEditor.roadbook(RoadbookGenerator.generate(route()), edits).boxes();
+    assertAll(
+        () -> assertEquals(Optional.of(control), boxes.get(0).waypoint()),
+        () -> assertEquals(Optional.of(control), boxes.get(1).waypoint()),
+        () -> assertEquals(Optional.of(Waypoint.of(WaypointKind.WPS)), boxes.get(2).waypoint()),
+        () -> assertEquals(Optional.empty(),
+                           RoadbookEditor.waypoint(Optional.empty(), Notes.NONE.withDanger(Optional.of(Danger.LEVEL_2)),
+                                                   Optional.empty())),
+        () -> assertEquals(Optional.of(control), RoadbookEditor.waypoint(Optional.of(control), Notes.NONE,
+                                                                         Optional.of(new BoxEdit(NORTH)))),
+        () -> assertEquals(Geodesy.distance(START, NORTH), RoadbookEditor.distance(START, NORTH)));
   }
 
   /**

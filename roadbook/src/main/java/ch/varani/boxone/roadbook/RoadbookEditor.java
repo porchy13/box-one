@@ -2,6 +2,7 @@ package ch.varani.boxone.roadbook;
 
 import ch.varani.boxone.core.Box;
 import ch.varani.boxone.core.BoxEdit;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
 import ch.varani.boxone.core.Notes;
@@ -10,6 +11,8 @@ import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +111,18 @@ public final class RoadbookEditor {
   }
 
   /**
+   * Measures the distance between two places, as the editor measures it ({@link Geodesy#distance(GeoPoint, GeoPoint)}).
+   *
+   * @param from the first place.
+   * @param to the second place.
+   *
+   * @return the distance, in metres, on the sphere of the routing.
+   */
+  public static double distance(final GeoPoint from, final GeoPoint to) {
+    return Geodesy.distance(from, to);
+  }
+
+  /**
    * Applies the boxes removed and added to a route: its maneuvers change, and a point is inserted into its line where
    * a box is added between two of its points.
    *
@@ -150,7 +165,8 @@ public final class RoadbookEditor {
 
   /**
    * Applies the corrections of the boxes to the roadbook of a route changed by {@link #route(Route, RoadbookEdits)}:
-   * their shifted totals, their headings, their displays, their tulips and their notes.
+   * their shifted totals, their headings, their displays, their tulips, their notes and their waypoints
+   * ({@link #waypoint(Optional, Notes, Optional)}).
    *
    * @param roadbook the roadbook generated from the route changed.
    * @param edits the changes of the user.
@@ -182,10 +198,32 @@ public final class RoadbookEditor {
         tulip = tulip(tulip, edit.get().tulip());
         notes = edit.get().notes().orElse(notes);
       }
-      corrected.add(new Box(box.number(), box.position(), total, total - previous, heading, tulip, display, notes));
+      corrected.add(new Box(box.number(), box.position(), total, total - previous, heading, tulip, display, notes,
+                            waypoint(box.waypoint(), notes, edit)));
       previous = total;
     }
     return new Roadbook(roadbook.route(), corrected);
+  }
+
+  /**
+   * Gives the waypoint of a box corrected (increment 4): the waypoint placed by the user; otherwise a WPS, with the
+   * radii of the FIA, if the box has a danger of level 3 (FIA, Appendix III, §5.8.1: a danger of level 3 is a WPS;
+   * confirmed by the maintainer, 2026-11-17); otherwise the waypoint generated.
+   *
+   * @param generated the waypoint of the box generated, or empty.
+   * @param notes the notes of the box corrected.
+   * @param edit the correction of the box, or empty.
+   *
+   * @return the waypoint of the box, or empty.
+   */
+  static Optional<Waypoint> waypoint(final Optional<Waypoint> generated, final Notes notes,
+                                     final Optional<BoxEdit> edit) {
+    final Optional<Waypoint> placed = edit.flatMap(BoxEdit::waypoint);
+    if (placed.isPresent()) {
+      return placed;
+    }
+    return notes.danger().filter(danger -> danger == Danger.LEVEL_3).map(danger -> Waypoint.of(WaypointKind.WPS))
+                .or(() -> generated);
   }
 
   /**

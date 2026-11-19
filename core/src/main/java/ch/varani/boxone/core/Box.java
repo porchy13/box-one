@@ -33,9 +33,11 @@ import java.util.OptionalInt;
  *              boxes of a roadbook generated without the geometry of its junctions.
  * @param display whether the heading is shown: as the catalogue decides, or as the user chose.
  * @param notes the notes of the box: none for a box generated.
+ * @param waypoint the waypoint of the box (phase 5, increment 4): none for a box generated, a WPS for a danger of
+ *                 level 3 (FIA, Appendix III, §5.8.1), or the waypoint placed by the user.
  */
 public record Box(int number, GeoPoint position, double total, double partial, OptionalInt heading,
-                  Optional<Tulip> tulip, HeadingDisplay display, Notes notes) {
+                  Optional<Tulip> tulip, HeadingDisplay display, Notes notes, Optional<Waypoint> waypoint) {
 
   // *******************************************************************************************************************
   // Constants
@@ -64,8 +66,10 @@ public record Box(int number, GeoPoint position, double total, double partial, O
    * @param tulip the tulip of the junction of the box, or empty.
    * @param display whether the heading is shown.
    * @param notes the notes of the box.
+   * @param waypoint the waypoint of the box, or empty.
    *
-   * @throws NullPointerException if the position, the heading, the tulip, the display or the notes are {@code null}.
+   * @throws NullPointerException if the position, the heading, the tulip, the display, the notes or the waypoint are
+   *                              {@code null}.
    * @throws DomainException {@link ValidationError#INVALID_BOX_NUMBER} if the number is below {@value #FIRST},
    *                         {@link ValidationError#INVALID_DISTANCE} if a distance is negative or not finite,
    *                         {@link ValidationError#INVALID_HEADING} if the heading is beyond its range.
@@ -76,6 +80,7 @@ public record Box(int number, GeoPoint position, double total, double partial, O
     Objects.requireNonNull(tulip);
     Objects.requireNonNull(display);
     Objects.requireNonNull(notes);
+    Objects.requireNonNull(waypoint);
     if (number < FIRST) {
       throw new DomainException(ValidationError.INVALID_BOX_NUMBER);
     }
@@ -85,6 +90,29 @@ public record Box(int number, GeoPoint position, double total, double partial, O
     if (heading.isPresent() && !isHeading(heading.getAsInt())) {
       throw new DomainException(ValidationError.INVALID_HEADING);
     }
+  }
+
+  /**
+   * Creates a box without waypoint.
+   *
+   * @param number the number of the box in the roadbook, from {@value #FIRST}.
+   * @param position the place of the box on the route.
+   * @param total the distance from the start of the roadbook to the box, in metres, finite and non-negative.
+   * @param partial the distance from the previous box to this one, in metres, finite and non-negative.
+   * @param heading the heading to follow on leaving the box, in degrees between {@value #MIN_HEADING} and
+   *                {@value #MAX_HEADING}, or empty.
+   * @param tulip the tulip of the junction of the box, or empty.
+   * @param display whether the heading is shown.
+   * @param notes the notes of the box.
+   *
+   * @throws NullPointerException if the position, the heading, the tulip, the display or the notes are {@code null}.
+   * @throws DomainException {@link ValidationError#INVALID_BOX_NUMBER} if the number is below {@value #FIRST},
+   *                         {@link ValidationError#INVALID_DISTANCE} if a distance is negative or not finite,
+   *                         {@link ValidationError#INVALID_HEADING} if the heading is beyond its range.
+   */
+  public Box(final int number, final GeoPoint position, final double total, final double partial,
+             final OptionalInt heading, final Optional<Tulip> tulip, final HeadingDisplay display, final Notes notes) {
+    this(number, position, total, partial, heading, tulip, display, notes, Optional.empty());
   }
 
   /**

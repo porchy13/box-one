@@ -134,7 +134,7 @@ final class SmokeTest {
     Platform.runLater(() -> {
       final Consumer<GeoPoint> counted = place -> events.countDown();
       final MapView map = new MapView(Languages.bundle(Languages.ENGLISH), counted,
-                                       (end, place) -> events.countDown(), counted, counted);
+                                       (end, place) -> events.countDown(), counted, counted, counted);
       kept.set(map);
       map.setPlaces(STATION, null);
       map.setOnLoaded(() -> {

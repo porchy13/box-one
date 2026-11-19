@@ -223,6 +223,43 @@
     -fx-text-fill: -c-ink;
 }
 
+/* The waypoint of a box (phase 5, increment 4): its letter in a circle under the number, in the colours of the FIA
+   (Appendix III, §5.12.2 and §5.12.3): the text and the ring in black, or in blue for a WPN, on the colour of its
+   kind. */
+.roadbook-strip .box-waypoint {
+    -fx-min-width: 22;
+    -fx-min-height: 22;
+    -fx-max-width: 22;
+    -fx-max-height: 22;
+    -fx-alignment: center;
+    -fx-font-weight: 700;
+    -fx-text-fill: -c-ink;
+    -fx-background-color: -c-ink, -c-paper;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 11, 9;
+}
+
+.roadbook-strip .box-waypoint.waypoint-wpm, .roadbook-strip .box-waypoint.waypoint-wpv {
+    -fx-background-color: -c-ink, -c-wp-cyan;
+}
+
+.roadbook-strip .box-waypoint.waypoint-wps {
+    -fx-background-color: -c-ink, -c-wp-red;
+}
+
+.roadbook-strip .box-waypoint.waypoint-wpc {
+    -fx-background-color: -c-ink, -c-wp-yellow;
+}
+
+.roadbook-strip .box-waypoint.waypoint-wpe {
+    -fx-background-color: -c-ink, -c-wp-blue;
+}
+
+.roadbook-strip .box-waypoint.waypoint-wpn {
+    -fx-text-fill: -c-wp-blue;
+    -fx-background-color: -c-wp-blue, -c-paper;
+}
+
 /* The description of a box (phase 5): the abbreviations and the free text of its notes, under the heading, bold as on
    the printed strip, right-aligned, wrapped in the width left by the diagram. */
 .roadbook-strip .box-description {

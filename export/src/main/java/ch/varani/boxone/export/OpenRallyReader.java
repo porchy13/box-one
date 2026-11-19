@@ -17,6 +17,8 @@ import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.SymbolPlace;
 import ch.varani.boxone.core.Tulip;
 import ch.varani.boxone.core.TulipEdit;
+import ch.varani.boxone.core.Waypoint;
+import ch.varani.boxone.core.WaypointKind;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -393,7 +395,37 @@ public final class OpenRallyReader {
           final BoxEdit last = corrections.removeLast();
           corrections.add(last.withNotes(Optional.of(withSymbol(last.notes().orElseThrow(), symbol(xml)))));
         }
+        case OpenRallyWriter.WAYPOINT -> {
+          pending();
+          if (corrections.isEmpty() || corrections.getLast().waypoint().isPresent()) {
+            throw new ReadException(ReadError.INVALID);
+          }
+          corrections.add(corrections.removeLast().withWaypoint(Optional.of(waypoint(xml))));
+        }
         default -> throw new ReadException(ReadError.INVALID);
+      }
+    }
+
+    /**
+     * Reads the waypoint of the correction of a box (phase 5, increment 4): its kind, its radius of opening, if it has
+     * one, and its radius of validation.
+     *
+     * @param xml the parser, on the start of the element of the waypoint.
+     *
+     * @return the waypoint.
+     *
+     * @throws ReadException if a value is missing or invalid: a kind that is not one of {@link WaypointKind}, a radius
+     *                       that is not a whole number of metres within the bounds of {@link Waypoint}.
+     */
+    private static Waypoint waypoint(final XMLStreamReader xml) throws ReadException {
+      final String kind = required(xml.getAttributeValue(null, OpenRallyWriter.KIND));
+      final String open = xml.getAttributeValue(null, OpenRallyWriter.OPEN);
+      final OptionalInt opening = open == null ? OptionalInt.empty() : OptionalInt.of(integer(open));
+      final int clear = integer(xml.getAttributeValue(null, OpenRallyWriter.CLEAR));
+      try {
+        return new Waypoint(WaypointKind.valueOf(kind), opening, clear);
+      } catch (DomainException | IllegalArgumentException _) {
+        throw new ReadException(ReadError.INVALID);
       }
     }
 
@@ -582,7 +614,8 @@ public final class OpenRallyReader {
       final OptionalInt typed = heading == null ? OptionalInt.empty() : OptionalInt.of(integer(heading));
       final String display = required(xml.getAttributeValue(null, OpenRallyWriter.DISPLAY));
       try {
-        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display), Optional.empty(), Optional.empty());
+        return new BoxEdit(place, shift, typed, HeadingDisplay.valueOf(display), Optional.empty(), Optional.empty(),
+                           Optional.empty());
       } catch (DomainException | IllegalArgumentException _) {
         throw new ReadException(ReadError.INVALID);
       }

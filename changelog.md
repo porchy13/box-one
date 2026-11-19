@@ -92,6 +92,11 @@ All notable changes of the project are documented in this file.
   box of their own. They
   are changed and removed as the other notes, and "Reset the box" brings them back; a box of a feature removed by the
   user stays removed. The map must be imported again (File › Open a map…) for the level crossings and the barriers.
+- **Waypoints**: the seven waypoints of the FIA (WPM, WPN, WPS, WPC, WPV, WPE, WPP) placed by the context menu of
+  the map ("Add a waypoint here", on the box near the place or on a box added there) or in the tab Box of the editor,
+  their radii of opening and of validation those of the FIA, changed by the user; a danger of level 3 is a WPS. They
+  are marked in the roadbook by their letter in a circle, in the colours of the FIA, but the WPP, and exported for
+  Terra Pirata with their radii.
 - **Abbreviations of the dunes**: the abbreviations of the dunes of the lexicon of the FIA, DN (dune), DNX (many
   dunes), DNT (small dune) and L1 to L3 (difficulty level of the dunes), among the abbreviations of a box.
 - **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the

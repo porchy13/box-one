@@ -123,7 +123,7 @@ public final class FeatureNotes {
         final Box box = boxes.get(rank);
         final SymbolPlace side = feature.index() < place.get() ? SymbolPlace.ENTRY : SymbolPlace.EXIT;
         boxes.set(rank, new Box(box.number(), box.position(), box.total(), box.partial(), box.heading(), box.tulip(),
-                                box.display(), note(box.notes(), feature.kind(), side)));
+                                box.display(), note(box.notes(), feature.kind(), side), box.waypoint()));
       }
     }
     return new Roadbook(route, boxes);

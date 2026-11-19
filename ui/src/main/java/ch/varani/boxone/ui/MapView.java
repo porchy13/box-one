@@ -63,6 +63,8 @@ final class MapView {
   static final String PLACE_FINISH = "map.placeFinish";
   /** The key of the item of the context menu adding a box to the roadbook (phase 5). */
   static final String ADD_BOX = "map.addBox";
+  /** The key of the item of the context menu placing a waypoint on the route (phase 5, increment 4). */
+  static final String ADD_WAYPOINT = "map.addWaypoint";
   /** The kind of the marker of the start, for the page. */
   private static final String START_KIND = "start";
   /** The kind of the marker of the finish, for the page. */
@@ -90,6 +92,8 @@ final class MapView {
   private final ContextMenu menu = new ContextMenu();
   /** The item of the context menu adding a box, enabled while a route is shown. */
   private final MenuItem addBox = new MenuItem();
+  /** The item of the context menu placing a waypoint, enabled while a route is shown. */
+  private final MenuItem addWaypoint = new MenuItem();
   /** The place where the context menu was asked, or {@code null} before the first one. */
   private GeoPoint menuPlace;
   /** The tiles of the background map, or {@code null} before the first ones. */
@@ -121,11 +125,12 @@ final class MapView {
    * @param moves receives the start or the finish moved by the user, its marker dropped or by the context menu, and its
    *              new place.
    * @param adds receives the place where the user adds a box, by the context menu.
+   * @param waypoints receives the place where the user places a waypoint, by the context menu.
    * @param boxMoves receives the place where the user drops the box selected, dragged along the route.
    */
   MapView(final ResourceBundle texts, final Consumer<GeoPoint> clicks,
           final BiConsumer<Itinerary.End, GeoPoint> moves, final Consumer<GeoPoint> adds,
-          final Consumer<GeoPoint> boxMoves) {
+          final Consumer<GeoPoint> waypoints, final Consumer<GeoPoint> boxMoves) {
     this.texts = texts;
     this.bridge = new MapBridge(clicks, place -> moves.accept(Itinerary.End.START, place),
                                 place -> moves.accept(Itinerary.End.FINISH, place), this::showMenu, boxMoves);
@@ -136,7 +141,9 @@ final class MapView {
     placeFinish.setOnAction(event -> moves.accept(Itinerary.End.FINISH, menuPlace));
     addBox.setText(texts.getString(ADD_BOX));
     addBox.setOnAction(event -> adds.accept(menuPlace));
-    menu.getItems().setAll(placeStart, placeFinish, addBox);
+    addWaypoint.setText(texts.getString(ADD_WAYPOINT));
+    addWaypoint.setOnAction(event -> waypoints.accept(menuPlace));
+    menu.getItems().setAll(placeStart, placeFinish, addBox, addWaypoint);
     final WebEngine engine = view.getEngine();
     engine.getLoadWorker().stateProperty().addListener((property, before, after) -> {
       if (after == Worker.State.SUCCEEDED) {
@@ -284,6 +291,7 @@ final class MapView {
   private void showMenu(final GeoPoint place, final Point2D position) {
     menuPlace = place;
     addBox.setDisable(route == null && detour == null);
+    addWaypoint.setDisable(addBox.isDisable());
     menu.hide();
     final Point2D screen = view.localToScreen(position);
     menu.show(view, screen.getX(), screen.getY());
