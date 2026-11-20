@@ -35,6 +35,7 @@ import org.testfx.framework.junit5.ApplicationExtension;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -133,7 +134,9 @@ final class BoxEditorTest {
                 new Box(2, JUNCTION, JUNCTION_TOTAL, JUNCTION_TOTAL, OptionalInt.of(EAST), tulip),
                 new Box(3, CASTLE, FINISH_TOTAL, FINISH_TOTAL - JUNCTION_TOTAL, OptionalInt.empty(),
                         Optional.empty())));
-    final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Catalogue.fia(), LOCALE, TEXTS);
+    final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Collections.nCopies(roadbook.boxes().size(),
+                                                                                  OptionalInt.empty()),
+                                          Catalogue.fia(), LOCALE, TEXTS);
     final List<BoxEdit> corrections = new ArrayList<>();
     final List<GeoPoint> removals = new ArrayList<>();
     final AtomicReference<Shown> shown = new AtomicReference<>();

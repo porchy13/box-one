@@ -97,6 +97,25 @@ final class WaypointTest {
   }
 
   /**
+   * A DZ placed where the map gives a speed limit takes it, if it is a speed of a DZ; the default speed otherwise; the
+   * other kinds of waypoint take no speed.
+   */
+  @Test
+  @DisplayName("Phase 5: a DZ takes the speed limit of the map at its box, 50 km/h without one or beyond the bounds")
+  void mapLimitTest() {
+    final int limit = 80;
+    final int walk = 6;
+    final int none = 150;
+    assertAll(
+        () -> assertEquals(OptionalInt.of(limit), Waypoint.of(WaypointKind.DZ, OptionalInt.of(limit)).speed()),
+        () -> assertEquals(Waypoint.of(WaypointKind.DZ), Waypoint.of(WaypointKind.DZ, OptionalInt.empty())),
+        () -> assertEquals(Waypoint.of(WaypointKind.DZ), Waypoint.of(WaypointKind.DZ, OptionalInt.of(walk))),
+        () -> assertEquals(Waypoint.of(WaypointKind.DZ), Waypoint.of(WaypointKind.DZ, OptionalInt.of(none))),
+        () -> assertEquals(Waypoint.of(WaypointKind.FZ), Waypoint.of(WaypointKind.FZ, OptionalInt.of(limit))),
+        () -> assertEquals(Waypoint.of(WaypointKind.WPM), Waypoint.of(WaypointKind.WPM, OptionalInt.of(limit))));
+  }
+
+  /**
    * A radius below 1 m or beyond 10 km is rejected, the radius of opening as the radius of validation.
    *
    * @param metres the radius, in metres.

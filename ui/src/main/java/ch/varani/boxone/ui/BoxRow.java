@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
@@ -27,10 +28,12 @@ import java.util.stream.Collectors;
  * danger mark of its notes), its heading where the catalogue shows it, and its description (the abbreviations and the
  * free text of its notes), as in the roadbook exported, and its place, shown on the map when it is selected; the part
  * of a speed zone it is (phase 5, increment 5: framed, the sign of the speed limit at the start and at the finish of
- * the zone, drawn by the catalogue); and the box itself, as corrected by the user and as generated, for its editor
+ * the zone, drawn by the catalogue); the speed limit of the map where the route leaves it (increment 5b, an
+ * information for the user); and the box itself, as corrected by the user and as generated, for its editor
  * (development plan, phase 5).
  *
- * <p>Built off the JavaFX Application Thread ({@link #rows(Roadbook, Roadbook, Catalogue, Locale, ResourceBundle)}):
+ * <p>Built off the JavaFX Application Thread ({@link #rows(Roadbook, Roadbook, List, Catalogue, Locale,
+ * ResourceBundle)}):
  * the diagrams are drawn there. Immutable, its image loaded once built.</p>
  *
  * @param number the number of the box.
@@ -44,12 +47,14 @@ import java.util.stream.Collectors;
  *                    waypoint and its speed limit.
  * @param zone the part of a speed zone the box is, or empty outside any zone.
  * @param sign the image of the sign of the speed limit, at the start and at the finish of a zone; empty otherwise.
+ * @param limit the speed limit of the map where the route leaves the box (the road it arrives by at the finish), in
+ *              km/h; empty if the map gives none, or without map.
  * @param box the box shown, with the corrections of the user.
  * @param generated the box as generated from the route, without the corrections of the user.
  */
 record BoxRow(int number, GeoPoint place, String total, String partial, Optional<String> heading,
               Optional<Image> tulip, String notes, String description, Optional<SpeedZone> zone, Optional<Image> sign,
-              Box box, Box generated) {
+              OptionalInt limit, Box box, Box generated) {
 
   // *******************************************************************************************************************
   // Constants
@@ -89,6 +94,8 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
    *
    * @param generated the roadbook generated from the route, its boxes added and removed by the user.
    * @param roadbook the same roadbook, its boxes corrected by the user: the one shown.
+   * @param limits the speed limits of the map where the route leaves each box, in their order, in km/h; empty where
+   *               the map gives none.
    * @param catalogue the catalogue, which draws the tulips and tells the headings shown.
    * @param locale the locale of the application, for the distances.
    * @param texts the texts of the user interface.
@@ -97,8 +104,9 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
    *
    * @throws IOException if a diagram cannot be drawn.
    */
-  static List<BoxRow> rows(final Roadbook generated, final Roadbook roadbook, final Catalogue catalogue,
-                           final Locale locale, final ResourceBundle texts) throws IOException {
+  static List<BoxRow> rows(final Roadbook generated, final Roadbook roadbook, final List<OptionalInt> limits,
+                           final Catalogue catalogue, final Locale locale, final ResourceBundle texts)
+      throws IOException {
     final NumberFormat kilometres = kilometres(locale);
     final List<Optional<SpeedZone>> zones = SpeedZone.along(roadbook.boxes());
     final List<BoxRow> rows = new ArrayList<>(roadbook.boxes().size());
@@ -127,7 +135,7 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
         sign = Optional.of(new Image(new ByteArrayInputStream(DescriptionRenderer.sign(zone.get(), catalogue))));
       }
       rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, notes, description, zone,
-                          sign, box, generated.boxes().get(i)));
+                          sign, limits.get(i), box, generated.boxes().get(i)));
     }
     return rows;
   }

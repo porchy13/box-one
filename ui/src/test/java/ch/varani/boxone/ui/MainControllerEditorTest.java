@@ -1,6 +1,8 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.HeadingDisplay;
+import ch.varani.boxone.core.Roadbook;
 import ch.varani.boxone.core.RoadbookEdits;
 import ch.varani.boxone.core.Route;
 import ch.varani.boxone.core.Waypoint;
@@ -27,6 +29,7 @@ import org.testfx.api.FxRobot;
 import org.testfx.framework.junit5.ApplicationExtension;
 
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -264,7 +267,7 @@ final class MainControllerEditorTest {
    * "Add a waypoint here" places a masked waypoint on a box added where the user right-clicks near the route, away
    * from the boxes, and selects it; near a box, on that box, without adding one; far from the route, the status bar
    * says so; "Start a speed zone here" places a DZ, framed in the strip, a DZ on the box with a WPM replacing it, and a
-   * DZ after it finishing its zone. The waypoints are in the roadbook exported.
+   * DZ after it finishing its zone, at the speed limit of the map. The waypoints are in the roadbook exported.
    *
    * @param robot the TestFX robot.
    *
@@ -312,10 +315,35 @@ final class MainControllerEditorTest {
         () -> assertEquals(Optional.of(WaypointKind.WPM), kinds.getFirst()),
         () -> assertEquals(Optional.of(WaypointKind.DZ), kinds.get(1)),
         () -> assertEquals(Optional.of(WaypointKind.DZ), kinds.getLast()),
+        () -> assertEquals(OptionalInt.of(FakeRouter.TURNING_LIMIT),
+                           ((BoxRow) boxes.getItems().get(1)).box().waypoint().orElseThrow().speed()),
+        () -> assertEquals(OptionalInt.of(FakeRouter.TURNING_LIMIT), ((BoxRow) boxes.getItems().get(1)).limit()),
         () -> assertTrue(((BoxRow) boxes.getItems().getLast()).sign().isPresent()),
         () -> assertTrue(((BoxRow) boxes.getItems().getLast()).zone().orElseThrow().finished().isPresent()),
         () -> assertEquals(WAYPOINTS_PLACED, OpenRallyReader.read(file).edits().boxes().stream()
             .filter(edit -> edit.waypoint().isPresent()).count()));
+  }
+
+  /**
+   * Without map, the boxes of a roadbook and a box added have no speed limit of the map; with a map, each box has the
+   * limit of the map where the route leaves it.
+   */
+  @Test
+  @DisplayName("Phase 5: the boxes have the speed limit of the map where the route leaves them, none without map")
+  void limitsTest() {
+    final GeoPoint station = new GeoPoint(STATION_LATITUDE, STATION_LONGITUDE);
+    final GeoPoint castle = new GeoPoint(CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    final Router turning = FakeRouter.turning();
+    final Route route = turning.route(station, castle);
+    final Roadbook roadbook = MainController.generate(route, RoadbookEdits.NONE, null);
+    final GeoPoint turn = route.points().get(1);
+    assertAll(
+        () -> assertEquals(Collections.nCopies(TURNING_BOXES, OptionalInt.empty()),
+                           MainController.limits(roadbook, null)),
+        () -> assertEquals(Collections.nCopies(TURNING_BOXES, OptionalInt.of(FakeRouter.TURNING_LIMIT)),
+                           MainController.limits(roadbook, turning)),
+        () -> assertEquals(OptionalInt.empty(), MainController.limit(null, route, turn)),
+        () -> assertEquals(OptionalInt.of(FakeRouter.TURNING_LIMIT), MainController.limit(turning, route, turn)));
   }
 
 }

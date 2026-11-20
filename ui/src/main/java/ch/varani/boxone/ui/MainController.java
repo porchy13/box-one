@@ -59,12 +59,14 @@ import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -629,7 +631,8 @@ final class MainController {
    * point of the route shown, the nearest one, or on a box added there; a masked waypoint (WPM), or the start (DZ, at
    * {@value Waypoint#DEFAULT_SPEED} km/h) or the finish (FZ) of a speed zone (increment 5; decision of the maintainer,
    * 2026-11-19), with the radii of the FIA, its kind, its radii and its speed then chosen in the editor of the box,
-   * which is selected. A place far from the route is said in the status bar.
+   * which is selected. A DZ takes the speed limit of the map where the route leaves its box, if any (increment 5b;
+   * decision of the maintainer, 2026-11-20). A place far from the route is said in the status bar.
    *
    * @param kind the kind of the waypoint.
    * @param place the place asked.
@@ -640,13 +643,33 @@ final class MainController {
       setStatus(ADD_FAR);
       return;
     }
-    final Optional<GeoPoint> near = boxList.getItems().stream().map(BoxRow::place)
-        .min(Comparator.comparingDouble(box -> RoadbookEditor.distance(box, onRoute.get())))
-        .filter(box -> RoadbookEditor.distance(box, onRoute.get()) <= RoadbookEditor.NEAR_ROUTE);
-    final GeoPoint at = near.orElse(onRoute.get());
+    final Optional<BoxRow> near = boxList.getItems().stream()
+        .min(Comparator.comparingDouble(row -> RoadbookEditor.distance(row.place(), onRoute.get())))
+        .filter(row -> RoadbookEditor.distance(row.place(), onRoute.get()) <= RoadbookEditor.NEAR_ROUTE);
+    final GeoPoint at = near.map(BoxRow::place).orElse(onRoute.get());
     final RoadbookEdits changed = near.isPresent() ? edits : edits.withAdded(at);
+    final OptionalInt limit = near.isPresent() ? near.get().limit()
+                                              : limit(router, RoadbookEditor.route(route, changed), at);
     changeEdits(changed.with(changed.edit(at).orElse(new BoxEdit(at))
-                                    .withWaypoint(Optional.of(Waypoint.of(kind)))), at);
+                                    .withWaypoint(Optional.of(Waypoint.of(kind, limit)))), at);
+  }
+
+  /**
+   * Reads the speed limit of the map at a box added to the route shown.
+   *
+   * @param on the router of the map, or {@code null} without map: no limit.
+   * @param changed the route shown, with the box added.
+   * @param at the place of the box added: a maneuver of the route.
+   *
+   * @return the limit of the map where the route leaves the box, in km/h; empty if the map gives none, or without
+   *         map.
+   */
+  static OptionalInt limit(final Router on, final Route changed, final GeoPoint at) {
+    if (on == null) {
+      return OptionalInt.empty();
+    }
+    return changed.maneuvers().stream().filter(index -> changed.points().get(index).equals(at)).findFirst()
+                  .map(index -> on.speedLimit(changed, index)).orElse(OptionalInt.empty());
   }
 
   /**
@@ -939,7 +962,8 @@ final class MainController {
     final RoadbookEdits drawn = edits;
     drawing = run(() -> {
       final Roadbook generated = generate(shown, drawn, on);
-      return BoxRow.rows(generated, RoadbookEditor.roadbook(generated, drawn), CATALOGUE, locale, texts);
+      return BoxRow.rows(generated, RoadbookEditor.roadbook(generated, drawn), limits(generated, on), CATALOGUE,
+                         locale, texts);
     }, rows -> {
       drawing = null;
       showRoadbook(rows);
@@ -969,6 +993,28 @@ final class MainController {
     final List<RoadFeature> features = on.features(changed);
     final Route boxed = FeatureNotes.route(changed, features, changes.removed());
     return FeatureNotes.noted(RoadbookGenerator.generate(boxed, on.junctions(boxed)), features);
+  }
+
+  /**
+   * Reads the speed limits of the map where the route of a roadbook leaves each of its boxes (phase 5, increment 5b:
+   * an information for the user; decision of the maintainer, 2026-11-20).
+   *
+   * @param generated the roadbook generated: a box at the start, one at each maneuver of its route, one at the
+   *                  finish.
+   * @param on the router of the map, or {@code null} without map: no limit.
+   *
+   * @return the limits, one per box, in their order, in km/h; empty where the map gives none.
+   */
+  static List<OptionalInt> limits(final Roadbook generated, final Router on) {
+    final Route boxed = generated.route();
+    final List<Integer> places = new ArrayList<>();
+    places.add(0);
+    places.addAll(boxed.maneuvers());
+    places.add(boxed.points().size() - 1);
+    if (on == null) {
+      return Collections.nCopies(places.size(), OptionalInt.empty());
+    }
+    return places.stream().map(index -> on.speedLimit(boxed, index)).toList();
   }
 
   /**

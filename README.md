@@ -173,6 +173,9 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   the DZ in an orange circle, the FZ in a green one, the boxes of the zone framed in orange, and the sign of the speed
   limit in the description of the start and of the finish (struck out); exported for Terra Pirata with the speed of
   the DZ and the sign in the image of the notes.
+- **Speed limits of the map**: the tab Box of the editor tells the speed limit given by OpenStreetMap where the route
+  leaves the box (none where the map gives none); a DZ placed on the box takes it as its speed. The limits are an
+  information only: no speed zone is placed automatically.
 - **Layout**: the roadbook at the left of the map, the editor of the box selected at its right, its tulip at the top
   and its fields in five tabs: Box, Tulip, Symbols, Abbreviations, Notes (the danger and the free text); a symbol or an
   abbreviation is chosen first, the elements of the box listed under the choice. The notes are exported: the danger as the danger of OpenRally, the

@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.EnumSet;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -140,6 +141,8 @@ public final class GraphHopperRouter implements Router {
   private final JunctionReader junctionReader;
   /** The reader of the features of the map along the routes (phase 5, increment 3b). */
   private final FeatureReader featureReader;
+  /** The reader of the speed limits of the map along the routes (phase 5, increment 5b). */
+  private final SpeedLimitReader limitReader;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -161,6 +164,7 @@ public final class GraphHopperRouter implements Router {
     this.junctionReader = new JunctionReader(hopper.getBaseGraph(), hopper.getLocationIndex(), roads,
                                              hopper.getEncodingManager());
     this.featureReader = new FeatureReader(hopper.getLocationIndex(), roads, hopper.getEncodingManager(), features);
+    this.limitReader = new SpeedLimitReader(hopper.getLocationIndex(), roads, hopper.getEncodingManager());
   }
 
   /**
@@ -311,6 +315,17 @@ public final class GraphHopperRouter implements Router {
   @Override
   public List<RoadFeature> features(final Route route) {
     return featureReader.features(route);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The limit is the one stored by GraphHopper on the road, in the direction the route drives it
+   * ({@link SpeedLimitReader}).</p>
+   */
+  @Override
+  public OptionalInt speedLimit(final Route route, final int index) {
+    return limitReader.limit(route, index);
   }
 
   /**

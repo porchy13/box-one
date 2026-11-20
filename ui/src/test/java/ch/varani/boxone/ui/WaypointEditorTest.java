@@ -5,6 +5,7 @@ import ch.varani.boxone.core.WaypointKind;
 import javafx.event.ActionEvent;
 import javafx.scene.Scene;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -44,6 +45,8 @@ final class WaypointEditorTest {
   private static final int CLEARING = 50;
   /** A speed limit typed, in km/h. */
   private static final int SLOW = 30;
+  /** The speed limit of the map at the box, in km/h. */
+  private static final int MAP_LIMIT = 80;
 
   /**
    * The editor shown in a window, and the waypoints it applies.
@@ -116,11 +119,11 @@ final class WaypointEditorTest {
     @SuppressWarnings("unchecked")
     final ComboBox<String> kind = (ComboBox<String>) shown.editor().getNode().lookup("#" + WaypointEditor.KIND_ID);
     robot.interact(() -> kind.getSelectionModel().select(WaypointKind.WPS.ordinal() + 1));
-    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.WPS))));
+    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.WPS)), OptionalInt.empty()));
     final String open = field(shown, WaypointEditor.OPEN_ID).getText();
     robot.interact(() -> kind.getSelectionModel().select(WaypointKind.WPS.ordinal() + 1));
     robot.interact(() -> kind.getSelectionModel().select(0));
-    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.WPC))));
+    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.WPC)), OptionalInt.empty()));
     final String none = field(shown, WaypointEditor.OPEN_ID).getText();
     assertAll(
         () -> assertEquals("", none),
@@ -142,7 +145,7 @@ final class WaypointEditorTest {
     final TextField open = field(shown, WaypointEditor.OPEN_ID);
     final TextField clear = field(shown, WaypointEditor.CLEAR_ID);
     type(robot, clear, String.valueOf(CLEARING));
-    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.WPM))));
+    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.WPM)), OptionalInt.empty()));
     type(robot, open, String.valueOf(OPENING));
     type(robot, clear, "0");
     final boolean marked = clear.getStyleClass().contains("invalid");
@@ -159,7 +162,7 @@ final class WaypointEditorTest {
       shown.other().requestFocus();
     });
     robot.interact(() -> shown.editor().show(Optional.of(new Waypoint(WaypointKind.WPM, OptionalInt.empty(),
-                                                                       CLEARING))));
+                                                                       CLEARING)), OptionalInt.empty()));
     type(robot, clear, String.valueOf(CLEARING));
     assertAll(
         () -> assertTrue(marked),
@@ -185,7 +188,7 @@ final class WaypointEditorTest {
     final Shown shown = show(robot);
     final TextField speed = field(shown, WaypointEditor.SPEED_ID);
     final boolean disabled = speed.isDisable();
-    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.DZ))));
+    robot.interact(() -> shown.editor().show(Optional.of(Waypoint.of(WaypointKind.DZ)), OptionalInt.empty()));
     final String fifty = speed.getText();
     final boolean enabled = !speed.isDisable();
     type(robot, speed, String.valueOf(Waypoint.MAX_SPEED + 1));
@@ -206,6 +209,30 @@ final class WaypointEditorTest {
                                    Optional.of(Waypoint.of(WaypointKind.FZ))), shown.applied()),
         () -> assertEquals(Optional.of(SLOW), WaypointEditor.speed(" 30 ")),
         () -> assertEquals(Optional.empty(), WaypointEditor.speed("x")));
+  }
+
+  /**
+   * The editor tells the speed limit of the map at the box, or that the map gives none; a DZ chosen takes it.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Phase 5: the editor tells the speed limit of the map at the box, which a DZ chosen takes")
+  void mapLimitTest(final FxRobot robot) {
+    final Shown shown = show(robot);
+    final Label limit = (Label) shown.editor().getNode().lookup("#" + WaypointEditor.MAP_LIMIT_ID);
+    final String none = limit.getText();
+    robot.interact(() -> shown.editor().show(Optional.empty(), OptionalInt.of(MAP_LIMIT)));
+    final String eighty = limit.getText();
+    @SuppressWarnings("unchecked")
+    final ComboBox<String> kind = (ComboBox<String>) shown.editor().getNode().lookup("#" + WaypointEditor.KIND_ID);
+    robot.interact(() -> kind.getSelectionModel().select(WaypointKind.DZ.ordinal() + 1));
+    assertAll(
+        () -> assertEquals(TEXTS.getString(WaypointEditor.MAP_LIMIT_NONE), none),
+        () -> assertTrue(eighty.startsWith(MAP_LIMIT + " km/h")),
+        () -> assertEquals(String.valueOf(MAP_LIMIT), field(shown, WaypointEditor.SPEED_ID).getText()),
+        () -> assertEquals(List.of(Optional.of(Waypoint.of(WaypointKind.DZ, OptionalInt.of(MAP_LIMIT)))),
+                           shown.applied()));
   }
 
 }

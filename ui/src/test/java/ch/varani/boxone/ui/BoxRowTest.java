@@ -22,6 +22,7 @@ import org.testfx.framework.junit5.ApplicationExtension;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -80,7 +81,9 @@ final class BoxRowTest {
                         Optional.of(Waypoint.of(WaypointKind.DZ))),
                 new Box(4, CASTLE, LENGTH, LENGTH - 2, OptionalInt.empty(), Optional.empty(), HeadingDisplay.RULE,
                         Notes.NONE, Optional.of(Waypoint.of(WaypointKind.FZ)))));
-    final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Catalogue.fia(), LOCALE, TEXTS);
+    final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Collections.nCopies(roadbook.boxes().size(),
+                                                                                  OptionalInt.empty()),
+                                          Catalogue.fia(), LOCALE, TEXTS);
     assertAll(
         () -> assertEquals(List.of(Optional.of(new SpeedZone(SLOW, SpeedZone.Part.START)),
                                    Optional.of(new SpeedZone(SLOW, SpeedZone.Part.INSIDE)),
@@ -110,7 +113,9 @@ final class BoxRowTest {
         new Route(List.of(STATION, CASTLE), List.of(), LENGTH, Duration.ofMinutes(1)),
         List.of(new Box(1, STATION, 0, 0, OptionalInt.of(SOUTH), Optional.empty(), HeadingDisplay.RULE, NOTES),
                 new Box(2, CASTLE, LENGTH, LENGTH, OptionalInt.empty(), Optional.empty())));
-    final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Catalogue.fia(), LOCALE, TEXTS);
+    final List<BoxRow> rows = BoxRow.rows(roadbook, roadbook, Collections.nCopies(roadbook.boxes().size(),
+                                                                                  OptionalInt.empty()),
+                                          Catalogue.fia(), LOCALE, TEXTS);
     assertAll(
         () -> assertEquals("FRO ET\nBIG ROCKS", rows.getFirst().notes()),
         () -> assertTrue(rows.getFirst().tulip().isPresent()),

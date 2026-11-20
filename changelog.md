@@ -104,6 +104,9 @@ All notable changes of the project are documented in this file.
   green one, the boxes of the zone framed in orange, and the sign of the speed limit in the description of the start
   and of the finish (struck out); exported for Terra Pirata with the speed of the DZ (`speed`) and the sign in the
   image of the notes.
+- **Speed limits of the map**: the tab Box of the editor tells the speed limit given by OpenStreetMap where the route
+  leaves the box, or that the map gives none; a DZ placed on the box, from the map or in the editor, takes it as its
+  speed (50 km/h otherwise). No speed zone is placed automatically.
 - **Abbreviations of the dunes**: the abbreviations of the dunes of the lexicon of the FIA, DN (dune), DNX (many
   dunes), DNT (small dune) and L1 to L3 (difficulty level of the dunes), among the abbreviations of a box.
 - **No route lost by a click**: once the start and the finish are placed, a click on the map changes nothing; the

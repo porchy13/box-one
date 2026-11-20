@@ -29,6 +29,10 @@ import java.util.function.Consumer;
  * the radius of the FIA for the kind. The speed limit of a DZ, in whole km/h, is applied likewise; its field is
  * disabled for the other kinds.</p>
  *
+ * <p>Under them, the speed limit of the map where the route leaves the box (increment 5b; decision of the maintainer,
+ * 2026-11-20: an information for the user, never a zone placed automatically): a DZ chosen takes it as its speed, if
+ * it is within the bounds of {@link Waypoint}.</p>
+ *
  * <p>Confined to the JavaFX Application Thread.</p>
  */
 final class WaypointEditor {
@@ -69,6 +73,14 @@ final class WaypointEditor {
   static final String SPEED_ERROR = "waypoint.speedError";
   /** The identifier of the field of the speed limit. */
   static final String SPEED_ID = "waypointSpeed";
+  /** The key of the label of the speed limit of the map. */
+  static final String MAP_LIMIT_LABEL = "waypoint.mapLimit";
+  /** The key of the speed limit of the map, with the speed. */
+  static final String MAP_LIMIT = "waypoint.mapLimitValue";
+  /** The key of the speed limit of the map, when it gives none. */
+  static final String MAP_LIMIT_NONE = "waypoint.mapLimitNone";
+  /** The identifier of the speed limit of the map. */
+  static final String MAP_LIMIT_ID = "waypointMapLimit";
   /** The style class of a field whose value is not valid. */
   private static final String INVALID = "invalid";
   /** The style class of a caption that tells an error. */
@@ -102,8 +114,12 @@ final class WaypointEditor {
   private final TextField speed = new TextField();
   /** The caption of the speed limit. */
   private final Label speedHint = new Label();
+  /** The speed limit of the map where the route leaves the box. */
+  private final Label mapLimit = new Label();
   /** The waypoint of the box shown, or empty. */
   private Optional<Waypoint> shown = Optional.empty();
+  /** The speed limit of the map at the box shown, in km/h, or empty if the map gives none. */
+  private OptionalInt limit = OptionalInt.empty();
   /** Whether the editor is being filled with a box: its changes are not the user's. */
   private boolean filling;
 
@@ -126,6 +142,8 @@ final class WaypointEditor {
     open.setId(OPEN_ID);
     clear.setId(CLEAR_ID);
     speed.setId(SPEED_ID);
+    mapLimit.setId(MAP_LIMIT_ID);
+    mapLimit.setWrapText(true);
     kind.getItems().add(texts.getString(NONE));
     for (final WaypointKind each : WaypointKind.values()) {
       kind.getItems().add(texts.getString(KIND_KEYS + each.name()));
@@ -133,7 +151,8 @@ final class WaypointEditor {
     kind.setMaxWidth(Double.MAX_VALUE);
     box.getChildren().addAll(label(KIND_LABEL, kind), kind, caption(kindHint), label(OPEN_LABEL, open), open,
                              caption(openHint), label(CLEAR_LABEL, clear), clear, caption(clearHint),
-                             label(SPEED_LABEL, speed), speed, caption(speedHint));
+                             label(SPEED_LABEL, speed), speed, caption(speedHint), label(MAP_LIMIT_LABEL, mapLimit),
+                             mapLimit);
     box.getStyleClass().add("form");
     kind.getSelectionModel().selectedIndexProperty().addListener((property, before, index) -> applyKind());
     for (final TextField field : new TextField[] {open, clear, speed}) {
@@ -144,7 +163,7 @@ final class WaypointEditor {
         }
       });
     }
-    show(Optional.empty());
+    show(Optional.empty(), OptionalInt.empty());
   }
 
   // *******************************************************************************************************************
@@ -165,12 +184,26 @@ final class WaypointEditor {
   // *******************************************************************************************************************
 
   /**
-   * Shows the waypoint of a box.
+   * Shows the waypoint of a box, and the speed limit of the map there.
    *
    * @param waypoint the waypoint of the box, or empty: the radii are then disabled; the speed limit is disabled but
    *                 for a DZ.
+   * @param atBox the speed limit of the map where the route leaves the box, in km/h, or empty if the map gives none.
    */
-  void show(final Optional<Waypoint> waypoint) {
+  void show(final Optional<Waypoint> waypoint, final OptionalInt atBox) {
+    limit = atBox;
+    mapLimit.setText(atBox.isPresent()
+                     ? new MessageFormat(texts.getString(MAP_LIMIT), locale).format(new Object[] {atBox.getAsInt()})
+                     : texts.getString(MAP_LIMIT_NONE));
+    show(waypoint);
+  }
+
+  /**
+   * Shows a waypoint of the box shown.
+   *
+   * @param waypoint the waypoint, or empty: the radii are then disabled; the speed limit is disabled but for a DZ.
+   */
+  private void show(final Optional<Waypoint> waypoint) {
     filling = true;
     shown = waypoint;
     kind.getSelectionModel().select(waypoint.map(placed -> placed.kind().ordinal() + 1).orElse(0));
@@ -190,7 +223,7 @@ final class WaypointEditor {
 
   /**
    * Applies the kind chosen by the user, another than the kind shown: no waypoint, or a waypoint of the kind with the
-   * radii of the FIA.
+   * radii of the FIA, a DZ at the speed limit of the map ({@link Waypoint#of(WaypointKind, OptionalInt)}).
    */
   private void applyKind() {
     if (filling) {
@@ -198,7 +231,7 @@ final class WaypointEditor {
     }
     final int index = kind.getSelectionModel().getSelectedIndex();
     final Optional<Waypoint> chosen = index == 0 ? Optional.empty()
-                                                 : Optional.of(Waypoint.of(WaypointKind.values()[index - 1]));
+                                                 : Optional.of(Waypoint.of(WaypointKind.values()[index - 1], limit));
     applies.accept(chosen);
     show(chosen);
   }
@@ -215,17 +248,17 @@ final class WaypointEditor {
                                                                    : radius(open.getText()).map(OptionalInt::of);
     final Optional<Integer> validation = radius(clear.getText());
     final WaypointKind current = shown.get().kind();
-    final Optional<OptionalInt> limit = current.hasSpeed() ? speed(speed.getText()).map(OptionalInt::of)
-                                                           : Optional.of(OptionalInt.empty());
+    final Optional<OptionalInt> typedSpeed = current.hasSpeed() ? speed(speed.getText()).map(OptionalInt::of)
+                                                                : Optional.of(OptionalInt.empty());
     mark(open, openHint, opening.isEmpty(), hint(current.open()), ERROR_TEXT);
     mark(clear, clearHint, validation.isEmpty(), hint(OptionalInt.of(current.clear())), ERROR_TEXT);
     if (current.hasSpeed()) {
-      mark(speed, speedHint, limit.isEmpty(), texts.getString(SPEED_HINT), SPEED_ERROR);
+      mark(speed, speedHint, typedSpeed.isEmpty(), texts.getString(SPEED_HINT), SPEED_ERROR);
     }
-    if (opening.isEmpty() || validation.isEmpty() || limit.isEmpty()) {
+    if (opening.isEmpty() || validation.isEmpty() || typedSpeed.isEmpty()) {
       return;
     }
-    final Waypoint typed = new Waypoint(current, opening.get(), validation.get(), limit.get());
+    final Waypoint typed = new Waypoint(current, opening.get(), validation.get(), typedSpeed.get());
     if (!typed.equals(shown.get())) {
       shown = Optional.of(typed);
       applies.accept(shown);

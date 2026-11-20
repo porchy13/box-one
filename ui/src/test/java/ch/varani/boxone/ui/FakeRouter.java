@@ -8,6 +8,7 @@ import ch.varani.boxone.routing.Router;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -27,6 +28,8 @@ final class FakeRouter implements Router {
   static final Duration WAYPOINT_COST = Duration.ofMinutes(1);
   /** The length a waypoint adds to the routes, in metres: a detour drives other roads than the fastest route. */
   static final double WAYPOINT_LENGTH = 100;
+  /** The speed limit of the map along the routes of {@link #turning()}, in km/h. */
+  static final int TURNING_LIMIT = 70;
 
   /** The exception thrown by the routing, or {@code null} to return a route. */
   private final RuntimeException failure;
@@ -99,7 +102,8 @@ final class FakeRouter implements Router {
 
   /**
    * Returns a router whose routes go south from the start to the latitude of the finish, then turn east to it: three
-   * boxes, the start, the turn and the finish.
+   * boxes, the start, the turn and the finish; the map gives a speed limit of {@link #TURNING_LIMIT} km/h along
+   * them.
    *
    * @return the router.
    */
@@ -110,6 +114,11 @@ final class FakeRouter implements Router {
         return new Route(List.of(points.getFirst(), new GeoPoint(points.getLast().latitude(),
                                                                   points.getFirst().longitude()), points.getLast()),
                          List.of(1), DISTANCE, DURATION);
+      }
+
+      @Override
+      public OptionalInt speedLimit(final Route route, final int index) {
+        return OptionalInt.of(TURNING_LIMIT);
       }
 
       @Override

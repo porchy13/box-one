@@ -48,7 +48,8 @@ import java.util.regex.Pattern;
  * <p><b>Fields</b>: the total distance, in kilometres in the format of the language, the box of the start excepted
  * (always 0); the heading, in degrees, empty for the heading computed; whether the heading is shown: as the FIA asks
  * (the rule of the catalogue), always or never; the heading and its display are disabled at the finish, which has no
- * heading; then the waypoint of the box (increment 4, {@link WaypointEditor}): its kind and its radii. Each caption
+ * heading; then the waypoint of the box (increment 4, {@link WaypointEditor}): its kind and its radii, and the speed
+ * limit of the map where the route leaves the box (increment 5b). Each caption
  * gives the value computed, and an empty field takes it. A field is applied when Enter is
  * pressed or when it loses the focus, the display when it is chosen; a value that does not change the box is not
  * applied. Then the tulip of the box, but at the start and at the finish ({@link TulipEditor}): a tulip corrected is
@@ -300,7 +301,7 @@ final class BoxEditor {
       tabs.getSelectionModel().selectFirst();
     }
     notesEditor.show(notes, row.box().tulip().isPresent());
-    waypointEditor.show(row.box().waypoint());
+    waypointEditor.show(row.box().waypoint(), row.limit());
   }
 
   /**

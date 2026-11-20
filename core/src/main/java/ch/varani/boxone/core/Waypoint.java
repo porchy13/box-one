@@ -99,6 +99,24 @@ public record Waypoint(WaypointKind kind, OptionalInt open, int clear, OptionalI
   }
 
   /**
+   * Gives a waypoint with the radii of the FIA, a DZ at the speed limit of the map at its box (phase 5, increment 5b;
+   * decision of the maintainer, 2026-11-20: the limits of the map are an information for the user, which makes the
+   * placing of a zone easier, never a zone placed automatically).
+   *
+   * @param kind the kind of the waypoint.
+   * @param limit the speed limit of the map where the route leaves the box, in km/h, or empty if the map gives none.
+   *
+   * @return the waypoint, its radii those of its kind by default (§43.1.6), a DZ at the limit of the map if it is from
+   *         {@value #MIN_SPEED} to {@value #MAX_SPEED} km/h, at {@value #DEFAULT_SPEED} km/h otherwise.
+   */
+  public static Waypoint of(final WaypointKind kind, final OptionalInt limit) {
+    if (!kind.hasSpeed() || limit.isEmpty() || !isSpeed(limit.getAsInt())) {
+      return of(kind);
+    }
+    return new Waypoint(kind, kind.open(), kind.clear(), limit);
+  }
+
+  /**
    * Tells whether a value is a radius of a waypoint.
    *
    * @param metres the value, in metres.

@@ -6,6 +6,8 @@ import ch.varani.boxone.core.RoadFeature;
 import ch.varani.boxone.core.Route;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -104,6 +106,26 @@ public interface Router extends AutoCloseable {
    */
   default List<RoadFeature> features(final Route route) {
     return List.of();
+  }
+
+  /**
+   * Reads the speed limit of the map where a route leaves one of its points: the limit of the road it takes from the
+   * point, or of the road it arrives by at its finish (development plan, phase 5, increment 5b; decision of the
+   * maintainer, 2026-11-20: an information for the user, never a speed zone placed automatically).
+   *
+   * <p>By default, for a router without the roads of a map, there is none.</p>
+   *
+   * @param route a route computed on the map of the router, or read back from a roadbook exported from it, with the
+   *              boxes added and removed by the user.
+   * @param index the index of the point of the line of the route, from 0.
+   *
+   * @return the limit given by the map, in whole km/h; empty if the map gives none there.
+   *
+   * @throws IndexOutOfBoundsException if the index is not a point of the route.
+   */
+  default OptionalInt speedLimit(final Route route, final int index) {
+    Objects.checkIndex(index, route.points().size());
+    return OptionalInt.empty();
   }
 
   /**
