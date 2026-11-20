@@ -28,6 +28,8 @@ final class OpenRallySchema {
   static final String FOLDER = "openrally/";
   /** The strict schema of OpenRally, relative to this class. */
   static final String OPENRALLY_STRICT = FOLDER + "openrally-strict.xsd";
+  /** The strict schema of GPX 1.1, relative to this class: the plain GPX exported by Box One. */
+  static final String GPX_STRICT = FOLDER + "gpx-strict.xsd";
   /** The strict schema of the roadbooks exported by Box One, relative to this class. */
   static final String BOX_ONE_STRICT = "boxone/boxone-strict.xsd";
 
@@ -59,6 +61,18 @@ final class OpenRallySchema {
    */
   static void validateExport(final Source gpx) throws SAXException, IOException {
     validate(gpx, BOX_ONE_STRICT);
+  }
+
+  /**
+   * Validates a plain GPX file against the strict schema of GPX 1.1, without extension.
+   *
+   * @param gpx the file.
+   *
+   * @throws SAXException if the file is not valid, or if the schemas cannot be read.
+   * @throws IOException if the file cannot be read.
+   */
+  static void validatePlain(final Source gpx) throws SAXException, IOException {
+    validate(gpx, GPX_STRICT);
   }
 
   /**

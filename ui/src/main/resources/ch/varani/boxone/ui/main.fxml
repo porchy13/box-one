@@ -34,6 +34,7 @@
         <MenuItem fx:id="saveItem" text="%menu.save" onAction="#save" accelerator="Shortcut+S" disable="true"/>
         <MenuItem fx:id="saveAsItem" text="%menu.saveAs" onAction="#saveAs" accelerator="Shortcut+Shift+S"
                   disable="true"/>
+        <MenuItem fx:id="exportGpxItem" text="%menu.exportGpx" onAction="#exportGpx" disable="true"/>
         <SeparatorMenuItem fx:id="settingsSeparator"/>
         <MenuItem fx:id="settingsItem" text="%menu.settings" onAction="#settings" accelerator="Shortcut+Comma"/>
         <SeparatorMenuItem fx:id="quitSeparator"/>

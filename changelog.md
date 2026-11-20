@@ -104,6 +104,9 @@ All notable changes of the project are documented in this file.
   green one, the boxes of the zone framed in orange, and the sign of the speed limit in the description of the start
   and of the finish (struck out); exported for Terra Pirata with the speed of the DZ (`speed`) and the sign in the
   image of the notes.
+- **Plain GPX**: File › Export as GPX… writes the route shown for other applications than Terra Pirata: the track
+  and one point per box, named by its number and its total distance, with the reminder that the route is indicative
+  and the attribution of OpenStreetMap.
 - **Speed limits of the map**: the tab Box of the editor tells the speed limit given by OpenStreetMap where the route
   leaves the box, or that the map gives none; a DZ placed on the box, from the map or in the editor, takes it as its
   speed (50 km/h otherwise). No speed zone is placed automatically.

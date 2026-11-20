@@ -13,6 +13,7 @@ import ch.varani.boxone.detour.Budget;
 import ch.varani.boxone.detour.Detour;
 import ch.varani.boxone.detour.DetourException;
 import ch.varani.boxone.detour.DetourGenerator;
+import ch.varani.boxone.export.GpxWriter;
 import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
 import ch.varani.boxone.export.Origin;
@@ -57,6 +58,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,6 +105,12 @@ import java.util.stream.Collectors;
  * (another route, other changes of the user; a roadbook never saved, once the user changed it). The application asks
  * whether to save such changes before it closes (Save, Don't Save, Cancel), and closes only once a roadbook being
  * saved is saved. The items are disabled while no route is shown.</p>
+ *
+ * <p><b>Plain GPX</b> (development plan, phase 6; decision of the maintainer, 2026-11-20): File › Export as GPX… asks
+ * for a GPX file ({@link RoadbookFiles#gpx}), then, in the background, writes the roadbook shown for other applications
+ * ({@link GpxWriter}): its track and one point per box, named by its number and its total distance in the format of
+ * the language; the status bar gives the number of boxes, or says why the file could not be written. The file is not
+ * the file of the roadbook: the roadbook is not marked as saved. The item is disabled while no route is shown.</p>
  *
  * <p><b>Detour</b> (development plan, phase 3): once a route is shown, Route › Generate a detour… asks for the budget
  * and the seed ({@link DetourDialog}, a new seed proposed each time), then, in the background, generates a detour
@@ -193,6 +201,14 @@ final class MainController {
   static final String EXPORT_NOTICE = "export.notice";
   /** The key of the failure to export the roadbook. */
   static final String EXPORT_ERROR = "error.export";
+  /** The key of the status while the plain GPX is exported. */
+  static final String STATUS_GPX_EXPORTING = "status.gpxExporting";
+  /** The key of the status once the plain GPX is exported, with its number of boxes. */
+  static final String STATUS_GPX_EXPORTED = "status.gpxExported";
+  /** The key of the name of the point of a box in the plain GPX, with its number and its total distance. */
+  static final String GPX_BOX = "gpx.box";
+  /** The key of the failure to export the plain GPX. */
+  static final String GPX_ERROR = "error.gpx";
   /** The key of the status while a detour is generated. */
   static final String STATUS_DETOURING = "status.detouring";
   /** The key of the status once a detour is shown, with its budget and the duration of the fastest route. */
@@ -373,6 +389,9 @@ final class MainController {
   /** The item Save the roadbook as…, injected by the view. */
   @FXML
   private MenuItem saveAsItem;
+  /** The item Export as GPX…, injected by the view. */
+  @FXML
+  private MenuItem exportGpxItem;
   /** The item Undo, injected by the view. */
   @FXML
   private MenuItem undoItem;
@@ -933,6 +952,7 @@ final class MainController {
     }
     saveItem.setDisable(shown == null);
     saveAsItem.setDisable(shown == null);
+    exportGpxItem.setDisable(shown == null);
     enableDetour();
     drawRoadbook(shown, false);
   }
@@ -1130,6 +1150,43 @@ final class MainController {
   @FXML
   private void saveAs() {
     services.saver().apply(stage).ifPresent(this::write);
+  }
+
+  /**
+   * Exports the roadbook of the route shown as a plain GPX, into the file chosen by the user: the item File › Export as
+   * GPX….
+   */
+  @FXML
+  private void exportGpx() {
+    services.exporter().apply(stage).ifPresent(this::writeGpx);
+  }
+
+  /**
+   * Writes, in the background, the roadbook of the route shown as a plain GPX ({@link GpxWriter}): its boxes, with the
+   * changes of the user, each a point named by its number and its total distance, and the track of its route. The
+   * status bar then gives the number of boxes, or says that the file could not be written.
+   *
+   * @param target the file.
+   */
+  private void writeGpx(final Path target) {
+    final Route shown = route;
+    final RoadbookEdits drawn = edits;
+    final Router exportedOn = router;
+    final String notice = texts.getString(EXPORT_NOTICE);
+    final String pattern = texts.getString(GPX_BOX);
+    setStatus(STATUS_GPX_EXPORTING);
+    run(() -> {
+      final Roadbook roadbook = RoadbookEditor.roadbook(generate(shown, drawn, exportedOn), drawn);
+      final NumberFormat kilometres = BoxRow.kilometres(locale);
+      final MessageFormat names = new MessageFormat(pattern, locale);
+      GpxWriter.save(roadbook, RoadbookFiles.name(target), notice,
+                     box -> names.format(new Object[] {box.number(),
+                                                       kilometres.format(box.total() / BoxRow.METRES_PER_KILOMETRE)}),
+                     target);
+      return roadbook;
+    }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_GPX_EXPORTED), locale)
+                                      .format(new Object[] {roadbook.boxes().size()})),
+        _ -> setStatus(GPX_ERROR));
   }
 
   /**

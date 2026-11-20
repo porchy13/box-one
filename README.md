@@ -110,6 +110,10 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   (File › Open a map…) to draw the gravel roads as tracks. Import the file into RDS to read it in the application
   Terra Pirata. The file also holds what Box One needs to open it again: the start and the finish
   clicked and, for a detour, its seed, its budget and the kinds of road it avoids.
+- **Plain GPX**: File › Export as GPX… writes the route shown as a plain GPX file, for other applications than Terra
+  Pirata (navigation applications, GPS): the track of the route and one point per box of the roadbook, named by its
+  number and its total distance ("Box 3 – 1.27 km"), with the reminder that the route is indicative and the
+  attribution of OpenStreetMap. It is an export only: Box One opens the roadbooks it saved, not these files.
 - **Roadbook beside the map**: the roadbook of the route shown is drawn at the right of the map, box after box, as on
   paper: the total and partial distances, the tulip and, where needed, the heading. Selecting a box, with the mouse or
   the arrows of the keyboard, shows its place on the map, to check the roadbook against the roads.

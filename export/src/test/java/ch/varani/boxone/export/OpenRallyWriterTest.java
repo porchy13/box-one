@@ -372,7 +372,7 @@ final class OpenRallyWriterTest {
    * @throws SAXException if the file is not well-formed XML.
    * @throws IOException if the file cannot be read.
    */
-  private static Document parse(final byte[] bytes) throws ParserConfigurationException, SAXException, IOException {
+  static Document parse(final byte[] bytes) throws ParserConfigurationException, SAXException, IOException {
     final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setNamespaceAware(true);
     factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -390,7 +390,7 @@ final class OpenRallyWriterTest {
    *
    * @return their texts.
    */
-  private static List<String> texts(final Element parent, final String namespace, final String name) {
+  static List<String> texts(final Element parent, final String namespace, final String name) {
     final NodeList nodes = parent.getElementsByTagNameNS(namespace, name);
     final List<String> texts = new ArrayList<>();
     for (int i = 0; i < nodes.getLength(); i++) {
@@ -407,7 +407,7 @@ final class OpenRallyWriterTest {
    *
    * @return the elements.
    */
-  private static List<Element> elements(final Document document, final String name) {
+  static List<Element> elements(final Document document, final String name) {
     final NodeList nodes = document.getElementsByTagNameNS(OpenRallyWriter.GPX, name);
     final List<Element> elements = new ArrayList<>();
     for (int i = 0; i < nodes.getLength(); i++) {

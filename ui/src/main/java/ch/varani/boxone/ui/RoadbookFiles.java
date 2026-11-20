@@ -12,13 +12,15 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * The choice of the file of the roadbook to export (File › Export the roadbook…), or of the roadbook to open
- * ({@link #opening(ResourceBundle, BiFunction)}, File › Open a roadbook…, issue #5 of GitLab): the save or the open
- * dialog of the system, limited to the GPX files, the format of OpenRally read by Terra Pirata. The dialog is shown by
- * a function ({@code FileChooser::showSaveDialog}, {@code FileChooser::showOpenDialog}), replaced in the tests, which
- * run without the dialogs of the system.
+ * The choice of the file of the roadbook to export (File › Export the roadbook…), of the roadbook to open
+ * ({@link #opening(ResourceBundle, BiFunction)}, File › Open a roadbook…, issue #5 of GitLab), or of the plain GPX to
+ * export ({@link #gpx(ResourceBundle, BiFunction)}, File › Export as GPX…, phase 6): the save or the open dialog of the
+ * system, limited to the GPX files, the format of OpenRally read by Terra Pirata, and of the plain GPX. The dialog is
+ * shown by a function ({@code FileChooser::showSaveDialog}, {@code FileChooser::showOpenDialog}), replaced in the
+ * tests, which run without the dialogs of the system.
  *
- * <p>The file chosen for an export always ends with {@value #EXTENSION}, added if the user typed a name without it;
+ * <p>The file chosen for an export (of the roadbook or of the plain GPX) always ends with {@value #EXTENSION}, added
+ * if the user typed a name without it;
  * the name of the file, without its extension, is the name of the roadbook ({@link #name(Path)}). The file chosen to
  * be opened is returned as it is.</p>
  *
@@ -39,9 +41,15 @@ final class RoadbookFiles implements Function<Window, Optional<Path>> {
   /** The extension of the files of the roadbooks. */
   static final String EXTENSION = ".gpx";
   /** The pattern of the GPX files. */
-  static final String GPX = "*" + EXTENSION;
+  static final String PATTERN = "*" + EXTENSION;
   /** The name proposed for the file. */
   static final String INITIAL_NAME = "roadbook" + EXTENSION;
+  /** The key of the title of the dialog of the export of the plain GPX. */
+  static final String GPX_TITLE = "gpx.title";
+  /** The key of the name of the filter of the plain GPX files. */
+  static final String GPX_FILTER = "gpx.filter";
+  /** The name proposed for the file of the plain GPX. */
+  static final String GPX_NAME = "route" + EXTENSION;
 
   // *******************************************************************************************************************
   // Attributes
@@ -51,8 +59,12 @@ final class RoadbookFiles implements Function<Window, Optional<Path>> {
   private final ResourceBundle texts;
   /** Shows the dialog to the user, and returns the file chosen, or {@code null} if cancelled. */
   private final BiFunction<FileChooser, Window, File> dialog;
-  /** Whether the file is chosen for an export: a name proposed, the extension added. */
-  private final boolean export;
+  /** The key of the title of the dialog. */
+  private final String titleKey;
+  /** The key of the name of the filter of the files. */
+  private final String filterKey;
+  /** The name proposed for the file of an export, or {@code null} for an opening: then no extension is added. */
+  private final String proposed;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -66,7 +78,7 @@ final class RoadbookFiles implements Function<Window, Optional<Path>> {
    *               {@code null} if cancelled ({@code FileChooser::showSaveDialog}).
    */
   RoadbookFiles(final ResourceBundle texts, final BiFunction<FileChooser, Window, File> dialog) {
-    this(texts, dialog, true);
+    this(texts, dialog, TITLE, FILTER, INITIAL_NAME);
   }
 
   /**
@@ -75,13 +87,17 @@ final class RoadbookFiles implements Function<Window, Optional<Path>> {
    * @param texts the texts of the user interface.
    * @param dialog shows the dialog to the user, owned by the main window, and returns the file chosen, or
    *               {@code null} if cancelled.
-   * @param export whether the file is chosen for an export, otherwise to be opened.
+   * @param titleKey the key of the title of the dialog.
+   * @param filterKey the key of the name of the filter of the files.
+   * @param proposed the name proposed for the file of an export, or {@code null} for a file to open.
    */
   private RoadbookFiles(final ResourceBundle texts, final BiFunction<FileChooser, Window, File> dialog,
-                        final boolean export) {
+                        final String titleKey, final String filterKey, final String proposed) {
     this.texts = texts;
     this.dialog = dialog;
-    this.export = export;
+    this.titleKey = titleKey;
+    this.filterKey = filterKey;
+    this.proposed = proposed;
   }
 
   /**
@@ -94,7 +110,20 @@ final class RoadbookFiles implements Function<Window, Optional<Path>> {
    * @return the choice of the roadbook to open.
    */
   static RoadbookFiles opening(final ResourceBundle texts, final BiFunction<FileChooser, Window, File> dialog) {
-    return new RoadbookFiles(texts, dialog, false);
+    return new RoadbookFiles(texts, dialog, OPEN_TITLE, FILTER, null);
+  }
+
+  /**
+   * Creates the choice of the file of the plain GPX to export (development plan, phase 6).
+   *
+   * @param texts the texts of the user interface.
+   * @param dialog shows the dialog to the user, owned by the main window, and returns the file chosen, or
+   *               {@code null} if cancelled ({@code FileChooser::showSaveDialog}).
+   *
+   * @return the choice of the file of the plain GPX.
+   */
+  static RoadbookFiles gpx(final ResourceBundle texts, final BiFunction<FileChooser, Window, File> dialog) {
+    return new RoadbookFiles(texts, dialog, GPX_TITLE, GPX_FILTER, GPX_NAME);
   }
 
   // *******************************************************************************************************************
@@ -111,13 +140,13 @@ final class RoadbookFiles implements Function<Window, Optional<Path>> {
   @Override
   public Optional<Path> apply(final Window owner) {
     final FileChooser chooser = new FileChooser();
-    chooser.setTitle(texts.getString(export ? TITLE : OPEN_TITLE));
-    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(texts.getString(FILTER), GPX));
-    if (export) {
-      chooser.setInitialFileName(INITIAL_NAME);
+    chooser.setTitle(texts.getString(titleKey));
+    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(texts.getString(filterKey), PATTERN));
+    if (proposed == null) {
+      return Optional.ofNullable(dialog.apply(chooser, owner)).map(File::toPath);
     }
-    final Optional<Path> chosen = Optional.ofNullable(dialog.apply(chooser, owner)).map(File::toPath);
-    return export ? chosen.map(RoadbookFiles::withExtension) : chosen;
+    chooser.setInitialFileName(proposed);
+    return Optional.ofNullable(dialog.apply(chooser, owner)).map(File::toPath).map(RoadbookFiles::withExtension);
   }
 
   /**

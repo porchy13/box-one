@@ -52,7 +52,7 @@ final class RoadbookFilesTest {
         () -> assertTrue(cancelled.get().isEmpty()),
         () -> assertEquals("Enregistrer le roadbook", dialog.getTitle()),
         () -> assertEquals(RoadbookFiles.INITIAL_NAME, dialog.getInitialFileName()),
-        () -> assertEquals(List.of(RoadbookFiles.GPX), dialog.getExtensionFilters().getFirst().getExtensions()));
+        () -> assertEquals(List.of(RoadbookFiles.PATTERN), dialog.getExtensionFilters().getFirst().getExtensions()));
   }
 
   /**
@@ -75,7 +75,30 @@ final class RoadbookFilesTest {
         () -> assertEquals(Optional.of(roadbook.toPath()), chosen.get()),
         () -> assertEquals("Ouvrir un roadbook", dialog.getTitle()),
         () -> assertNull(dialog.getInitialFileName()),
-        () -> assertEquals(List.of(RoadbookFiles.GPX), dialog.getExtensionFilters().getFirst().getExtensions()));
+        () -> assertEquals(List.of(RoadbookFiles.PATTERN), dialog.getExtensionFilters().getFirst().getExtensions()));
+  }
+
+  /**
+   * The dialog of the plain GPX asks for a GPX file, the name of a route proposed; the file chosen gets the extension.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Phase 6: the choice of the plain GPX asks for a GPX file and adds its extension")
+  void gpxTest(final FxRobot robot) {
+    final File route = new File("yverdon");
+    final List<FileChooser> dialogs = new ArrayList<>();
+    final AtomicReference<Optional<Path>> chosen = new AtomicReference<>();
+    robot.interact(() -> chosen.set(RoadbookFiles.gpx(Languages.bundle(Languages.FRENCH), (chooser, owner) -> {
+      dialogs.add(chooser);
+      return route;
+    }).apply(null)));
+    final FileChooser dialog = dialogs.getFirst();
+    assertAll(
+        () -> assertEquals(Optional.of(Path.of("yverdon.gpx")), chosen.get()),
+        () -> assertEquals("Exporter en GPX", dialog.getTitle()),
+        () -> assertEquals(RoadbookFiles.GPX_NAME, dialog.getInitialFileName()),
+        () -> assertEquals("Traces GPX", dialog.getExtensionFilters().getFirst().getDescription()));
   }
 
   /**

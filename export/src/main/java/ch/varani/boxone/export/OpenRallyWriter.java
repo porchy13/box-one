@@ -23,9 +23,7 @@ import javax.xml.stream.XMLStreamWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
@@ -70,8 +68,8 @@ import java.util.stream.Collectors;
  * GraphHopper through Jackson, would be found first, and writes differently).</p>
  *
  * <p><b>Saving</b>: {@link #save(Roadbook, Origin, RoadbookEdits, String, String, Catalogue, Path)} writes a
- * temporary file next to the file chosen, then moves it in place, so that a failed export never leaves a damaged file
- * (AGENTS.md §5).</p>
+ * temporary file next to the file chosen, then moves it in place ({@link AtomicFile}), so that a failed export never
+ * leaves a damaged file (AGENTS.md §5).</p>
  *
  * <p>Utility class without state, safe for concurrent use.</p>
  */
@@ -215,12 +213,6 @@ public final class OpenRallyWriter {
   static final String DISTANCE_FORMAT = "%.2f";
   /** The format of the coordinates: degrees with six decimals, about 0.1 m. */
   static final String COORDINATE_FORMAT = "%.6f";
-  /** The indentation of one level of the file. */
-  static final String INDENT = "  ";
-  /** The end of a line of the file. */
-  static final String NEW_LINE = "\n";
-  /** The suffix of the temporary file of a save. */
-  static final String TEMPORARY_SUFFIX = ".tmp";
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -253,18 +245,7 @@ public final class OpenRallyWriter {
    */
   public static void save(final Roadbook roadbook, final Origin origin, final RoadbookEdits edits, final String name,
                           final String description, final Catalogue catalogue, final Path file) throws IOException {
-    final Path target = file.toAbsolutePath();
-    final Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(),
-                                                TEMPORARY_SUFFIX);
-    try {
-      try (OutputStream output = Files.newOutputStream(temporary)) {
-        write(roadbook, origin, edits, name, description, catalogue, output);
-      }
-      Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-    } catch (final IOException e) {
-      Files.deleteIfExists(temporary);
-      throw e;
-    }
+    AtomicFile.save(file, output -> write(roadbook, origin, edits, name, description, catalogue, output));
   }
 
   /**
@@ -291,7 +272,7 @@ public final class OpenRallyWriter {
       stream.setDefaultNamespace(GPX);
       stream.setPrefix(PREFIX, OPENRALLY);
       stream.setPrefix(BOX_ONE_PREFIX, BOX_ONE);
-      final Indented xml = new Indented(stream);
+      final XmlLines xml = new XmlLines(stream);
       xml.open(GPX, "gpx");
       stream.writeDefaultNamespace(GPX);
       stream.writeNamespace(PREFIX, OPENRALLY);
@@ -314,7 +295,7 @@ public final class OpenRallyWriter {
       track(xml, roadbook, name);
       xml.close();
       stream.writeEndDocument();
-      stream.writeCharacters(NEW_LINE);
+      stream.writeCharacters(XmlLines.NEW_LINE);
       stream.close();
       output.flush();
     } catch (final XMLStreamException e) {
@@ -335,7 +316,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void metadata(final Indented xml, final Roadbook roadbook, final Origin origin,
+  private static void metadata(final XmlLines xml, final Roadbook roadbook, final Origin origin,
                                final RoadbookEdits edits, final String name, final String description)
       throws XMLStreamException {
     xml.open(GPX, "metadata");
@@ -364,7 +345,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void route(final Indented xml, final Route route, final Origin origin, final RoadbookEdits edits)
+  private static void route(final XmlLines xml, final Route route, final Origin origin, final RoadbookEdits edits)
       throws XMLStreamException {
     xml.open(BOX_ONE, ROUTE);
     xml.attribute(FORMAT_VERSION_ATTRIBUTE, Integer.toString(FORMAT_VERSION));
@@ -402,7 +383,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void edits(final Indented xml, final RoadbookEdits edits) throws XMLStreamException {
+  private static void edits(final XmlLines xml, final RoadbookEdits edits) throws XMLStreamException {
     xml.open(BOX_ONE, EDITS);
     for (final GeoPoint place : edits.added()) {
       xml.empty(BOX_ONE, ADDED);
@@ -428,7 +409,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void boxEdit(final Indented xml, final BoxEdit edit) throws XMLStreamException {
+  private static void boxEdit(final XmlLines xml, final BoxEdit edit) throws XMLStreamException {
     final Optional<TulipEdit> tulip = edit.tulip();
     final boolean content = tulip.isPresent() || edit.notes().isPresent() || edit.waypoint().isPresent();
     if (content) {
@@ -466,7 +447,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void waypointEdit(final Indented xml, final Waypoint waypoint) throws XMLStreamException {
+  private static void waypointEdit(final XmlLines xml, final Waypoint waypoint) throws XMLStreamException {
     xml.empty(BOX_ONE, WAYPOINT);
     xml.attribute(KIND, waypoint.kind().name());
     if (waypoint.open().isPresent()) {
@@ -488,7 +469,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void notes(final Indented xml, final Notes notes) throws XMLStreamException {
+  private static void notes(final XmlLines xml, final Notes notes) throws XMLStreamException {
     if (notes.symbols().isEmpty()) {
       xml.empty(BOX_ONE, NOTES);
     } else {
@@ -528,7 +509,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void tulip(final Indented xml, final String element, final Tulip tulip) throws XMLStreamException {
+  private static void tulip(final XmlLines xml, final String element, final Tulip tulip) throws XMLStreamException {
     xml.empty(BOX_ONE, element);
     xml.attribute(SHAPE, tulip.shape().name());
     xml.attribute(ENTRY, tulip.entry().name());
@@ -556,7 +537,7 @@ public final class OpenRallyWriter {
    * @throws XMLStreamException if the stream cannot be written.
    * @throws IOException if the diagram or the description cannot be drawn.
    */
-  private static void waypoint(final Indented xml, final Box box, final boolean last, final int number,
+  private static void waypoint(final XmlLines xml, final Box box, final boolean last, final int number,
                                final Optional<SpeedZone> zone, final Catalogue catalogue)
       throws XMLStreamException, IOException {
     xml.open(GPX, "wpt");
@@ -618,7 +599,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void control(final Indented xml, final Waypoint waypoint, final int number)
+  private static void control(final XmlLines xml, final Waypoint waypoint, final int number)
       throws XMLStreamException {
     xml.empty(OPENRALLY, waypoint.kind().name().toLowerCase(Locale.ROOT));
     if (waypoint.open().isPresent()) {
@@ -640,7 +621,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void track(final Indented xml, final Roadbook roadbook, final String name)
+  static void track(final XmlLines xml, final Roadbook roadbook, final String name)
       throws XMLStreamException {
     xml.open(GPX, "trk");
     xml.text(GPX, "name", name);
@@ -661,7 +642,7 @@ public final class OpenRallyWriter {
    *
    * @throws XMLStreamException if the stream cannot be written.
    */
-  private static void position(final Indented xml, final GeoPoint point) throws XMLStreamException {
+  static void position(final XmlLines xml, final GeoPoint point) throws XMLStreamException {
     xml.attribute(LATITUDE, String.format(Locale.ROOT, COORDINATE_FORMAT, point.latitude()));
     xml.attribute(LONGITUDE, String.format(Locale.ROOT, COORDINATE_FORMAT, point.longitude()));
   }
@@ -675,126 +656,6 @@ public final class OpenRallyWriter {
    */
   static String kilometres(final double metres) {
     return String.format(Locale.ROOT, DISTANCE_FORMAT, metres / METRES_PER_KILOMETRE);
-  }
-
-  // *******************************************************************************************************************
-  // Inner classes
-  // *******************************************************************************************************************
-
-  /**
-   * A writer of XML that puts each element on its own line, indented by its depth, so that the file can be read by a
-   * person; the elements holding a text are written on one line.
-   *
-   * <p>Not thread-safe: used by one export at a time.</p>
-   */
-  private static final class Indented {
-
-    /** The writer of the stream. */
-    private final XMLStreamWriter stream;
-    /** The depth of the next element: 0 for the root. */
-    private int depth;
-
-    /**
-     * Creates the writer.
-     *
-     * @param stream the writer of the stream, after the declaration of the document.
-     */
-    private Indented(final XMLStreamWriter stream) {
-      this.stream = stream;
-    }
-
-    /**
-     * Starts an element holding other elements, on a new line.
-     *
-     * @param namespace the namespace of the element.
-     * @param name the name of the element.
-     *
-     * @throws XMLStreamException if the stream cannot be written.
-     */
-    private void open(final String namespace, final String name) throws XMLStreamException {
-      newLine();
-      stream.writeStartElement(namespace, name);
-      depth++;
-    }
-
-    /**
-     * Ends the element last opened, on a new line.
-     *
-     * @throws XMLStreamException if the stream cannot be written.
-     */
-    private void close() throws XMLStreamException {
-      depth--;
-      newLine();
-      stream.writeEndElement();
-    }
-
-    /**
-     * Writes an element holding a text, on a new line.
-     *
-     * @param namespace the namespace of the element.
-     * @param name the name of the element.
-     * @param value the text, escaped by the writer.
-     *
-     * @throws XMLStreamException if the stream cannot be written.
-     */
-    private void text(final String namespace, final String name, final String value) throws XMLStreamException {
-      newLine();
-      stream.writeStartElement(namespace, name);
-      stream.writeCharacters(value);
-      stream.writeEndElement();
-    }
-
-    /**
-     * Writes an element holding a text as a CDATA section, on a new line, as the reference files of the tulips read by
-     * Terra Pirata in phase 0.
-     *
-     * @param namespace the namespace of the element.
-     * @param name the name of the element.
-     * @param value the text, without {@code ]]>}.
-     *
-     * @throws XMLStreamException if the stream cannot be written.
-     */
-    private void cdata(final String namespace, final String name, final String value) throws XMLStreamException {
-      newLine();
-      stream.writeStartElement(namespace, name);
-      stream.writeCData(value);
-      stream.writeEndElement();
-    }
-
-    /**
-     * Writes an empty element, on a new line; its attributes may follow.
-     *
-     * @param namespace the namespace of the element.
-     * @param name the name of the element.
-     *
-     * @throws XMLStreamException if the stream cannot be written.
-     */
-    private void empty(final String namespace, final String name) throws XMLStreamException {
-      newLine();
-      stream.writeEmptyElement(namespace, name);
-    }
-
-    /**
-     * Writes an attribute of the element just started.
-     *
-     * @param name the name of the attribute.
-     * @param value the value, escaped by the writer.
-     *
-     * @throws XMLStreamException if the stream cannot be written.
-     */
-    private void attribute(final String name, final String value) throws XMLStreamException {
-      stream.writeAttribute(name, value);
-    }
-
-    /**
-     * Begins a new line, indented to the depth of the next element.
-     *
-     * @throws XMLStreamException if the stream cannot be written.
-     */
-    private void newLine() throws XMLStreamException {
-      stream.writeCharacters(NEW_LINE + INDENT.repeat(depth));
-    }
-
   }
 
 }

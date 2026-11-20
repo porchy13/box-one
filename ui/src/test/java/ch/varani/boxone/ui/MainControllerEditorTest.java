@@ -28,7 +28,10 @@ import org.junit.jupiter.api.io.TempDir;
 import org.testfx.api.FxRobot;
 import org.testfx.framework.junit5.ApplicationExtension;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -97,14 +100,14 @@ final class MainControllerEditorTest {
    *
    * @param robot the TestFX robot.
    * @param router the router of the graph.
-   * @param saver chooses the file of the roadbook.
+   * @param saver chooses the file of the roadbook, and of the plain GPX.
    *
    * @return the window.
    */
   private Shown show(final FxRobot robot, final Router router,
                      final Function<javafx.stage.Window, Optional<Path>> saver) {
     final Services services = new Services(data, background, folder -> Optional.of(router), (map, graph) -> router,
-                                           owner -> Optional.empty(), saver, owner -> Optional.empty());
+                                           owner -> Optional.empty(), saver, owner -> Optional.empty(), saver);
     final SystemColors colors = new SystemColors(new SimpleObjectProperty<>(ColorScheme.LIGHT),
                                                  new SimpleObjectProperty<>(Color.web("#007AFF")),
                                                  new SimpleObjectProperty<>(Color.WHITE),
@@ -344,6 +347,46 @@ final class MainControllerEditorTest {
                            MainController.limits(roadbook, turning)),
         () -> assertEquals(OptionalInt.empty(), MainController.limit(null, route, turn)),
         () -> assertEquals(OptionalInt.of(FakeRouter.TURNING_LIMIT), MainController.limit(turning, route, turn)));
+  }
+
+  /**
+   * File › Export as GPX… writes the roadbook shown as a plain GPX, each box named by its number and its total distance
+   * in the format of the language, and the status bar gives the number of boxes; a file that cannot be written says
+   * so.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws Exception if the page of the map does not load in time, or the file exported cannot be read.
+   */
+  @Test
+  @DisplayName("Phase 6: File › Export as GPX… writes the plain GPX of the roadbook, or says why it cannot")
+  void gpxTest(final FxRobot robot) throws Exception {
+    final Path file = data.resolve("route.gpx");
+    final Path missing = data.resolve("missing").resolve("route.gpx");
+    final List<Path> targets = new ArrayList<>(List.of(file, missing));
+    final Shown window = show(robot, FakeRouter.turning(), owner -> Optional.of(targets.removeFirst()));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    fire(robot, window, "exportGpxItem");
+    final String exporting = text(robot, window, "status");
+    robot.interact(background::runAll);
+    final String exported = text(robot, window, "status");
+    fire(robot, window, "exportGpxItem");
+    robot.interact(background::runAll);
+    final String content = Files.readString(file);
+    final String first = new MessageFormat(TEXTS.getString(MainController.GPX_BOX), Languages.FRENCH)
+        .format(new Object[] {1, BoxRow.kilometres(Languages.FRENCH).format(0)});
+    assertAll(
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_GPX_EXPORTING), exporting),
+        () -> assertEquals(new MessageFormat(TEXTS.getString(MainController.STATUS_GPX_EXPORTED), Languages.FRENCH)
+                               .format(new Object[] {TURNING_BOXES}), exported),
+        () -> assertTrue(content.contains("<name>" + first + "</name>")),
+        () -> assertTrue(content.contains(TEXTS.getString(MainController.EXPORT_NOTICE))),
+        () -> assertEquals(TEXTS.getString(MainController.GPX_ERROR), text(robot, window, "status")));
   }
 
 }
