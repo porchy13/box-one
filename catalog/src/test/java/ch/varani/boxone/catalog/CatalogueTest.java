@@ -8,10 +8,12 @@ import ch.varani.boxone.core.Symbol;
 import ch.varani.boxone.core.WaypointKind;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -81,6 +83,49 @@ final class CatalogueTest {
   }
 
   /**
+   * The catalogue of the FIA groups the symbols and the abbreviations that look alike, for the mode "confusions" of
+   * the quiz; an element easily told from the others is in no group.
+   */
+  @Test
+  @DisplayName("Phase 7a: the catalogue of the FIA groups the symbols and the abbreviations that look alike")
+  void confusionsTest() {
+    final Confusions confusions = Catalogue.fia().confusions();
+    assertAll(
+        () -> assertTrue(confusions.of(Symbol.BUMP).containsAll(Set.of(Symbol.DIP_HOLE, Symbol.COMPRESSION))),
+        () -> assertTrue(confusions.of(Symbol.FENCE_GATE).contains(Symbol.CATTLE_GATE)),
+        () -> assertEquals(Set.of(), confusions.of(Symbol.RAIL_ROAD)),
+        () -> assertEquals(Set.of(Abbreviation.KEEP_LEFT, Abbreviation.KEEP_RIGHT, Abbreviation.KEEP_STRAIGHT),
+                           confusions.of(Abbreviation.KEEP_RIGHT)),
+        () -> assertTrue(confusions.symbols().stream().allMatch(group -> group.size() >= Confusions.MIN_GROUP)),
+        () -> assertTrue(confusions.abbreviations().stream()
+                                   .allMatch(group -> group.size() >= Confusions.MIN_GROUP)));
+  }
+
+  /**
+   * A group of one element, or an element in two groups, is a programming error; the groups are copied.
+   */
+  @Test
+  @DisplayName("Phase 7a: a group of one element, or an element in two groups, is a programming error")
+  void invalidConfusionsTest() {
+    final List<Set<Symbol>> symbols = new ArrayList<>(List.of(Set.of(Symbol.BUMP, Symbol.DIP_HOLE)));
+    final Confusions copied = new Confusions(symbols, List.of());
+    symbols.clear();
+    final List<Set<Symbol>> alone = List.of(Set.of(Symbol.BUMP));
+    final List<Set<Abbreviation>> twice = List.of(Set.of(Abbreviation.AT, Abbreviation.INTO),
+                                                  Set.of(Abbreviation.AT, Abbreviation.BIG));
+    final List<Set<Symbol>> noSymbol = List.of();
+    final List<Set<Abbreviation>> noAbbreviation = List.of();
+    final List<Set<Abbreviation>> withNull = Collections.singletonList(null);
+    assertAll(
+        () -> assertEquals(1, copied.symbols().size()),
+        () -> assertEquals(Set.of(), copied.of(Abbreviation.AT)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new Confusions(alone, noAbbreviation)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new Confusions(noSymbol, twice)),
+        () -> assertThrows(NullPointerException.class, () -> new Confusions(null, noAbbreviation)),
+        () -> assertThrows(NullPointerException.class, () -> new Confusions(noSymbol, withNull)));
+  }
+
+  /**
    * A catalogue that does not write every abbreviation, or does not draw every symbol, is a programming error.
    */
   @Test
@@ -105,16 +150,16 @@ final class CatalogueTest {
     assertAll(
         () -> assertThrows(IllegalArgumentException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, abbreviations,
-                                               allSymbols, marks, strip)),
+                                               allSymbols, marks, strip, Confusions.NONE)),
         () -> assertThrows(IllegalArgumentException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, allAbbreviations,
-                                               symbols, marks, strip)),
+                                               symbols, marks, strip, Confusions.NONE)),
         () -> assertThrows(IllegalArgumentException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, allAbbreviations,
-                                               allSymbols, missing, strip)),
+                                               allSymbols, missing, strip, Confusions.NONE)),
         () -> assertThrows(IllegalArgumentException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, allAbbreviations,
-                                               allSymbols, other, strip)));
+                                               allSymbols, other, strip, Confusions.NONE)));
   }
 
   /**
@@ -134,37 +179,40 @@ final class CatalogueTest {
     assertAll(
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(null, TEXT, TEXT, TEXT, style, rule, notes,
-                                               texts, drawings, marks, strip)),
+                                               texts, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, null, TEXT, TEXT, style, rule, notes,
-                                               texts, drawings, marks, strip)),
+                                               texts, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, null, TEXT, style, rule, notes,
-                                               texts, drawings, marks, strip)),
+                                               texts, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, null, style, rule, notes,
-                                               texts, drawings, marks, strip)),
+                                               texts, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, null, rule, notes,
-                                               texts, drawings, marks, strip)),
+                                               texts, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, null, notes,
-                                               texts, drawings, marks, strip)),
+                                               texts, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, null,
-                                               texts, drawings, marks, strip)),
+                                               texts, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
-                                               null, drawings, marks, strip)),
+                                               null, drawings, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
-                                               texts, null, marks, strip)),
+                                               texts, null, marks, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
-                                               texts, drawings, null, strip)),
+                                               texts, drawings, null, strip, Confusions.NONE)),
         () -> assertThrows(NullPointerException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
-                                               texts, drawings, marks, null)));
+                                               texts, drawings, marks, null, Confusions.NONE)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
+                                               texts, drawings, marks, strip, null)));
   }
 
   /**

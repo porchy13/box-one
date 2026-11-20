@@ -1,6 +1,7 @@
 package ch.varani.boxone.catalog;
 
 import ch.varani.boxone.core.BoxSymbol;
+import ch.varani.boxone.core.Danger;
 import ch.varani.boxone.core.DiagramPoint;
 import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Notes;
@@ -16,6 +17,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -56,6 +58,11 @@ public final class DiagramRenderer {
   static final double ICON_SPAN = 44;
   /** The degrees of a quarter turn: beyond it, a symbol of the road would be upside down. */
   private static final double QUARTER_TURN = 90;
+  /**
+   * The share of the side of an icon taken by the largest danger mark, three marks side by side or one mark high, so
+   * that the marks of every level have the same size (FIA, Appendix III, §5.8.4) and a margin around them.
+   */
+  static final double DANGER_SPAN = 0.7;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -124,6 +131,40 @@ public final class DiagramRenderer {
       graphics.fillRect(0, 0, side, side);
       draw(graphics, catalogue.symbols().get(symbol), AffineTransform.getTranslateInstance(side / 2.0, side / 2.0),
            side / ICON_SPAN);
+    } finally {
+      graphics.dispose();
+    }
+    return image.getRGB(0, 0, side, side, null, 0, side);
+  }
+
+  /**
+   * Draws a danger mark alone, as an icon (the quiz of the training mode, development plan, phase 7a): as many marks as
+   * its level, side by side, centred on the background of the tulips, in the red of the catalogue; the marks of every
+   * level at the same scale, the one that brings three marks, or one mark high, to {@value #DANGER_SPAN} of the side.
+   *
+   * @param danger the danger.
+   * @param catalogue the catalogue.
+   * @param side the side of the icon, in pixels.
+   *
+   * @return the colours of the pixels of the icon, row by row from the top left, each a colour in ARGB, opaque.
+   */
+  public static int[] icon(final Danger danger, final Catalogue catalogue, final int side) {
+    final NoteStyle style = catalogue.notes();
+    final Rectangle2D mark = SvgPath.parse(style.mark()).getBounds2D();
+    final double step = mark.getWidth() + style.markGap();
+    final int levels = Danger.values().length;
+    final double scale = side * DANGER_SPAN / Math.max(levels * step - style.markGap(), mark.getHeight());
+    final double width = danger.level() * step - style.markGap();
+    final BufferedImage image = new BufferedImage(side, side, BufferedImage.TYPE_INT_RGB);
+    final Graphics2D graphics = TulipRenderer.graphics(image);
+    try {
+      graphics.setColor(catalogue.tulip().background());
+      graphics.fillRect(0, 0, side, side);
+      graphics.translate(side / 2.0, side / 2.0);
+      graphics.scale(scale, scale);
+      graphics.translate(-width / 2 - mark.getX() - style.margin(),
+                         -mark.getHeight() / 2 - mark.getY() - style.margin());
+      danger(graphics, danger.level(), style);
     } finally {
       graphics.dispose();
     }

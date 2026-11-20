@@ -14,7 +14,9 @@ import java.awt.Color;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,7 +50,10 @@ import java.util.regex.Pattern;
  *   <li>{@code waypoints}: an object giving the mark of each kind of waypoint marked in the roadbook (all but the
  *       WPP), by its name, none missing nor other: an object of the colours {@code fill} and {@code ink} —
  *       {@link WaypointMark};</li>
- *   <li>{@code strip}: an object of the colour {@code close} — {@link StripStyle}.</li>
+ *   <li>{@code strip}: an object of the colour {@code close} — {@link StripStyle};</li>
+ *   <li>{@code confusions}: an object of {@code symbols} and {@code abbreviations}, each an array of groups, a group
+ *       an array of names of symbols, or of abbreviations, at least {@value Confusions#MIN_GROUP}, none unknown, an
+ *       element in one group at most — {@link Confusions}.</li>
  * </ul>
  *
  * <p><b>Security</b> (AGENTS.md §5): at most {@value #MAX_BYTES} bytes are read; the JSON is read as a tree, without
@@ -126,7 +131,8 @@ final class CatalogueReader {
     return new Catalogue(text(root, "id"), text(root, "name"), text(root, "source"), text(root, "provenance"),
                          tulip, headings(object(root, "headings")), notes(object(root, "notes"), tulip.size()),
                          abbreviations(object(root, "abbreviations")), symbols(object(root, "symbols"), tulip.size()),
-                         waypoints(object(root, "waypoints")), new StripStyle(colour(object(root, "strip"), "close")));
+                         waypoints(object(root, "waypoints")), new StripStyle(colour(object(root, "strip"), "close")),
+                         confusions(object(root, "confusions")));
   }
 
   /**
@@ -261,6 +267,58 @@ final class CatalogueReader {
       marks.put(kind, new WaypointMark(colour(mark, "fill"), colour(mark, "ink")));
     }
     return marks;
+  }
+
+  /**
+   * Reads the elements of the catalogue easily taken one for another.
+   *
+   * @param node the object {@code confusions}.
+   *
+   * @return the groups of similar symbols and of similar abbreviations.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if a list of groups is missing or not an array of
+   *                            arrays of names, a name is unknown, a group holds less than
+   *                            {@value Confusions#MIN_GROUP} elements, or an element is in two groups.
+   */
+  private static Confusions confusions(final JsonNode node) {
+    final List<Set<Symbol>> symbols = groups(field(node, "symbols"), Symbol.values());
+    final List<Set<Abbreviation>> abbreviations = groups(field(node, "abbreviations"), Abbreviation.values());
+    try {
+      return new Confusions(symbols, abbreviations);
+    } catch (IllegalArgumentException _) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+  }
+
+  /**
+   * Reads groups of elements named by their names.
+   *
+   * @param <E> the type of the elements.
+   * @param node the array of the groups.
+   * @param values every element of the type.
+   *
+   * @return the groups, each a set of its elements, a name given twice in a group counted once.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if the node is not an array of arrays of texts, or a
+   *                            name is unknown.
+   */
+  private static <E extends Enum<E>> List<Set<E>> groups(final JsonNode node, final E[] values) {
+    if (!node.isArray()) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+    final List<Set<E>> groups = new ArrayList<>();
+    for (final JsonNode group : node) {
+      if (!group.isArray()) {
+        throw new CatalogueException(CatalogueError.INVALID);
+      }
+      final Set<E> elements = new HashSet<>();
+      for (final JsonNode name : group) {
+        elements.add(Arrays.stream(values).filter(value -> value.name().equals(name.textValue())).findFirst()
+                           .orElseThrow(() -> new CatalogueException(CatalogueError.INVALID)));
+      }
+      groups.add(elements);
+    }
+    return groups;
   }
 
   /**

@@ -117,7 +117,11 @@ final class CatalogueReaderTest {
                           "waypoints.WPM=-", "waypoints.WPM=1", "waypoints.WPP={}",
                           "waypoints.WPM={\"fill\": \"#000000\"}",
                           "waypoints.WPM={\"fill\": \"cyan\", \"ink\": \"#000000\"}", ".strip=-",
-                          "strip.close=green"})
+                          "strip.close=green", ".confusions=-", ".confusions=[]", "confusions.symbols=-",
+                          "confusions.symbols={}", "confusions.symbols=[1]", "confusions.symbols=[[\"UNKNOWN\", "
+                          + "\"BUMP\"]]", "confusions.symbols=[[1, \"BUMP\"]]",
+                          "confusions.symbols=[[\"BUMP\"]]", "confusions.abbreviations=-",
+                          "confusions.abbreviations=[[\"AT\", \"BIG\"], [\"AT\", \"SMALL\"]]"})
   @DisplayName("Phase 4: a catalogue with a value missing, of the wrong type or beyond its bounds is refused")
   void invalidTest(final String field) throws IOException {
     final String object = field.substring(0, field.indexOf('.'));

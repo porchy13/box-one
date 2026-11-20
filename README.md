@@ -12,7 +12,8 @@ mode. The name refers to the very first box of a roadbook.
 The project is at its beginning: the application shows a map, computes the fastest route between two places,
 generates detours within a budget of time, and exports the roadbook of the route for Terra Pirata, with the tulip of
 each junction drawn after the lexicon of the FIA; its boxes, their tulips, their notes, their waypoints and the speed
-zones can be corrected; the other exports and the training mode come in the next versions (see
+zones can be corrected; it exports a PDF strip and a plain GPX too, and a quiz revises the symbols of the catalogue;
+the rest of the training mode comes in the next versions (see
 [`changelog.md`](changelog.md)).
 
 Licensed under the [Apache License, Version 2.0](LICENSE) (see also [`NOTICE`](NOTICE)). Routing data © OpenStreetMap
@@ -195,6 +196,15 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   tulip with its symbols and danger marks, the abbreviations and the text as the image of the notes, which Terra
   Pirata shows.
 
+- **Symbol quiz**: Training › Symbol quiz (Shortcut+T) shows a quiz in the centre of the window, over the roadbook,
+  which stays as it is (Training › Back to the roadbook, the button of the quiz, or any item of the File, Edit and
+  Route menus brings it back). Choose what to revise — the 80 symbols, the 44 abbreviations, the 8 marks of the
+  waypoints, the 3 danger marks of the catalogue of the FIA — and, with the mode "confusions", only the elements that
+  look alike (groups of the catalogue), with their neighbours as choices. A session asks each element once, twenty at
+  most (three questions for the three danger marks): an element drawn as on paper and its meaning to find among four,
+  or a meaning and its element; answer with the buttons or the keys 1 to 4, then Enter. The right answer is shown at
+  once, the score at the end. Nothing is kept from one session to the next yet.
+
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.
 
@@ -223,11 +233,10 @@ page of the map) with:
 | `routing` | The fastest route by car between two points, possibly through waypoints, computed by GraphHopper on an extract of OpenStreetMap, behind an interface of its own, with its maneuvers and the roads of the junction of each (roundabouts included). |
 | `detour` | Detours: routes through random waypoints drawn in an ellipse around the start and the finish, within a budget of time, reproducible from their seed. |
 | `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry; the changes of the user applied to it, and kept by their places when the route changes. |
-| `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first): the tulips, the danger marks, the symbols on the roads and how the abbreviations are written; the drawing of the diagram of a box (its tulip and its notes) and of its description with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
-| `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips and the notes as PNG); later the PDF strip and the plain GPX. |
+| `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first): the tulips, the danger marks, the symbols on the roads, how the abbreviations are written, and which symbols and abbreviations look alike (for the quiz); the drawing of the diagram of a box (its tulip and its notes) and of its description with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
+| `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips and the notes as PNG), as a PDF strip and as a plain GPX. |
+| `training` | The training mode: the questions of the symbol quiz drawn from a seed, the elements that look alike mixed on demand, the sessions and their score. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |
-
-The training mode becomes a module of its own when it is developed.
 
 ## Dependencies
 

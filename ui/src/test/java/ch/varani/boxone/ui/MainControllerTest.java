@@ -337,7 +337,7 @@ final class MainControllerTest {
         () -> assertTrue(menuBar.isUseSystemMenuBar()),
         () -> assertEquals(MainController.ICON_SIZES,
                            window.stage().getIcons().stream().map(icon -> (int) icon.getWidth()).toList()),
-        () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "toolsMenu"),
+        () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "trainingMenu", "toolsMenu"),
                            menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "recentMenu", "saveItem", "saveAsItem",
                                    "exportGpxItem", "exportPdfItem", "quitSeparator", "quitItem"),
@@ -370,7 +370,8 @@ final class MainControllerTest {
     final List<Menu> menus = menuBar(robot, window).getMenus();
     assertAll(
         () -> assertFalse(window.stage().getScene().getAccelerators().containsKey(MainController.REDO_OTHER)),
-        () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu"), menus.stream().map(Menu::getId).toList()),
+        () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "trainingMenu"),
+                           menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "recentMenu", "saveItem", "saveAsItem",
                                    "exportGpxItem", "exportPdfItem", "settingsSeparator",
                                    "settingsItem"),

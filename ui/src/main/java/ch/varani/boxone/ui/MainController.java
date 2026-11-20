@@ -29,6 +29,7 @@ import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingException;
 import javafx.beans.binding.Bindings;
 import javafx.concurrent.Task;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -145,6 +146,11 @@ import java.util.stream.Collectors;
  * of it). Each change can be undone (Edit › Undo), and the roadbook is drawn again with it, the box changed selected.
  * The changes are kept by their places when the route changes ({@link RoadbookEditor#retain(RoadbookEdits, Route)}:
  * the start or the finish moved, a detour generated), exported with the roadbook and opened with it.</p>
+ *
+ * <p><b>Training</b> (development plan, phase 7a): Training › Symbol quiz shows the quiz of the catalogue
+ * ({@link TrainingView}) in the centre of the window, over the three columns, which stay as they are; Training › Back
+ * to the roadbook, the button of the quiz, or any item of the File, Edit and Route menus but Settings… brings them
+ * back, as these items act on the roadbook.</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -342,6 +348,8 @@ final class MainController {
   private RoadbookEdits edits = RoadbookEdits.NONE;
   /** The editor of the box selected, under the strip. */
   private BoxEditor boxEditor;
+  /** The training mode, over the three columns while it is shown (phase 7). */
+  private TrainingView training;
   /** The file of the roadbook, opened or saved last, written again by Save; {@code null} before the first. */
   private Path file;
   /** The roadbook as it was saved or opened last, or {@code null} if it was never. */
@@ -432,6 +440,18 @@ final class MainController {
   /** The Tools menu (outside macOS), injected by the view. */
   @FXML
   private Menu toolsMenu;
+  /** The Edit menu, injected by the view. */
+  @FXML
+  private Menu editMenu;
+  /** The Route menu, injected by the view. */
+  @FXML
+  private Menu routeMenu;
+  /** The item Back to the roadbook of the Training menu, injected by the view. */
+  @FXML
+  private MenuItem roadbookItem;
+  /** The centre of the window: the three columns, under the training mode, injected by the view. */
+  @FXML
+  private StackPane centre;
   /** The state of the work, at the left of the status bar, injected by the view. */
   @FXML
   private Label status;
@@ -560,6 +580,17 @@ final class MainController {
       }
     });
     showRoadbook(List.of());
+    training = new TrainingView(texts, locale, CATALOGUE, () -> RandomGenerator.getDefault().nextLong(),
+                                this::leaveTraining);
+    training.getNode().setVisible(false);
+    centre.getChildren().add(training.getNode());
+    for (final Menu menu : List.of(fileMenu, editMenu, routeMenu)) {
+      menu.addEventHandler(ActionEvent.ACTION, event -> {
+        if (event.getTarget() != settingsItem) {
+          leaveTraining();
+        }
+      });
+    }
     stage.setOnCloseRequest(event -> {
       if (!mayClose()) {
         event.consume();
@@ -764,6 +795,33 @@ final class MainController {
   private void showEditor() {
     final int index = boxList.getSelectionModel().getSelectedIndex();
     boxEditor.show(index < 0 ? null : BoxEditor.Selection.of(boxList.getItems(), index, edits));
+  }
+
+  /**
+   * Shows the training mode in the centre of the window, over the three columns, on its setup page (Training ›
+   * Symbol quiz; development plan, phase 7a).
+   */
+  @FXML
+  private void train() {
+    split.setVisible(false);
+    training.getNode().setVisible(true);
+    training.showSetup();
+    roadbookItem.setDisable(false);
+  }
+
+  /**
+   * Leaves the training mode, if it is shown, back to the three columns: by Training › Back to the roadbook, its
+   * button, or an item of the File, Edit and Route menus, which act on the roadbook.
+   */
+  @FXML
+  private void leaveTraining() {
+    if (split.isVisible()) {
+      return;
+    }
+    training.getNode().setVisible(false);
+    split.setVisible(true);
+    roadbookItem.setDisable(true);
+    boxList.requestFocus();
   }
 
   /**

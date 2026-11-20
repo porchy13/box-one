@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
+import java.awt.Rectangle;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
@@ -202,6 +203,29 @@ final class DiagramRendererTest {
   }
 
   /**
+   * A danger mark drawn as an icon is centred on the background, in red, its marks of the same size at every level:
+   * three marks are three times as wide as one, as high.
+   */
+  @Test
+  @DisplayName("Phase 7a and FIA §5.8.4: a danger mark is drawn alone as an icon, centred, the same size at each level")
+  void dangerIconTest() {
+    final int side = 64;
+    final int[] one = DiagramRenderer.icon(Danger.LEVEL_1, FIA, side);
+    final int[] three = DiagramRenderer.icon(Danger.LEVEL_3, FIA, side);
+    final Rectangle oneBounds = redBounds(one, side);
+    final Rectangle threeBounds = redBounds(three, side);
+    assertAll(
+        () -> assertEquals(side * side, one.length),
+        () -> assertEquals(STYLE.background().getRGB(), one[0]),
+        () -> assertEquals(oneBounds.y, threeBounds.y),
+        () -> assertEquals(oneBounds.height, threeBounds.height),
+        () -> assertTrue(threeBounds.width > 2 * oneBounds.width),
+        () -> assertTrue(Math.abs(oneBounds.getCenterX() - side / 2.0) <= AROUND),
+        () -> assertTrue(Math.abs(threeBounds.getCenterX() - side / 2.0) <= AROUND),
+        () -> assertTrue(Math.abs(threeBounds.getCenterY() - side / 2.0) <= AROUND));
+  }
+
+  /**
    * A symbol of the road is turned by the angle of the road brought within a quarter turn of the top.
    */
   @Test
@@ -264,6 +288,25 @@ final class DiagramRendererTest {
       }
     }
     return false;
+  }
+
+  /**
+   * Gives the bounds of the pixels in the red of the danger marks of an icon.
+   *
+   * @param pixels the pixels of the icon, row by row.
+   * @param side the side of the icon, in pixels.
+   *
+   * @return the smallest rectangle holding the red pixels.
+   */
+  private static Rectangle redBounds(final int[] pixels, final int side) {
+    Rectangle bounds = null;
+    for (int i = 0; i < pixels.length; i++) {
+      if (pixels[i] == RED.getRGB()) {
+        final Rectangle pixel = new Rectangle(i % side, i / side, 1, 1);
+        bounds = bounds == null ? pixel : bounds.union(pixel);
+      }
+    }
+    return bounds;
   }
 
 }

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- The training mode (AGENTS.md, 3; development plan, phase 7): the quiz of the symbols, the abbreviations, the
+         waypoints and the danger marks of a catalogue, its questions drawn from a seed. Pure Java: the domain model and
+         the catalogues, whose groups of similar elements it reads; it draws nothing itself. No JavaFX. -->
+    <parent>
+        <groupId>ch.varani.boxone</groupId>
+        <artifactId>box-one</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>box-one-training</artifactId>
+    <name>Box One training</name>
+
+    <properties>
+        <root.dir>${project.basedir}/..</root.dir>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-catalog</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

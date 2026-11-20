@@ -108,6 +108,11 @@ All notable changes of the project are documented in this file.
   pages bound at the top, five boxes on each with the distances, the diagram and the description, the boxes close to
   the next one marked by an arrow and in green, the dangers of level 3 framed in red, the speed zones in orange, and
   the reminder that the route is indicative with the attribution of OpenStreetMap on each page.
+- **Symbol quiz**: Training › Symbol quiz shows a quiz in the main window, over the roadbook: up to twenty questions,
+  each element asked once, on the symbols, the abbreviations, the waypoints and the danger marks of the catalogue of
+  the FIA, each element shown and its meaning to find among four, or the other way round, answered with the buttons or
+  the keys 1 to 4; the right answer is shown at once, the score at the end. The mode "confusions" asks the elements
+  that look alike, with their neighbours as choices.
 - **Plain GPX**: File › Export as GPX… writes the route shown for other applications than Terra Pirata: the track
   and one point per box, named by its number and its total distance, with the reminder that the route is indicative
   and the attribution of OpenStreetMap.

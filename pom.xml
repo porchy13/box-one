@@ -42,6 +42,7 @@
         <module>catalog</module>
         <module>detour</module>
         <module>export</module>
+        <module>training</module>
         <module>ui</module>
     </modules>
 
@@ -122,6 +123,12 @@
             <dependency>
                 <groupId>ch.varani.boxone</groupId>
                 <artifactId>box-one-export</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>ch.varani.boxone</groupId>
+                <artifactId>box-one-training</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
  * roadbook ({@link WaypointKind#isMarked()}) and no other. Otherwise the catalogue is rejected. The maps are
  * copied.</p>
  *
+ * <p>The catalogue also tells which of its elements are easily taken one for another ({@link Confusions}), for the
+ * mode "confusions" of the quiz (development plan, phase 7a).</p>
+ *
  * <p>Immutable, safe for concurrent use.</p>
  *
  * @param id the identifier of the catalogue, its file name without the extension.
@@ -38,11 +41,12 @@ import java.util.stream.Collectors;
  * @param symbols how each symbol is drawn; unmodifiable.
  * @param waypoints how each kind of waypoint marked in the roadbook is marked; unmodifiable.
  * @param strip how the strip of the roadbook is drawn on paper.
+ * @param confusions the symbols and the abbreviations easily taken one for another.
  */
 public record Catalogue(String id, String name, String source, String provenance, TulipStyle tulip,
                         HeadingRule headings, NoteStyle notes, Map<Abbreviation, String> abbreviations,
                         Map<Symbol, SymbolDrawing> symbols, Map<WaypointKind, WaypointMark> waypoints,
-                        StripStyle strip) {
+                        StripStyle strip, Confusions confusions) {
 
   // *******************************************************************************************************************
   // Constants
@@ -69,6 +73,7 @@ public record Catalogue(String id, String name, String source, String provenance
    * @param symbols how each symbol is drawn, all of them.
    * @param waypoints how each kind of waypoint marked in the roadbook is marked, all of them and no other.
    * @param strip how the strip of the roadbook is drawn on paper.
+   * @param confusions the symbols and the abbreviations easily taken one for another.
    *
    * @throws NullPointerException if a value is {@code null}.
    * @throws IllegalArgumentException if an abbreviation is not written, a symbol not drawn, or the kinds of waypoint
@@ -83,6 +88,7 @@ public record Catalogue(String id, String name, String source, String provenance
     Objects.requireNonNull(headings);
     Objects.requireNonNull(notes);
     Objects.requireNonNull(strip);
+    Objects.requireNonNull(confusions);
     abbreviations = Map.copyOf(abbreviations);
     symbols = Map.copyOf(symbols);
     waypoints = Map.copyOf(waypoints);

@@ -21,7 +21,8 @@
   Save the roadbook, Save the roadbook as… and Generate a detour… are enabled once a route is shown;
   the seed of a detour shown is at the right of the status bar, in a field that can be selected and copied. The
   roadbook of the route shown is at the right of the map, its boxes drawn as on paper, the box selected shown on the
-  map. The controller keeps the items of the system: Settings… on macOS, Options… and Quit elsewhere.
+  map. Training › Symbol quiz puts the quiz in the centre, over the three columns, until Back to the roadbook, or an
+  item of the File, Edit and Route menus. The controller keeps the items of the system: Settings… on macOS, Options… and Quit elsewhere.
 -->
 <BorderPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml">
   <top>
@@ -49,40 +50,46 @@
         <MenuItem fx:id="detourItem" text="%menu.detour" onAction="#generateDetour" accelerator="Shortcut+D"
                   disable="true"/>
       </Menu>
+      <Menu fx:id="trainingMenu" text="%menu.training">
+        <MenuItem fx:id="quizItem" text="%menu.quiz" onAction="#train" accelerator="Shortcut+T"/>
+        <MenuItem fx:id="roadbookItem" text="%menu.roadbook" onAction="#leaveTraining" disable="true"/>
+      </Menu>
       <Menu fx:id="toolsMenu" text="%menu.tools">
         <MenuItem fx:id="optionsItem" text="%menu.options" onAction="#settings" accelerator="Shortcut+Comma"/>
       </Menu>
     </MenuBar>
   </top>
   <center>
-    <SplitPane fx:id="split">
-      <VBox fx:id="roadbookPane" styleClass="roadbook-pane">
-        <Label fx:id="roadbookTitle" styleClass="title-panel" text="%roadbook.title"/>
-        <Label fx:id="roadbookCount" styleClass="caption"/>
-        <StackPane VBox.vgrow="ALWAYS">
-          <ListView fx:id="boxList" styleClass="roadbook-strip"/>
-          <Label fx:id="roadbookEmpty" styleClass="roadbook-empty" text="%roadbook.empty" wrapText="true"/>
-        </StackPane>
-      </VBox>
-      <StackPane fx:id="mapPane">
-        <VBox fx:id="routeCard" styleClass="route-card" StackPane.alignment="TOP_RIGHT" maxWidth="-Infinity"
-              maxHeight="-Infinity" mouseTransparent="true">
-          <Label fx:id="routeTitle" styleClass="caption" text="%route.title"/>
-          <Label fx:id="summary" styleClass="route-summary"/>
+    <StackPane fx:id="centre">
+      <SplitPane fx:id="split">
+        <VBox fx:id="roadbookPane" styleClass="roadbook-pane">
+          <Label fx:id="roadbookTitle" styleClass="title-panel" text="%roadbook.title"/>
+          <Label fx:id="roadbookCount" styleClass="caption"/>
+          <StackPane VBox.vgrow="ALWAYS">
+            <ListView fx:id="boxList" styleClass="roadbook-strip"/>
+            <Label fx:id="roadbookEmpty" styleClass="roadbook-empty" text="%roadbook.empty" wrapText="true"/>
+          </StackPane>
         </VBox>
-        <StackPane fx:id="busyPane" styleClass="busy" visible="false">
-          <Region styleClass="busy-veil"/>
-          <VBox styleClass="busy-card" maxWidth="-Infinity" maxHeight="-Infinity">
-            <ProgressIndicator fx:id="busyIndicator"/>
-            <Label fx:id="busyText" styleClass="title-panel"/>
-            <Label fx:id="busyHint" styleClass="caption"/>
+        <StackPane fx:id="mapPane">
+          <VBox fx:id="routeCard" styleClass="route-card" StackPane.alignment="TOP_RIGHT" maxWidth="-Infinity"
+                maxHeight="-Infinity" mouseTransparent="true">
+            <Label fx:id="routeTitle" styleClass="caption" text="%route.title"/>
+            <Label fx:id="summary" styleClass="route-summary"/>
           </VBox>
+          <StackPane fx:id="busyPane" styleClass="busy" visible="false">
+            <Region styleClass="busy-veil"/>
+            <VBox styleClass="busy-card" maxWidth="-Infinity" maxHeight="-Infinity">
+              <ProgressIndicator fx:id="busyIndicator"/>
+              <Label fx:id="busyText" styleClass="title-panel"/>
+              <Label fx:id="busyHint" styleClass="caption"/>
+            </VBox>
+          </StackPane>
         </StackPane>
-      </StackPane>
-      <VBox fx:id="editorPane" styleClass="editor-pane">
-        <Label fx:id="editorEmpty" styleClass="roadbook-empty" text="%box.empty" wrapText="true"/>
-      </VBox>
-    </SplitPane>
+        <VBox fx:id="editorPane" styleClass="editor-pane">
+          <Label fx:id="editorEmpty" styleClass="roadbook-empty" text="%box.empty" wrapText="true"/>
+        </VBox>
+      </SplitPane>
+    </StackPane>
   </center>
   <bottom>
     <HBox styleClass="status-bar">

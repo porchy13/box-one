@@ -234,7 +234,7 @@
 /* The waypoint of a box (phase 5, increment 4): its letter in a circle under the number, in the colours of the FIA
    (Appendix III, §5.12.2 and §5.12.3): the text and the ring in black, or in blue for a WPN, on the colour of its
    kind. */
-.roadbook-strip .box-waypoint {
+.roadbook-strip .box-waypoint, .quiz-sign .box-waypoint {
     -fx-min-width: 22;
     -fx-min-height: 22;
     -fx-max-width: 22;
@@ -247,36 +247,38 @@
     -fx-background-radius: 11, 9;
 }
 
-.roadbook-strip .box-waypoint.waypoint-wpm, .roadbook-strip .box-waypoint.waypoint-wpv {
+.roadbook-strip .box-waypoint.waypoint-wpm, .roadbook-strip .box-waypoint.waypoint-wpv,
+.quiz-sign .box-waypoint.waypoint-wpm, .quiz-sign .box-waypoint.waypoint-wpv {
     -fx-background-color: -c-ink, -c-wp-cyan;
 }
 
-.roadbook-strip .box-waypoint.waypoint-wps {
+.roadbook-strip .box-waypoint.waypoint-wps, .quiz-sign .box-waypoint.waypoint-wps {
     -fx-background-color: -c-ink, -c-wp-red;
 }
 
-.roadbook-strip .box-waypoint.waypoint-wpc {
+.roadbook-strip .box-waypoint.waypoint-wpc, .quiz-sign .box-waypoint.waypoint-wpc {
     -fx-background-color: -c-ink, -c-wp-yellow;
 }
 
-.roadbook-strip .box-waypoint.waypoint-wpe {
+.roadbook-strip .box-waypoint.waypoint-wpe, .quiz-sign .box-waypoint.waypoint-wpe {
     -fx-background-color: -c-ink, -c-wp-blue;
 }
 
 /* The start of a speed zone in orange, its finish in green (§5.9.2), their two letters smaller. */
-.roadbook-strip .box-waypoint.waypoint-dz, .roadbook-strip .box-waypoint.waypoint-fz {
+.roadbook-strip .box-waypoint.waypoint-dz, .roadbook-strip .box-waypoint.waypoint-fz,
+.quiz-sign .box-waypoint.waypoint-dz, .quiz-sign .box-waypoint.waypoint-fz {
     -fx-font-size: 0.69em;
 }
 
-.roadbook-strip .box-waypoint.waypoint-dz {
+.roadbook-strip .box-waypoint.waypoint-dz, .quiz-sign .box-waypoint.waypoint-dz {
     -fx-background-color: -c-ink, -c-wp-orange;
 }
 
-.roadbook-strip .box-waypoint.waypoint-fz {
+.roadbook-strip .box-waypoint.waypoint-fz, .quiz-sign .box-waypoint.waypoint-fz {
     -fx-background-color: -c-ink, -c-wp-green;
 }
 
-.roadbook-strip .box-waypoint.waypoint-wpn {
+.roadbook-strip .box-waypoint.waypoint-wpn, .quiz-sign .box-waypoint.waypoint-wpn {
     -fx-text-fill: -c-wp-blue;
     -fx-background-color: -c-wp-blue, -c-paper;
 }
@@ -379,4 +381,76 @@
     -fx-padding: 24;
     -fx-text-fill: -c-text-2;
     -fx-text-alignment: center;
+}
+
+/* The training mode (phase 7a, DESIGN.md §14): a page at a time in the centre of the window, on the surface, its
+   content in a column of readable width; the element shown drawn as on paper, the choices one under the other, the
+   right one framed in the colour of success, the wrong one taken in the colour of danger, a sentence saying so. */
+.training {
+    -fx-background-color: -c-surface;
+    -fx-alignment: top-center;
+    -fx-padding: 32 24 24 24;
+}
+
+.training .quiz-page {
+    -fx-spacing: 12;
+    -fx-max-width: 560;
+}
+
+.training .quiz-choices {
+    -fx-spacing: 8;
+}
+
+.training .quiz-choices .button {
+    -fx-alignment: center-left;
+    -fx-min-height: 44;
+    -fx-pref-height: -1;
+    -fx-padding: 6 12 6 12;
+    -fx-graphic-text-gap: 12;
+    -fx-content-display: right;
+}
+
+.training .quiz-choices .button:disabled {
+    -fx-opacity: 1;
+}
+
+.training .quiz-choices .button.right {
+    -fx-background-color: -c-success, -c-surface;
+    -fx-background-insets: 0, 2;
+}
+
+.training .quiz-choices .button.wrong {
+    -fx-background-color: -c-danger, -c-surface;
+    -fx-background-insets: 0, 2;
+}
+
+.training .quiz-buttons {
+    -fx-spacing: 8;
+    -fx-padding: 8 0 0 0;
+}
+
+.quiz-sign {
+    -fx-background-color: -c-border, -c-paper;
+    -fx-background-insets: 0, 1;
+    -fx-alignment: center;
+}
+
+.quiz-sign .quiz-abbreviation {
+    -fx-font-size: 1.54em;
+    -fx-font-weight: 700;
+    -fx-text-fill: -c-ink;
+}
+
+.quiz-sign .box-waypoint {
+    -fx-min-width: 44;
+    -fx-min-height: 44;
+    -fx-max-width: 44;
+    -fx-max-height: 44;
+    -fx-font-size: 1.15em;
+    -fx-background-insets: 0, 3;
+    -fx-background-radius: 22, 19;
+}
+
+.quiz-sign .box-waypoint.waypoint-dz, .quiz-sign .box-waypoint.waypoint-fz {
+    -fx-font-size: 0.85em;
 }

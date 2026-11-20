@@ -56,6 +56,11 @@
         </dependency>
 
         <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-training</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
         </dependency>
