@@ -104,6 +104,10 @@ All notable changes of the project are documented in this file.
   green one, the boxes of the zone framed in orange, and the sign of the speed limit in the description of the start
   and of the finish (struck out); exported for Terra Pirata with the speed of the DZ (`speed`) and the sign in the
   image of the notes.
+- **PDF strip**: File › Export as PDF… writes the roadbook as a PDF to print for a roadbook holder, after the FIA: A5
+  pages bound at the top, five boxes on each with the distances, the diagram and the description, the boxes close to
+  the next one marked by an arrow and in green, the dangers of level 3 framed in red, the speed zones in orange, and
+  the reminder that the route is indicative with the attribution of OpenStreetMap on each page.
 - **Plain GPX**: File › Export as GPX… writes the route shown for other applications than Terra Pirata: the track
   and one point per box, named by its number and its total distance, with the reminder that the route is indicative
   and the attribution of OpenStreetMap.

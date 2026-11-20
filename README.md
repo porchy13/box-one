@@ -110,6 +110,15 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   (File › Open a map…) to draw the gravel roads as tracks. Import the file into RDS to read it in the application
   Terra Pirata. The file also holds what Box One needs to open it again: the start and the finish
   clicked and, for a detour, its seed, its budget and the kinds of road it avoids.
+- **PDF strip**: File › Export as PDF… writes the roadbook as a PDF to print and to read in a roadbook holder, after
+  the rulebook of the FIA: A5 pages, with 15 mm left at the top for the binding, five boxes on each, a header line
+  (the number of the page, the name and the length of the roadbook, the kilometres from the first box of the page to
+  the finish), and three columns as the roadbook beside the map: the distances (the total, the partial in its frame,
+  the waypoint in its disc), the diagram (the tulip, its symbols and its dangers), the description (the heading where
+  it is shown, the abbreviations, the text, the sign of a speed limit, the number of the waypoint). A box less than
+  300 m before the next one has a vertical arrow and the next one its distances in green; a box of a danger of level
+  3 is framed in red, the boxes of a speed zone in orange. Each page ends with the reminder that the route is
+  indicative and the attribution of OpenStreetMap.
 - **Plain GPX**: File › Export as GPX… writes the route shown as a plain GPX file, for other applications than Terra
   Pirata (navigation applications, GPS): the track of the route and one point per box of the roadbook, named by its
   number and its total distance ("Box 3 – 1.27 km"), with the reminder that the route is indicative and the
@@ -228,6 +237,7 @@ The training mode becomes a module of its own when it is developed.
 | Leaflet | Map, bundled in the resources of `ui` (no CDN) | resource (`ui`) |
 | GraphHopper (`graphhopper-core`, `graphhopper-web-api`) and its libraries (Jackson, HPPC, JTS, Janino, Kotlin standard library, osmosis-osm-binary, Protocol Buffers, XML Graphics Commons, SLF4J) | Routing on OpenStreetMap | compile (`graphhopper`, `routing`) |
 | Jackson (`jackson-core`, `jackson-databind`) | Reading the JSON files of the catalogues of symbols | compile (`catalog`) |
+| Apache PDFBox (`pdfbox`, with `fontbox`, `pdfbox-io` and Apache Commons Logging) | Writing the PDF strip of the roadbook | compile (`export`) |
 | SLF4J JDK14 provider | Messages of GraphHopper to `java.util.logging` | runtime (`routing`) |
 | JUnit Jupiter | Tests | test |
 | TestFX, Monocle | Headless user interface tests | test (`ui`) |

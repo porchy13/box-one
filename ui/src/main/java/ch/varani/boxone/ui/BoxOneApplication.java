@@ -69,7 +69,8 @@ public final class BoxOneApplication extends Application {
                                            new MapFiles(texts, FileChooser::showOpenDialog),
                                            new RoadbookFiles(texts, FileChooser::showSaveDialog),
                                            RoadbookFiles.opening(texts, FileChooser::showOpenDialog),
-                                           RoadbookFiles.gpx(texts, FileChooser::showSaveDialog));
+                                           RoadbookFiles.gpx(texts, FileChooser::showSaveDialog),
+                                           RoadbookFiles.pdf(texts, FileChooser::showSaveDialog));
     controller = new MainController(stage, texts, locale, isMac(os),
                                     SystemColors.of(Platform.getPreferences()), Platform::exit, services);
     controller.show();

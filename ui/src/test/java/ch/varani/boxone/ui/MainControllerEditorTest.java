@@ -28,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.testfx.api.FxRobot;
 import org.testfx.framework.junit5.ApplicationExtension;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
@@ -100,14 +101,15 @@ final class MainControllerEditorTest {
    *
    * @param robot the TestFX robot.
    * @param router the router of the graph.
-   * @param saver chooses the file of the roadbook, and of the plain GPX.
+   * @param saver chooses the file of the roadbook, of the plain GPX and of the PDF strip.
    *
    * @return the window.
    */
   private Shown show(final FxRobot robot, final Router router,
                      final Function<javafx.stage.Window, Optional<Path>> saver) {
     final Services services = new Services(data, background, folder -> Optional.of(router), (map, graph) -> router,
-                                           owner -> Optional.empty(), saver, owner -> Optional.empty(), saver);
+                                           owner -> Optional.empty(), saver, owner -> Optional.empty(), saver,
+                                           saver);
     final SystemColors colors = new SystemColors(new SimpleObjectProperty<>(ColorScheme.LIGHT),
                                                  new SimpleObjectProperty<>(Color.web("#007AFF")),
                                                  new SimpleObjectProperty<>(Color.WHITE),
@@ -387,6 +389,41 @@ final class MainControllerEditorTest {
         () -> assertTrue(content.contains("<name>" + first + "</name>")),
         () -> assertTrue(content.contains(TEXTS.getString(MainController.EXPORT_NOTICE))),
         () -> assertEquals(TEXTS.getString(MainController.GPX_ERROR), text(robot, window, "status")));
+  }
+
+  /**
+   * File › Export as PDF… writes the roadbook shown as a PDF strip, and the status bar gives the number of boxes and of
+   * pages; a file that cannot be written says so.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws Exception if the page of the map does not load in time, or the file exported cannot be read.
+   */
+  @Test
+  @DisplayName("Phase 6: File › Export as PDF… writes the PDF strip of the roadbook, or says why it cannot")
+  void pdfTest(final FxRobot robot) throws Exception {
+    final Path file = data.resolve("roadbook.pdf");
+    final Path missing = data.resolve("missing").resolve("roadbook.pdf");
+    final List<Path> targets = new ArrayList<>(List.of(file, missing));
+    final Shown window = show(robot, FakeRouter.turning(), owner -> Optional.of(targets.removeFirst()));
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    robot.interact(background::runAll);
+    fire(robot, window, "exportPdfItem");
+    final String exporting = text(robot, window, "status");
+    robot.interact(background::runAll);
+    final String exported = text(robot, window, "status");
+    fire(robot, window, "exportPdfItem");
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PDF_EXPORTING), exporting),
+        () -> assertEquals(new MessageFormat(TEXTS.getString(MainController.STATUS_PDF_EXPORTED), Languages.FRENCH)
+                               .format(new Object[] {TURNING_BOXES, 1}), exported),
+        () -> assertTrue(Files.readString(file, StandardCharsets.ISO_8859_1).startsWith("%PDF")),
+        () -> assertEquals(TEXTS.getString(MainController.PDF_ERROR), text(robot, window, "status")));
   }
 
 }

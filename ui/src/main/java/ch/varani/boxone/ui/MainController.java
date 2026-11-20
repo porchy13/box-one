@@ -17,6 +17,7 @@ import ch.varani.boxone.export.GpxWriter;
 import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
 import ch.varani.boxone.export.Origin;
+import ch.varani.boxone.export.PdfWriter;
 import ch.varani.boxone.export.ReadError;
 import ch.varani.boxone.export.ReadException;
 import ch.varani.boxone.export.RoadbookFile;
@@ -111,6 +112,12 @@ import java.util.stream.Collectors;
  * ({@link GpxWriter}): its track and one point per box, named by its number and its total distance in the format of
  * the language; the status bar gives the number of boxes, or says why the file could not be written. The file is not
  * the file of the roadbook: the roadbook is not marked as saved. The item is disabled while no route is shown.</p>
+ *
+ * <p><b>PDF strip</b> (development plan, phase 6; decisions of the maintainer, 2026-11-20): File › Export as PDF… asks
+ * for a PDF file ({@link RoadbookFiles#pdf}), then, in the background, writes the roadbook shown as a strip to print
+ * for a roadbook holder ({@link PdfWriter}), the distances in the format of the language; the status bar gives the
+ * number of boxes and of pages, or says why the file could not be written. As the plain GPX, the file is not the file
+ * of the roadbook. The item is disabled while no route is shown.</p>
  *
  * <p><b>Detour</b> (development plan, phase 3): once a route is shown, Route › Generate a detour… asks for the budget
  * and the seed ({@link DetourDialog}, a new seed proposed each time), then, in the background, generates a detour
@@ -209,6 +216,12 @@ final class MainController {
   static final String GPX_BOX = "gpx.box";
   /** The key of the failure to export the plain GPX. */
   static final String GPX_ERROR = "error.gpx";
+  /** The key of the status while the PDF strip is exported. */
+  static final String STATUS_PDF_EXPORTING = "status.pdfExporting";
+  /** The key of the status once the PDF strip is exported, with its number of boxes and of pages. */
+  static final String STATUS_PDF_EXPORTED = "status.pdfExported";
+  /** The key of the failure to export the PDF strip. */
+  static final String PDF_ERROR = "error.pdf";
   /** The key of the status while a detour is generated. */
   static final String STATUS_DETOURING = "status.detouring";
   /** The key of the status once a detour is shown, with its budget and the duration of the fastest route. */
@@ -392,6 +405,9 @@ final class MainController {
   /** The item Export as GPX…, injected by the view. */
   @FXML
   private MenuItem exportGpxItem;
+  /** The item Export as PDF…, injected by the view. */
+  @FXML
+  private MenuItem exportPdfItem;
   /** The item Undo, injected by the view. */
   @FXML
   private MenuItem undoItem;
@@ -953,6 +969,7 @@ final class MainController {
     saveItem.setDisable(shown == null);
     saveAsItem.setDisable(shown == null);
     exportGpxItem.setDisable(shown == null);
+    exportPdfItem.setDisable(shown == null);
     enableDetour();
     drawRoadbook(shown, false);
   }
@@ -1187,6 +1204,38 @@ final class MainController {
     }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_GPX_EXPORTED), locale)
                                       .format(new Object[] {roadbook.boxes().size()})),
         _ -> setStatus(GPX_ERROR));
+  }
+
+  /**
+   * Exports the roadbook of the route shown as a PDF strip, into the file chosen by the user: the item File › Export
+   * as PDF….
+   */
+  @FXML
+  private void exportPdf() {
+    services.printer().apply(stage).ifPresent(this::writePdf);
+  }
+
+  /**
+   * Writes, in the background, the roadbook of the route shown as a PDF strip ({@link PdfWriter}): its boxes, with the
+   * changes of the user. The status bar then gives the number of boxes and of pages, or says that the file could not
+   * be written.
+   *
+   * @param target the file.
+   */
+  private void writePdf(final Path target) {
+    final Route shown = route;
+    final RoadbookEdits drawn = edits;
+    final Router exportedOn = router;
+    final String notice = texts.getString(EXPORT_NOTICE);
+    final String heading = texts.getString(BoxRow.HEADING_TEXT);
+    setStatus(STATUS_PDF_EXPORTING);
+    run(() -> {
+      final Roadbook roadbook = RoadbookEditor.roadbook(generate(shown, drawn, exportedOn), drawn);
+      PdfWriter.save(roadbook, RoadbookFiles.name(target), notice, heading, locale, CATALOGUE, target);
+      return roadbook;
+    }, roadbook -> status.setText(new MessageFormat(texts.getString(STATUS_PDF_EXPORTED), locale)
+                                      .format(new Object[] {roadbook.boxes().size(), PdfWriter.pages(roadbook)})),
+        _ -> setStatus(PDF_ERROR));
   }
 
   /**

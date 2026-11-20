@@ -13,6 +13,7 @@ import ch.varani.boxone.core.Route;
 import ch.varani.boxone.export.OpenRallyReader;
 import ch.varani.boxone.export.OpenRallyWriter;
 import ch.varani.boxone.export.Origin;
+import ch.varani.boxone.export.PdfWriter;
 import ch.varani.boxone.export.ReadException;
 import ch.varani.boxone.roadbook.RoadbookEditor;
 import ch.varani.boxone.roadbook.RoadbookGenerator;
@@ -33,6 +34,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,7 +55,8 @@ import java.util.stream.Stream;
  * libraries, the compilation of its custom models), and a route joins the station and the castle; its roadbook is
  * generated, the notes {@link #NOTES} given to its first box, and written for Terra Pirata (the tulips, the danger
  * marks and the description drawn by Java 2D, the text with the fonts of the system: phase 5), then read back (the
- * writer and the parser of XML of the JDK, linked into the runtime; issue #5 of GitLab); the JavaFX toolkit
+ * writer and the parser of XML of the JDK, linked into the runtime; issue #5 of GitLab) and as a PDF strip (PDFBox,
+ * phase 6); the JavaFX toolkit
  * is started (its native libraries), the icon of the window is loaded (images of the module), the description of the
  * notes is drawn with ink (a font of the system found), the map
  * ({@link MapView}) loads its page (the native library of WebKit, Leaflet)
@@ -165,7 +168,8 @@ final class SmokeTest {
   /**
    * Imports the extract of the smoke test into a temporary folder, computes a route on it, writes its roadbook into
    * the folder, its tulips drawn as PNG by the catalogue of the FIA (phase 4: its JSON file, Java 2D and Image I/O of
-   * the JDK), and reads it back (issue #5 of GitLab: the parser of XML of the JDK); the folder is deleted
+   * the JDK), and reads it back (issue #5 of GitLab: the parser of XML of the JDK), then writes it as a PDF strip
+   * (phase 6: PDFBox, its automatic modules and the metrics of its standard fonts); the folder is deleted
    * afterwards. The folder is made in the data folder of the user ({@link DataFolder}), private to the user, rather
    * than in the shared temporary folder of the system.
    *
@@ -183,17 +187,21 @@ final class SmokeTest {
       }
       final Origin origin = new Origin.Fastest(STATION, CASTLE);
       final Path roadbook = folder.resolve("roadbook.gpx");
+      final Path strip = folder.resolve("roadbook.pdf");
       try (GraphHopperRouter router = GraphHopperRouter.importMap(extract, folder.resolve(DataFolder.GRAPH))) {
         final Route route = router.route(STATION, CASTLE);
         final Roadbook generated = RoadbookGenerator.generate(route, router.junctions(route));
         final RoadbookEdits edits = RoadbookEdits.NONE.with(new BoxEdit(generated.boxes().getFirst().position())
                                                                 .withNotes(Optional.of(NOTES)));
-        OpenRallyWriter.save(RoadbookEditor.roadbook(generated, edits), origin, edits,
-                             SMOKE_FOLDER,
-                             Languages.bundle(Languages.ENGLISH).getString(MainController.EXPORT_NOTICE),
+        final ResourceBundle english = Languages.bundle(Languages.ENGLISH);
+        final Roadbook edited = RoadbookEditor.roadbook(generated, edits);
+        OpenRallyWriter.save(edited, origin, edits, SMOKE_FOLDER, english.getString(MainController.EXPORT_NOTICE),
                              Catalogue.fia(), roadbook);
+        PdfWriter.save(edited, SMOKE_FOLDER, english.getString(MainController.EXPORT_NOTICE),
+                       english.getString(BoxRow.HEADING_TEXT), Languages.ENGLISH, Catalogue.fia(), strip);
       }
       check(readsBack(roadbook, origin), "The roadbook exported cannot be opened again");
+      check(Files.exists(strip), "The PDF strip cannot be written");
     } finally {
       try (Stream<Path> files = Files.walk(folder)) {
         files.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);

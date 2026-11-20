@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 
 import ch.varani.boxone.core.Abbreviation;
 import ch.varani.boxone.core.Symbol;
+import ch.varani.boxone.core.WaypointKind;
 
 import java.awt.Color;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -42,7 +44,11 @@ import java.util.regex.Pattern;
  *   <li>{@code symbols}: an object giving the drawing of each {@link Symbol}, by its name, none missing nor unknown: an
  *       object of {@code upright} (a boolean) and {@code parts}, a non-empty array of objects of an SVG {@code path}, a
  *       {@code colour} and, for a part stroked, its {@code width} (positive, at most a quarter of the size; a part
- *       without width is filled) — {@link SymbolDrawing}.</li>
+ *       without width is filled) — {@link SymbolDrawing};</li>
+ *   <li>{@code waypoints}: an object giving the mark of each kind of waypoint marked in the roadbook (all but the
+ *       WPP), by its name, none missing nor other: an object of the colours {@code fill} and {@code ink} —
+ *       {@link WaypointMark};</li>
+ *   <li>{@code strip}: an object of the colour {@code close} — {@link StripStyle}.</li>
  * </ul>
  *
  * <p><b>Security</b> (AGENTS.md §5): at most {@value #MAX_BYTES} bytes are read; the JSON is read as a tree, without
@@ -119,7 +125,8 @@ final class CatalogueReader {
     final TulipStyle tulip = tulip(object(root, "tulip"));
     return new Catalogue(text(root, "id"), text(root, "name"), text(root, "source"), text(root, "provenance"),
                          tulip, headings(object(root, "headings")), notes(object(root, "notes"), tulip.size()),
-                         abbreviations(object(root, "abbreviations")), symbols(object(root, "symbols"), tulip.size()));
+                         abbreviations(object(root, "abbreviations")), symbols(object(root, "symbols"), tulip.size()),
+                         waypoints(object(root, "waypoints")), new StripStyle(colour(object(root, "strip"), "close")));
   }
 
   /**
@@ -231,6 +238,29 @@ final class CatalogueReader {
       texts.put(abbreviation, text);
     }
     return texts;
+  }
+
+  /**
+   * Reads how the catalogue marks the waypoints.
+   *
+   * @param node the object {@code waypoints}.
+   *
+   * @return the mark of each kind of waypoint marked in the roadbook.
+   *
+   * @throws CatalogueException {@link CatalogueError#INVALID} if a kind marked is missing, another kind is given, or a
+   *                            colour is invalid.
+   */
+  private static Map<WaypointKind, WaypointMark> waypoints(final JsonNode node) {
+    final Set<WaypointKind> marked = Catalogue.marked();
+    if (node.size() != marked.size()) {
+      throw new CatalogueException(CatalogueError.INVALID);
+    }
+    final Map<WaypointKind, WaypointMark> marks = new EnumMap<>(WaypointKind.class);
+    for (final WaypointKind kind : marked) {
+      final JsonNode mark = object(node, kind.name());
+      marks.put(kind, new WaypointMark(colour(mark, "fill"), colour(mark, "ink")));
+    }
+    return marks;
   }
 
   /**

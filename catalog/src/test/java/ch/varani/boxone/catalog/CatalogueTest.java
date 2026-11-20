@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import ch.varani.boxone.core.Abbreviation;
 import ch.varani.boxone.core.Symbol;
+import ch.varani.boxone.core.WaypointKind;
 
 import java.awt.Color;
 import java.util.Collections;
@@ -83,7 +84,7 @@ final class CatalogueTest {
    * A catalogue that does not write every abbreviation, or does not draw every symbol, is a programming error.
    */
   @Test
-  @DisplayName("A catalogue without an abbreviation or a symbol is a programming error")
+  @DisplayName("A catalogue without an abbreviation, a symbol or the mark of a waypoint is a programming error")
   void incompleteTest() {
     final Catalogue fia = Catalogue.fia();
     final Map<Abbreviation, String> abbreviations = new EnumMap<>(fia.abbreviations());
@@ -95,20 +96,32 @@ final class CatalogueTest {
     final NoteStyle notes = fia.notes();
     final Map<Abbreviation, String> allAbbreviations = fia.abbreviations();
     final Map<Symbol, SymbolDrawing> allSymbols = fia.symbols();
+    final Map<WaypointKind, WaypointMark> marks = fia.waypoints();
+    final StripStyle strip = fia.strip();
+    final Map<WaypointKind, WaypointMark> missing = new EnumMap<>(marks);
+    missing.remove(WaypointKind.DZ);
+    final Map<WaypointKind, WaypointMark> other = new EnumMap<>(missing);
+    other.put(WaypointKind.WPP, marks.get(WaypointKind.WPM));
     assertAll(
         () -> assertThrows(IllegalArgumentException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, abbreviations,
-                                               allSymbols)),
+                                               allSymbols, marks, strip)),
         () -> assertThrows(IllegalArgumentException.class,
                            () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, allAbbreviations,
-                                               symbols)));
+                                               symbols, marks, strip)),
+        () -> assertThrows(IllegalArgumentException.class,
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, allAbbreviations,
+                                               allSymbols, missing, strip)),
+        () -> assertThrows(IllegalArgumentException.class,
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, tulip, headings, notes, allAbbreviations,
+                                               allSymbols, other, strip)));
   }
 
   /**
-   * A missing value is a programming error.
+   * A catalogue without one of its values is a programming error.
    */
   @Test
-  @DisplayName("A catalogue or a style without one of its values is a programming error")
+  @DisplayName("A catalogue without one of its values is a programming error")
   void nullTest() {
     final Catalogue fia = Catalogue.fia();
     final TulipStyle style = fia.tulip();
@@ -116,26 +129,55 @@ final class CatalogueTest {
     final NoteStyle notes = fia.notes();
     final Map<Abbreviation, String> texts = fia.abbreviations();
     final Map<Symbol, SymbolDrawing> drawings = fia.symbols();
-    final Color white = Color.WHITE;
+    final Map<WaypointKind, WaypointMark> marks = fia.waypoints();
+    final StripStyle strip = fia.strip();
     assertAll(
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(null, TEXT, TEXT, TEXT, style, rule, notes, texts, drawings)),
+                           () -> new Catalogue(null, TEXT, TEXT, TEXT, style, rule, notes,
+                                               texts, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, null, TEXT, TEXT, style, rule, notes, texts, drawings)),
+                           () -> new Catalogue(TEXT, null, TEXT, TEXT, style, rule, notes,
+                                               texts, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, TEXT, null, TEXT, style, rule, notes, texts, drawings)),
+                           () -> new Catalogue(TEXT, TEXT, null, TEXT, style, rule, notes,
+                                               texts, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, TEXT, TEXT, null, style, rule, notes, texts, drawings)),
+                           () -> new Catalogue(TEXT, TEXT, TEXT, null, style, rule, notes,
+                                               texts, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, null, rule, notes, texts, drawings)),
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, null, rule, notes,
+                                               texts, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, null, notes, texts, drawings)),
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, null, notes,
+                                               texts, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, null, texts, drawings)),
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, null,
+                                               texts, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes, null, drawings)),
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
+                                               null, drawings, marks, strip)),
         () -> assertThrows(NullPointerException.class,
-                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes, texts, null)),
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
+                                               texts, null, marks, strip)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
+                                               texts, drawings, null, strip)),
+        () -> assertThrows(NullPointerException.class,
+                           () -> new Catalogue(TEXT, TEXT, TEXT, TEXT, style, rule, notes,
+                                               texts, drawings, marks, null)));
+  }
+
+  /**
+   * A style of a catalogue without one of its values is a programming error.
+   */
+  @Test
+  @DisplayName("A style of a catalogue without one of its values is a programming error")
+  void nullStyleTest() {
+    final Color white = Color.WHITE;
+    assertAll(
+        () -> assertThrows(NullPointerException.class, () -> new StripStyle(null)),
+        () -> assertThrows(NullPointerException.class, () -> new WaypointMark(null, white)),
+        () -> assertThrows(NullPointerException.class, () -> new WaypointMark(white, null)),
         () -> assertThrows(NullPointerException.class,
                            () -> new NoteStyle(null, PATH, 1, 1, 1, 1, white, 1, 1, white, 1, 1)),
         () -> assertThrows(NullPointerException.class,

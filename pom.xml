@@ -75,6 +75,10 @@
         <osmosis.version>0.48.3</osmosis.version>
         <protobuf.version>3.25.9</protobuf.version>
         <slf4j.version>2.0.20</slf4j.version>
+        <!-- The PDF of the roadbook (module export, phase 6), and Commons Logging at the version PDFBox requires, also
+             brought by XML Graphics Commons of GraphHopper at an older one. -->
+        <pdfbox.version>3.0.8</pdfbox.version>
+        <commons-logging.version>1.4.0</commons-logging.version>
     </properties>
 
     <dependencyManagement>
@@ -221,6 +225,18 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-jdk14</artifactId>
                 <version>${slf4j.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>${commons-logging.version}</version>
             </dependency>
 
             <dependency>

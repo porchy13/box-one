@@ -25,6 +25,15 @@ and JDK14 provider (MIT License); JTS Topology Suite (Eclipse Public License 2.0
 1.0, the latter applying); Janino, Protocol Buffers (BSD 3-Clause License) and the Stax2 API (BSD 2-Clause License);
 osmosis-osm-binary (GNU Lesser General Public License 3.0, kept as a separate, replaceable library).
 
+The PDF strip of the roadbook is written by Apache PDFBox (pdfbox, fontbox, pdfbox-io; Apache License 2.0),
+Copyright 2002-2026 The Apache Software Foundation, based on source code contributed to the original PDFBox project,
+Copyright (c) 2002-2007, www.pdfbox.org, and to the original FontBox project, Copyright (c) 2006-2007,
+www.fontbox.org. PDFBox includes the Adobe Glyph List and the Zapf Dingbats Glyph List (Copyright 1997-2010 Adobe
+Systems Incorporated), the Adobe Font Metrics of the PDF Core 14 Fonts and CMaps of Adobe Systems Incorporated, the
+Bidi Mirroring Glyph Property and the Script Property of Unicode, Inc. (Copyright 1991-2017 Unicode, Inc.), parts of
+TwelveMonkeys ImageIO (Copyright 2008-2016 Harald Kuhr) and a CMYK ICC profile (CC0, Clinton Ingram); their licences
+are in META-INF/LICENSE of the libraries of PDFBox.
+
 Roadbook symbols: the tulips and the symbols of the catalogues (catalog/src/main/resources/ch/varani/boxone/catalog/)
 are redrawn for Box One, not copied, after the road book lexicon of the FIA (2026 Cross-Country Rally Sporting
 Regulations, Appendix III, §5.14), the same as the one of the FIM (2026 FIM World Rally-Raid Championship, Road Book

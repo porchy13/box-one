@@ -944,5 +944,18 @@
         }
       ]
     }
+  },
+  "waypoints": {
+    "WPM": {"fill": "#00B4E6", "ink": "#000000"},
+    "WPN": {"fill": "#FFFFFF", "ink": "#1E50C8"},
+    "WPS": {"fill": "#E3262B", "ink": "#000000"},
+    "WPC": {"fill": "#FFD400", "ink": "#000000"},
+    "WPV": {"fill": "#00B4E6", "ink": "#000000"},
+    "WPE": {"fill": "#1E50C8", "ink": "#000000"},
+    "DZ": {"fill": "#F39200", "ink": "#000000"},
+    "FZ": {"fill": "#3AAA35", "ink": "#000000"}
+  },
+  "strip": {
+    "close": "#A6E3A1"
   }
 }
