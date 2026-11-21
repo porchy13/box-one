@@ -9,7 +9,7 @@ import javafx.scene.layout.HBox;
 
 /**
  * The parts of the pages of the training mode (development plan, phase 7; DESIGN.md §14, Training), shared by its
- * exercises: the quiz of symbols ({@link TrainingView}) first.
+ * exercises: the quiz of symbols ({@link TrainingView}) and the reading of boxes ({@link ReadingView}).
  *
  * <p>Utility class without state; the nodes it makes are confined to the JavaFX Application Thread.</p>
  */

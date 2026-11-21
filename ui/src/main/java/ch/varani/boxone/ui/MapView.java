@@ -15,6 +15,7 @@ import netscape.javascript.JSObject;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -79,6 +80,14 @@ final class MapView {
   static final String FASTEST_LINE = "route-fastest";
   /** The style class of the line of the detour (map.css). */
   static final String DETOUR_LINE = "route-detour";
+  /** The style class of the line of the route through a junction of the training, once answered (map.css). */
+  static final String ANSWER_LINE = "route-answer";
+  /** The style class of the line of the route arriving at a junction of the training, before the answer (map.css). */
+  static final String ARRIVAL_LINE = "route-arrival";
+  /** The function of the page drawing a route, with its points and the style class of its line. */
+  private static final String ADD_ROUTE = "addRoute";
+  /** The number of the bounds of the area seen: south, west, north, east. */
+  private static final int AREA_BOUNDS = 4;
   /** The name of the object of the page driven by the view. */
   private static final String PAGE_OBJECT = "boxOne";
   /** The name of the bridge in the page. */
@@ -118,6 +127,11 @@ final class MapView {
   private Route detour;
   /** Called once the page has loaded and its state drawn. */
   private Runnable onLoaded = () -> { };
+  /**
+   * Whether the map shows a junction of the training (phase 7b): the start, the finish and the routes are not drawn,
+   * and no context menu is shown, until the training gives the map back.
+   */
+  private boolean training;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -287,9 +301,63 @@ final class MapView {
     }
   }
 
+  /**
+   * Gives the area of the map seen.
+   *
+   * @return its south-west and its north-east corners, or empty before the page has loaded.
+   */
+  Optional<List<GeoPoint>> getArea() {
+    final JSObject page = page();
+    if (page == null) {
+      return Optional.empty();
+    }
+    final String[] bounds = String.valueOf(page.call("getArea")).split(",", AREA_BOUNDS);
+    return Optional.of(List.of(new GeoPoint(Double.parseDouble(bounds[0]), Double.parseDouble(bounds[1])),
+                               new GeoPoint(Double.parseDouble(bounds[2]),
+                                            Double.parseDouble(bounds[AREA_BOUNDS - 1]))));
+  }
+
   // *******************************************************************************************************************
   // Methods
   // *******************************************************************************************************************
+
+  /**
+   * Shows a junction of the training alone (phase 7b): the start, the finish and the routes hidden, a circle at its
+   * place, the route arriving at it (the map is north up, the tulip has its entry at the bottom), the map centred on
+   * it, close enough to click its roads; no context menu until {@link #endTraining()}. Nothing is drawn before the
+   * page has loaded.
+   *
+   * @param place the place of the junction.
+   * @param arrival the points of the route arriving at the junction.
+   */
+  void showJunction(final GeoPoint place, final List<GeoPoint> arrival) {
+    training = true;
+    final JSObject page = page();
+    if (page != null) {
+      page.call("showJunction", place.latitude(), place.longitude());
+      page.call(ADD_ROUTE, json(arrival), ARRIVAL_LINE);
+    }
+  }
+
+  /**
+   * Shows the route through the junction of the training, once its branch is answered.
+   *
+   * @param path the points of the route around the junction.
+   */
+  void showPath(final List<GeoPoint> path) {
+    final JSObject page = page();
+    if (page != null) {
+      page.call(ADD_ROUTE, json(path), ANSWER_LINE);
+    }
+  }
+
+  /**
+   * Ends the training on the map: the start, the finish and the routes drawn again, the context menu back.
+   */
+  void endTraining() {
+    training = false;
+    drawPlaces();
+  }
 
   /**
    * Creates an item of the context menu placing a waypoint where the menu was asked.
@@ -314,6 +382,9 @@ final class MapView {
    * @param position where the context menu was asked, in the page, in pixels.
    */
   private void showMenu(final GeoPoint place, final Point2D position) {
+    if (training) {
+      return;
+    }
     menuPlace = place;
     addBox.setDisable(route == null && detour == null);
     waypointItems.forEach(item -> item.setDisable(addBox.isDisable()));
@@ -371,17 +442,17 @@ final class MapView {
    */
   private void drawPlaces() {
     final JSObject page = page();
-    if (page == null) {
+    if (page == null || training) {
       return;
     }
     page.call("clear");
     marker(page, start, START_LETTER, START_NAME, START_KIND);
     marker(page, finish, FINISH_LETTER, FINISH_NAME, FINISH_KIND);
     if (route != null) {
-      page.call("addRoute", json(route), FASTEST_LINE);
+      page.call(ADD_ROUTE, json(route.points()), FASTEST_LINE);
     }
     if (detour != null) {
-      page.call("addRoute", json(detour), DETOUR_LINE);
+      page.call(ADD_ROUTE, json(detour.points()), DETOUR_LINE);
     }
     if (route != null || detour != null) {
       page.call("fit");
@@ -407,14 +478,14 @@ final class MapView {
   }
 
   /**
-   * Writes the points of a route as a JSON array of [latitude, longitude]: numbers only.
+   * Writes the points of a line as a JSON array of [latitude, longitude]: numbers only.
    *
-   * @param route the route.
+   * @param points the points of the line.
    *
    * @return the JSON array.
    */
-  static String json(final Route route) {
-    return route.points().stream()
+  static String json(final List<GeoPoint> points) {
+    return points.stream()
                 .map(point -> String.format(Locale.ROOT, "[%s,%s]", point.latitude(), point.longitude()))
                 .collect(Collectors.joining(",", "[", "]"));
   }

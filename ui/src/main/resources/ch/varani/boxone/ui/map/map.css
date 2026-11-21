@@ -37,6 +37,19 @@ html, body, #map {
     fill: none;
 }
 
+/*
+ * The route arriving at a junction of the training, shown with the question (the map is north up, the tulip has its
+ * entry at the bottom), and the route through it, shown once the branch is answered: a solid line in the accent.
+ */
+.route-arrival,
+.route-answer {
+    stroke: var(--c-accent);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+}
+
 /* Start and finish: a letter in a disc, never a colour alone. */
 .marker {
     display: flex;

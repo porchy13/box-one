@@ -32,6 +32,7 @@ import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
@@ -76,6 +77,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 
@@ -147,10 +149,12 @@ import java.util.stream.Collectors;
  * The changes are kept by their places when the route changes ({@link RoadbookEditor#retain(RoadbookEdits, Route)}:
  * the start or the finish moved, a detour generated), exported with the roadbook and opened with it.</p>
  *
- * <p><b>Training</b> (development plan, phase 7a): Training › Symbol quiz shows the quiz of the catalogue
- * ({@link TrainingView}) in the centre of the window, over the three columns, which stay as they are; Training › Back
- * to the roadbook, the button of the quiz, or any item of the File, Edit and Route menus but Settings… brings them
- * back, as these items act on the roadbook.</p>
+ * <p><b>Training</b> (development plan, phase 7): Training › Symbol quiz shows the quiz of the catalogue
+ * ({@link TrainingView}), Training › Reading of boxes the reading of the junctions of random routes drawn in the area
+ * of the map seen ({@link ReadingView}, which borrows the map, {@link TrainingMap}, and its clicks), in the centre of
+ * the window, over the three columns, which stay as they are; Training › Back to the roadbook, the button of the
+ * exercise, or any item of the File, Edit and Route menus but Settings… brings them back, as these items act on the
+ * roadbook.</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -348,8 +352,12 @@ final class MainController {
   private RoadbookEdits edits = RoadbookEdits.NONE;
   /** The editor of the box selected, under the strip. */
   private BoxEditor boxEditor;
-  /** The training mode, over the three columns while it is shown (phase 7). */
+  /** The quiz of symbols of the training mode, over the three columns while it is shown (phase 7a). */
   private TrainingView training;
+  /** The reading of boxes of the training mode, over the three columns while it is shown (phase 7b). */
+  private ReadingView boxReading;
+  /** The map lent to the reading of boxes. */
+  private TrainingMap trainingMap;
   /** The file of the roadbook, opened or saved last, written again by Save; {@code null} before the first. */
   private Path file;
   /** The roadbook as it was saved or opened last, or {@code null} if it was never. */
@@ -580,10 +588,15 @@ final class MainController {
       }
     });
     showRoadbook(List.of());
-    training = new TrainingView(texts, locale, CATALOGUE, () -> RandomGenerator.getDefault().nextLong(),
-                                this::leaveTraining);
-    training.getNode().setVisible(false);
-    centre.getChildren().add(training.getNode());
+    final LongSupplier seeds = () -> RandomGenerator.getDefault().nextLong();
+    training = new TrainingView(texts, locale, CATALOGUE, seeds, this::leaveTraining);
+    trainingMap = new TrainingMap(map, mapPane);
+    boxReading = new ReadingView(new QuizText(texts, locale), CATALOGUE, () -> router, services.background(),
+                                 trainingMap, seeds, this::leaveTraining);
+    for (final Node mode : List.of(training.getNode(), boxReading.getNode())) {
+      mode.setVisible(false);
+      centre.getChildren().add(mode);
+    }
     for (final Menu menu : List.of(fileMenu, editMenu, routeMenu)) {
       menu.addEventHandler(ActionEvent.ACTION, event -> {
         if (event.getTarget() != settingsItem) {
@@ -643,6 +656,9 @@ final class MainController {
    * @param place the place clicked.
    */
   private void clicked(final GeoPoint place) {
+    if (trainingMap.click(place)) {
+      return;
+    }
     if (!itinerary.isComplete()) {
       edit(() -> itinerary.place(place));
     }
@@ -803,9 +819,31 @@ final class MainController {
    */
   @FXML
   private void train() {
-    split.setVisible(false);
-    training.getNode().setVisible(true);
+    showTraining(training.getNode(), boxReading.getNode());
     training.showSetup();
+  }
+
+  /**
+   * Shows the reading of boxes in the centre of the window, over the three columns, on its setup page (Training ›
+   * Reading of boxes; development plan, phase 7b).
+   */
+  @FXML
+  private void read() {
+    showTraining(boxReading.getNode(), training.getNode());
+    boxReading.showSetup();
+  }
+
+  /**
+   * Shows an exercise of the training over the three columns, the other one hidden, its map given back.
+   *
+   * @param shown the view of the exercise shown.
+   * @param hidden the view of the other exercise.
+   */
+  private void showTraining(final Node shown, final Node hidden) {
+    boxReading.showSetup();
+    split.setVisible(false);
+    hidden.setVisible(false);
+    shown.setVisible(true);
     roadbookItem.setDisable(false);
   }
 
@@ -818,7 +856,9 @@ final class MainController {
     if (split.isVisible()) {
       return;
     }
+    boxReading.showSetup();
     training.getNode().setVisible(false);
+    boxReading.getNode().setVisible(false);
     split.setVisible(true);
     roadbookItem.setDisable(true);
     boxList.requestFocus();

@@ -119,6 +119,12 @@ public final class GraphHopperRouter implements Router {
    * GraphHopper, the other way, does not work with the contraction hierarchy.
    */
   static final String WAYPOINT_CURBSIDE = Parameters.Curbsides.CURBSIDE_RIGHT;
+  /**
+   * The influence of the distance on the weight of the shortest routes ({@link #shortest(GeoPoint, GeoPoint)}), in
+   * seconds per kilometre: far above the time of a kilometre on any road (240 s on a track at 15 km/h), so that the
+   * distance alone chooses the route, a track as well as a main road (the profile of a car gives 90).
+   */
+  static final double SHORTEST_INFLUENCE = 100_000;
 
   // *******************************************************************************************************************
   // Attributes
@@ -273,15 +279,70 @@ public final class GraphHopperRouter implements Router {
    */
   @Override
   public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+    final GHRequest request = request(points);
+    if (!avoided.isEmpty()) {
+      flexible(request, avoiding(avoided));
+    }
+    return route(points, request);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The weight of the roads is their distance ({@link #SHORTEST_INFLUENCE}), by a custom model of the request,
+   * without the hierarchy; the private roads and the roads of delivery are still avoided by the profile.</p>
+   */
+  @Override
+  public Route shortest(final GeoPoint start, final GeoPoint finish) {
+    final List<GeoPoint> points = List.of(start, finish);
+    final GHRequest request = request(points);
+    flexible(request, new CustomModel().setDistanceInfluence(SHORTEST_INFLUENCE));
+    return route(points, request);
+  }
+
+  /**
+   * Builds the request of a route through points, its waypoints checked ({@link #checkWaypoints(List)}).
+   *
+   * @param points the start, the waypoints in their order, then the finish.
+   *
+   * @return the request, with the curbsides of its points and the details of the access and the class of the roads.
+   *
+   * @throws RoutingException {@link RoutingError#POINT_NOT_FOUND} or {@link RoutingError#NO_ROUTE} if a waypoint is
+   *                          refused.
+   */
+  private GHRequest request(final List<GeoPoint> points) {
     checkWaypoints(points);
     final List<GHPoint> places = points.stream().map(point -> new GHPoint(point.latitude(), point.longitude()))
         .toList();
-    final GHRequest request = new GHRequest(places).setProfile(PROFILE).setCurbsides(curbsides(places.size()))
+    return new GHRequest(places).setProfile(PROFILE).setCurbsides(curbsides(places.size()))
         .setPathDetails(List.of(RoadAccess.KEY, RoadClass.KEY));
-    if (!avoided.isEmpty()) {
-      request.setCustomModel(avoiding(avoided));
-      request.putHint(Parameters.CH.DISABLE, true);
-    }
+  }
+
+  /**
+   * Gives a custom model to a request, merged by the engine with the one of the profile; the contraction hierarchy,
+   * prepared for the profile alone, is then not used.
+   *
+   * @param request the request.
+   * @param model the custom model.
+   */
+  private static void flexible(final GHRequest request, final CustomModel model) {
+    request.setCustomModel(model);
+    request.putHint(Parameters.CH.DISABLE, true);
+  }
+
+  /**
+   * Computes the route of a request: the line, the maneuvers, the distance and the duration; a route through waypoints
+   * drives some roads only around its start and its finish ({@link #checkStretches(List, Predicate, int)}).
+   *
+   * @param points the start, the waypoints in their order, then the finish.
+   * @param request the request of the route.
+   *
+   * @return the route.
+   *
+   * @throws RoutingException the error of the engine ({@link #error(List)}), or {@link RoutingError#NO_ROUTE} if a
+   *                          route through waypoints drives a road of restricted access or a track between them.
+   */
+  private Route route(final List<GeoPoint> points, final GHRequest request) {
     final GHResponse response = hopper.route(request);
     if (response.hasErrors()) {
       throw new RoutingException(error(response.getErrors()));

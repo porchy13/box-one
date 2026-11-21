@@ -9,11 +9,11 @@ a road route with a random detour bounded in time, turns it into a roadbook draw
 (FIM, FIA…), exports it for Terra Pirata (OpenRally GPX), as a PDF strip and as a plain GPX, and offers a training
 mode. The name refers to the very first box of a roadbook.
 
-The project is at its beginning: the application shows a map, computes the fastest route between two places,
-generates detours within a budget of time, and exports the roadbook of the route for Terra Pirata, with the tulip of
-each junction drawn after the lexicon of the FIA; its boxes, their tulips, their notes, their waypoints and the speed
-zones can be corrected; it exports a PDF strip and a plain GPX too, and a quiz revises the symbols of the catalogue;
-the rest of the training mode comes in the next versions (see
+The project is at its beginning: the application shows a map, computes the fastest route between two places, generates
+detours within a budget of time, and exports the roadbook of the route for Terra Pirata, with the tulip of each
+junction drawn after the lexicon of the FIA; its boxes, their tulips, their notes, their waypoints and the speed zones
+can be corrected; it exports a PDF strip and a plain GPX too, a quiz revises the symbols of the catalogue, and the
+boxes of random junctions are read; the rest of the training mode comes in the next versions (see
 [`changelog.md`](changelog.md)).
 
 Licensed under the [Apache License, Version 2.0](LICENSE) (see also [`NOTICE`](NOTICE)). Routing data © OpenStreetMap
@@ -205,6 +205,16 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   or a meaning and its element; answer with the buttons or the keys 1 to 4, then Enter. The right answer is shown at
   once, the score at the end. Nothing is kept from one session to the next yet.
 
+- **Reading of boxes**: Training › Reading of boxes (Shortcut+Shift+T) draws routes at random in the area of the map
+  seen, the shortest on every road, tracks included (place the map on the roads to train on first; a map must be
+  imported) and asks up to twenty of their junctions, each once, in two exercises, both checked by default: the tulip
+  of the junction and the direction to take among four in words ("Slightly right", "At the roundabout, take the 2nd
+  exit"…), answered with the buttons or the keys 1 to 4; or the box, its tulip and its heading, with the map centred
+  on the junction, north up, the route arriving at it drawn and the rest hidden, and a click on the road to take, the
+  route through the junction then drawn. Only the junctions where the direction is clear in words are read from their
+  tulip, and only the crossings of three roads or more are found on the map. The right answer is shown at once, the
+  score at the end.
+
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.
 
@@ -235,7 +245,7 @@ page of the map) with:
 | `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry; the changes of the user applied to it, and kept by their places when the route changes. |
 | `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first): the tulips, the danger marks, the symbols on the roads, how the abbreviations are written, and which symbols and abbreviations look alike (for the quiz); the drawing of the diagram of a box (its tulip and its notes) and of its description with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
 | `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips and the notes as PNG), as a PDF strip and as a plain GPX. |
-| `training` | The training mode: the questions of the symbol quiz drawn from a seed, the elements that look alike mixed on demand, the sessions and their score. |
+| `training` | The training mode: the questions of the symbol quiz drawn from a seed, the elements that look alike mixed on demand; the junctions of random routes to read, the directions in words, the branch of a click on the map; the sessions and their score. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |
 
 ## Dependencies

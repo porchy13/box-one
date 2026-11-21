@@ -17,7 +17,7 @@ import java.util.Objects;
  * @param direction whether its sign or its meaning is shown.
  * @param choices the choices offered, in the order shown; unmodifiable.
  */
-public record Question(Element asked, Direction direction, List<Element> choices) {
+public record Question(Element asked, Direction direction, List<Element> choices) implements Asked<Element> {
 
   // *******************************************************************************************************************
   // Constants
@@ -52,6 +52,34 @@ public record Question(Element asked, Direction direction, List<Element> choices
     if (!choices.contains(asked) || choices.stream().anyMatch(choice -> choice.topic() != asked.topic())) {
       throw new IllegalArgumentException("the element asked among choices of its topic");
     }
+  }
+
+  // *******************************************************************************************************************
+  // Methods
+  // *******************************************************************************************************************
+
+  /**
+   * Tells whether an answer is one of the choices.
+   *
+   * @param answer the answer.
+   *
+   * @return {@code true} if it is a choice.
+   */
+  @Override
+  public boolean offers(final Element answer) {
+    return choices.contains(answer);
+  }
+
+  /**
+   * Tells whether an answer is the element asked.
+   *
+   * @param answer the answer.
+   *
+   * @return {@code true} if it is the element asked.
+   */
+  @Override
+  public boolean isRight(final Element answer) {
+    return asked.equals(answer);
   }
 
 }

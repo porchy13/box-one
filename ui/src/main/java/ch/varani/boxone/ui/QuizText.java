@@ -7,13 +7,15 @@ import ch.varani.boxone.core.WaypointKind;
 import ch.varani.boxone.training.Element;
 import ch.varani.boxone.training.Question;
 import ch.varani.boxone.training.Topic;
+import ch.varani.boxone.training.Turn;
 
 import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
 /**
- * The texts of the quiz (development plan, phase 7a): the meaning of each element, the question asked, the answer.
+ * The texts of the training (development plan, phase 7a and 7b): the meaning of each element, the question asked, the
+ * answer, the directions in words of the reading of boxes.
  *
  * <p>The meaning of a symbol, of an abbreviation, is the one of the editor of the notes ({@code notes.symbol.<name>},
  * {@code notes.abbreviation.<name>}); the meaning of a waypoint and of a danger mark is a text of its own
@@ -55,6 +57,8 @@ record QuizText(ResourceBundle texts, Locale locale) {
   static final String RESULT_KEY = "quiz.result";
   /** The key of the name of a topic, with the number of its elements ({@code quiz.topic.<topic>}). */
   static final String TOPIC_KEYS = "quiz.topic.";
+  /** The beginning of the keys of the directions in words ({@code reading.turn.<kind>}, with the number of an exit). */
+  static final String TURN_KEYS = "reading.turn.";
 
   // *******************************************************************************************************************
   // Methods
@@ -156,6 +160,18 @@ record QuizText(ResourceBundle texts, Locale locale) {
    */
   String result(final int right, final int questions) {
     return MessageFormat.format(texts.getString(RESULT_KEY), format(right), format(questions));
+  }
+
+  /**
+   * Gives a direction in words.
+   *
+   * @param turn the direction.
+   *
+   * @return "Slightly to the right", "At the roundabout, take the 2nd exit"….
+   */
+  String turn(final Turn turn) {
+    return new MessageFormat(texts.getString(TURN_KEYS + turn.kind().name()), locale)
+               .format(new Object[] {turn.exit()});
   }
 
   /**

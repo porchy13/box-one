@@ -59,6 +59,26 @@ final class RouterTest {
   }
 
   /**
+   * A router without the roads of a map gives the fastest route as the shortest one.
+   */
+  @Test
+  @DisplayName("Phase 7b: a router without map gives the fastest route as the shortest one")
+  void defaultShortestTest() {
+    final Router router = new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+        return new Route(points, List.of(), 0, Duration.ZERO);
+      }
+
+      @Override
+      public void close() {
+        // Nothing to release.
+      }
+    };
+    assertEquals(router.route(STATION, NORTH), router.shortest(STATION, NORTH));
+  }
+
+  /**
    * A router without the roads of a map gives no feature of the map along a route.
    */
   @Test

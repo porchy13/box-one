@@ -3,8 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <!-- The training mode (AGENTS.md, 3; development plan, phase 7): the quiz of the symbols, the abbreviations, the
-         waypoints and the danger marks of a catalogue, its questions drawn from a seed. Pure Java: the domain model and
-         the catalogues, whose groups of similar elements it reads; it draws nothing itself. No JavaFX. -->
+         waypoints and the danger marks of a catalogue, and the reading of the boxes of junctions of random routes, their
+         questions drawn from a seed. Pure Java: the domain model, the catalogues, whose groups of similar elements it
+         reads, the routing, through the interface Router only, and the roadbook, which turns the routes into boxes; it
+         draws nothing itself. No JavaFX. -->
     <parent>
         <groupId>ch.varani.boxone</groupId>
         <artifactId>box-one</artifactId>
@@ -30,6 +32,16 @@
         </dependency>
 
         <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-routing</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.varani.boxone</groupId>
+            <artifactId>box-one-roadbook</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
         </dependency>
@@ -44,5 +56,15 @@
             <artifactId>junit-jupiter-engine</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <testResources>
+            <!-- The small extract of OpenStreetMap of the tests of the routing, shared rather than copied: junctions are
+                 read on routes drawn on it by GraphHopper (AGENTS.md, 6). -->
+            <testResource>
+                <directory>${root.dir}/routing/src/test/resources</directory>
+            </testResource>
+        </testResources>
+    </build>
 
 </project>

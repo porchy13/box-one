@@ -163,7 +163,7 @@ final class TrainingView {
   /** The setup page. */
   private final VBox setup = new VBox();
   /** The session, or {@code null} on the setup page. */
-  private Session session;
+  private Session<Element, Question> session;
   /** The choices of the question shown, in their order. */
   private final List<Button> choices = new ArrayList<>();
   /** The sentence telling whether the answer is right. */

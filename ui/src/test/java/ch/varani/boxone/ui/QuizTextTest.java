@@ -7,7 +7,10 @@ import ch.varani.boxone.core.WaypointKind;
 import ch.varani.boxone.training.Direction;
 import ch.varani.boxone.training.Element;
 import ch.varani.boxone.training.Question;
+import ch.varani.boxone.training.QuizGenerator;
 import ch.varani.boxone.training.Topic;
+import ch.varani.boxone.training.Turn;
+import ch.varani.boxone.training.TurnKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -33,6 +36,8 @@ final class QuizTextTest {
   private static final int MAX_QUESTIONS = 20;
   /** A number of right answers. */
   private static final int RIGHT = 16;
+  /** The number of the third exit of a roundabout. */
+  private static final int THIRD = 3;
 
   /**
    * The meaning of a symbol and of an abbreviation is the one of the editor of the notes; the meaning of a waypoint
@@ -86,7 +91,13 @@ final class QuizTextTest {
         () -> assertEquals("Faux. La bonne réponse : 3. Bosse.", FRENCH.verdict(false, "3. Bosse")),
         () -> assertEquals("16 justes sur 20", FRENCH.result(RIGHT, MAX_QUESTIONS)),
         () -> assertEquals("Symboles (80)", FRENCH.topic(Topic.SYMBOLS)),
-        () -> assertEquals("Danger marks (3)", english.topic(Topic.DANGERS)));
+        () -> assertEquals("Danger marks (3)", english.topic(Topic.DANGERS)),
+        () -> assertEquals("Légèrement à droite", FRENCH.turn(new Turn(TurnKind.SLIGHT_RIGHT, 0))),
+        () -> assertEquals("Au rond-point, 1re sortie", FRENCH.turn(new Turn(TurnKind.ROUNDABOUT, 1))),
+        () -> assertEquals("Au rond-point, 3e sortie", FRENCH.turn(new Turn(TurnKind.ROUNDABOUT, THIRD))),
+        () -> assertEquals("At the roundabout, take the 2nd exit", english.turn(new Turn(TurnKind.ROUNDABOUT, 2))),
+        () -> assertEquals("At the roundabout, take the 4th exit",
+                           english.turn(new Turn(TurnKind.ROUNDABOUT, QuizGenerator.CHOICES))));
   }
 
 }

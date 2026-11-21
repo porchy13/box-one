@@ -113,6 +113,11 @@ All notable changes of the project are documented in this file.
   the FIA, each element shown and its meaning to find among four, or the other way round, answered with the buttons or
   the keys 1 to 4; the right answer is shown at once, the score at the end. The mode "confusions" asks the elements
   that look alike, with their neighbours as choices.
+- **Reading of boxes**: Training › Reading of boxes draws routes at random in the area of the map seen (the shortest
+  on every road, tracks included) and asks up to twenty of their junctions: read the tulip and choose the direction to
+  take among four in words ("Slightly right", "At the roundabout, take the 2nd exit"…), or read the box, with its
+  heading, and click on the map, centred on the junction with the route arriving at it drawn and the rest hidden, the
+  road to take; the route through the junction is then drawn. The right answer is shown at once, the score at the end.
 - **Plain GPX**: File › Export as GPX… writes the route shown for other applications than Terra Pirata: the track
   and one point per box, named by its number and its total distance, with the reminder that the route is indicative
   and the attribution of OpenStreetMap.

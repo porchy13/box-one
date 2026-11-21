@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -429,7 +430,7 @@ final class MapViewTest {
   @Test
   @DisplayName("Phase 1: the route goes to the page as a JSON array of numbers")
   void jsonTest() {
-    assertEquals("[[46.7813,6.641],[46.7784,6.6413]]", MapView.json(ROUTE));
+    assertEquals("[[46.7813,6.641],[46.7784,6.6413]]", MapView.json(ROUTE.points()));
   }
 
   /**
@@ -493,6 +494,66 @@ final class MapViewTest {
   private static List<ContextMenu> menus() {
     return Window.getWindows().stream().filter(ContextMenu.class::isInstance).map(ContextMenu.class::cast)
                  .filter(ContextMenu::isShowing).toList();
+  }
+
+  /**
+   * A junction of the training is shown alone with the route arriving at it, the start, the finish and the route
+   * hidden, a route set meanwhile not drawn and no context menu; its route drawn once answered; the area seen around
+   * it; the training ended, the start, the finish and the route drawn again. Before the page has loaded, nothing is
+   * drawn and the area is not known.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 7b: a junction of the training shown alone, its route once answered, the map given back")
+  void trainingTest(final FxRobot robot) throws TimeoutException {
+    final AtomicReference<Optional<List<GeoPoint>>> unloaded = new AtomicReference<>();
+    robot.interact(() -> {
+      final MapView fresh = new MapView(Languages.bundle(Languages.ENGLISH), place -> { }, (end, place) -> { },
+                                        place -> { }, (kind, place) -> { }, place -> { });
+      fresh.showJunction(SmokeTest.STATION, ROUTE.points());
+      fresh.showPath(ROUTE.points());
+      unloaded.set(fresh.getArea());
+    });
+    final MapView map = show(robot, new ArrayList<>(), new ArrayList<>());
+    final WebView view = map.getNode();
+    MapPages.waitLoaded(view);
+    robot.interact(() -> {
+      map.showJunction(SmokeTest.STATION, ROUTE.points());
+      map.setRoute(ROUTE);
+    });
+    final int markers = MapPages.count(robot, view, ".marker");
+    final int routes = MapPages.count(robot, view, ".route-fastest");
+    final int boxes = MapPages.count(robot, view, ".box-place");
+    final int arrivals = MapPages.count(robot, view, "." + MapView.ARRIVAL_LINE);
+    final String centred = MapPages.mapView(robot, view);
+    MapPages.contextMenu(robot, view, SmokeTest.STATION.latitude(), SmokeTest.STATION.longitude());
+    WaitForAsyncUtils.waitForFxEvents();
+    final boolean menu = Window.getWindows().stream().anyMatch(window -> window instanceof ContextMenu
+                                                                         && window.isShowing());
+    robot.interact(() -> map.showPath(ROUTE.points()));
+    final int answers = MapPages.count(robot, view, "." + MapView.ANSWER_LINE);
+    final AtomicReference<Optional<List<GeoPoint>>> area = new AtomicReference<>();
+    robot.interact(() -> area.set(map.getArea()));
+    robot.interact(map::endTraining);
+    final List<GeoPoint> corners = area.get().orElseThrow();
+    assertAll(
+        () -> assertEquals(Optional.empty(), unloaded.get()),
+        () -> assertEquals(0, markers),
+        () -> assertEquals(0, routes),
+        () -> assertEquals(1, boxes),
+        () -> assertEquals(1, arrivals),
+        () -> assertTrue(centred.endsWith(" 18")),
+        () -> assertFalse(menu),
+        () -> assertEquals(1, answers),
+        () -> assertTrue(corners.getFirst().latitude() < SmokeTest.STATION.latitude()
+                         && SmokeTest.STATION.latitude() < corners.getLast().latitude()),
+        () -> assertTrue(corners.getFirst().longitude() < SmokeTest.STATION.longitude()
+                         && SmokeTest.STATION.longitude() < corners.getLast().longitude()),
+        () -> assertEquals(2, MapPages.count(robot, view, ".marker")),
+        () -> assertEquals(1, MapPages.count(robot, view, ".route-fastest")));
   }
 
 }

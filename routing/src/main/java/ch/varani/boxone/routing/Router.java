@@ -40,6 +40,25 @@ public interface Router extends AutoCloseable {
   }
 
   /**
+   * Computes the shortest route by car from a start to a finish, on every road a car may drive, the tracks included,
+   * whatever their speed (phase 7b: the routes of the reading of boxes; asked by the maintainer, 2026-11-20). Its
+   * junctions are then those of every kind of road, not only those of the main roads that the fastest routes drive.
+   *
+   * <p>By default, for a router without the roads of a map, the fastest route.</p>
+   *
+   * @param start the start.
+   * @param finish the finish.
+   *
+   * @return the route, from the road nearest to the start to the road nearest to the finish, with its maneuvers.
+   *
+   * @throws RoutingException {@link RoutingError#POINT_NOT_FOUND} if no road of the map is near the start or the
+   *                          finish, {@link RoutingError#NO_ROUTE} if no road leads from the start to the finish.
+   */
+  default Route shortest(final GeoPoint start, final GeoPoint finish) {
+    return route(start, finish);
+  }
+
+  /**
    * Computes the fastest route by car from a start to a finish through waypoints, in their order.
    *
    * <p>The waypoints are not maneuvers: the driver passes them without instruction, unless the route turns there.

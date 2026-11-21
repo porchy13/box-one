@@ -163,6 +163,21 @@ final class GraphHopperRouterTest {
   }
 
   /**
+   * The shortest route from the station to Cordey joins them, no longer than the fastest one, with its maneuvers.
+   */
+  @Test
+  @DisplayName("Phase 7b: the shortest route on every road is no longer than the fastest one")
+  void shortestTest() {
+    final Route shortest = router.shortest(STATION, CORDEY);
+    final Route fastest = router.route(STATION, CORDEY);
+    assertAll(
+        () -> assertTrue(near(STATION, shortest.start())),
+        () -> assertTrue(near(CORDEY, shortest.finish())),
+        () -> assertTrue(shortest.distance() <= fastest.distance()),
+        () -> assertFalse(shortest.maneuvers().isEmpty()));
+  }
+
+  /**
    * The route through the roundabout of the Rue de l'Industrie, in Switzerland, enters a roundabout driven
    * counterclockwise there; its other junctions are crossings.
    */

@@ -1,14 +1,19 @@
 package ch.varani.boxone.ui;
 
+import ch.varani.boxone.core.GeoPoint;
+import ch.varani.boxone.training.Exercise;
 import javafx.application.ColorScheme;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.paint.Color;
+import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,9 +25,11 @@ import org.testfx.framework.junit5.ApplicationExtension;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,6 +44,8 @@ final class MainControllerTrainingTest {
 
   /** The texts of the tests, in French. */
   private static final ResourceBundle TEXTS = Languages.bundle(Languages.FRENCH);
+  /** The centre of the first view of the map: the centre of Switzerland. */
+  private static final GeoPoint MAP_CENTRE = new GeoPoint(46.8, 8.23);
 
   /** The data folder of the tests. */
   @TempDir
@@ -53,7 +62,8 @@ final class MainControllerTrainingTest {
    * @return the window.
    */
   private Stage show(final FxRobot robot, final boolean mac) {
-    final Services services = new Services(data, background, folder -> Optional.empty(),
+    final Services services = new Services(data, background,
+                                           folder -> Optional.of(new GridRouter(GridRouter.Kind.CROSSINGS)),
                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
                                            owner -> Optional.empty(), owner -> Optional.empty(),
                                            owner -> Optional.empty(), owner -> Optional.empty());
@@ -101,11 +111,54 @@ final class MainControllerTrainingTest {
    *
    * @param window the window.
    *
-   * @return {@code true} if the quiz is shown.
+   * @return {@code true} if an exercise of the training is shown.
    */
   private static boolean training(final Stage window) {
-    final Node quiz = window.getScene().lookup("." + Pages.STYLE);
-    return quiz.isVisible() && !window.getScene().lookup("#split").isVisible();
+    return window.getScene().getRoot().lookupAll("." + Pages.STYLE).stream().anyMatch(Node::isVisible)
+           && !window.getScene().lookup("#split").isVisible();
+  }
+
+  /**
+   * Training › Reading of boxes shows the reading over the three columns, the quiz hidden; a question on the map
+   * borrows the map, whose clicks answer it instead of placing the start; back to the roadbook, the map goes back to
+   * its pane; the quiz then hides the reading.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws TimeoutException if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 7b: the reading over the roadbook, the map lent to its questions and given back")
+  void readingTest(final FxRobot robot) throws TimeoutException {
+    final Stage window = show(robot, false);
+    final WebView map = (WebView) window.getScene().lookup(".web-view");
+    MapPages.waitLoaded(map);
+    robot.interact(background::runAll);
+    final Node mapPane = window.getScene().lookup("#mapPane");
+    fire(robot, window, "readingItem");
+    final boolean shown = training(window);
+    robot.interact(() -> {
+      robot.lookup("#" + ReadingView.EXERCISE_ID + Exercise.TULIP.name()).queryAs(CheckBox.class).setSelected(false);
+      robot.lookup("#" + ReadingView.START_ID).queryAs(Button.class).fire();
+    });
+    robot.interact(background::runAll);
+    final boolean lent = map.getParent() != mapPane;
+    MapPages.click(robot, map, MAP_CENTRE.latitude(), MAP_CENTRE.longitude());
+    final String status = robot.lookup("#status").queryAs(Label.class).getText();
+    fire(robot, window, "quizItem");
+    final boolean back = map.getParent() == mapPane;
+    Node readingView = robot.lookup("#" + ReadingView.START_ID).query();
+    while (!readingView.getStyleClass().contains(Pages.STYLE)) {
+      readingView = readingView.getParent();
+    }
+    final boolean readingHidden = !readingView.isVisible();
+    assertAll(
+        () -> assertTrue(shown),
+        () -> assertTrue(lent),
+        () -> assertEquals(TEXTS.getString(MainController.STATUS_PICK_START), status),
+        () -> assertTrue(back),
+        () -> assertTrue(readingHidden),
+        () -> assertTrue(training(window)));
   }
 
   /**

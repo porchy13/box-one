@@ -16,6 +16,8 @@
   var BOX_SIZE = 24;
   /** The box selected over the markers of the start and the finish, so that it can be dragged from them. */
   var BOX_ABOVE = 1000;
+  /** The zoom at which a junction of the training is shown: its roads, close enough to click them. */
+  var JUNCTION_ZOOM = 18;
   /** The margin around the route when the map shows it whole, in pixels. */
   var MARGIN = 48;
   /** The scroll that changes the zoom by one level until Java sets it, in pixels (ZoomSensitivity.MEDIUM). */
@@ -167,6 +169,24 @@
     /** Hides the box selected. */
     hideBox: function () {
       box.clearLayers();
+    },
+
+    /** Returns the area seen, its south, west, north and east bounds in degrees, separated by commas. */
+    getArea: function () {
+      var bounds = map.getBounds();
+      return [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()].join(',');
+    },
+
+    /**
+     * Shows a junction of the training alone: the markers and the routes removed, a circle at its place, centred, its
+     * roads close enough to click them.
+     */
+    showJunction: function (latitude, longitude) {
+      shown.clearLayers();
+      box.clearLayers();
+      routes = [];
+      box.addLayer(boxMarker(latitude, longitude, false));
+      map.setView([latitude, longitude], JUNCTION_ZOOM);
     },
 
     /** Shows the whole routes. */

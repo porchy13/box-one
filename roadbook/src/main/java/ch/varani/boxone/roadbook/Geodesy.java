@@ -10,9 +10,12 @@ import ch.varani.boxone.core.GeoPoint;
  * bearing of the great circle, clockwise from the geographic north. Over the few kilometres between two boxes, the
  * sphere differs from the ellipsoid of WGS 84 by less than 0.5 %, well below what a trip meter shows.</p>
  *
+ * <p>Public for the reading of the boxes of the training mode (development plan, phase 7b), which places the clicks on
+ * the map around a junction.</p>
+ *
  * <p>Utility class without state, safe for concurrent use.</p>
  */
-final class Geodesy {
+public final class Geodesy {
 
   // *******************************************************************************************************************
   // Constants
@@ -48,7 +51,7 @@ final class Geodesy {
    *
    * @return the distance, in metres, non-negative.
    */
-  static double distance(final GeoPoint from, final GeoPoint to) {
+  public static double distance(final GeoPoint from, final GeoPoint to) {
     final double latitude1 = Math.toRadians(from.latitude());
     final double latitude2 = Math.toRadians(to.latitude());
     final double sinLatitude = Math.sin((latitude2 - latitude1) / 2);
@@ -67,7 +70,7 @@ final class Geodesy {
    * @return the heading, in degrees clockwise from the geographic north, from 0 included to {@value #FULL_TURN}
    *         excluded.
    */
-  static double bearing(final GeoPoint from, final GeoPoint to) {
+  public static double bearing(final GeoPoint from, final GeoPoint to) {
     final double latitude1 = Math.toRadians(from.latitude());
     final double latitude2 = Math.toRadians(to.latitude());
     final double longitude = Math.toRadians(to.longitude() - from.longitude());

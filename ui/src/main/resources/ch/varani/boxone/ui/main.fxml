@@ -15,14 +15,15 @@
 <?import javafx.scene.layout.VBox?>
 <!--
   The main window (MainController, DESIGN.md §6, §14): the menu bar (global on macOS), the map in the centre, put
-  under the card of the route and the veil by the controller, and the status bar, with the state of the work. The
-  card of the route, at the top right of the map, shows its distance and duration once computed; the veil covers the
-  map while it is loaded or imported. Undo and Redo bring back the itineraries shown before, enabled when there is one.
-  Save the roadbook, Save the roadbook as… and Generate a detour… are enabled once a route is shown;
-  the seed of a detour shown is at the right of the status bar, in a field that can be selected and copied. The
-  roadbook of the route shown is at the right of the map, its boxes drawn as on paper, the box selected shown on the
-  map. Training › Symbol quiz puts the quiz in the centre, over the three columns, until Back to the roadbook, or an
-  item of the File, Edit and Route menus. The controller keeps the items of the system: Settings… on macOS, Options… and Quit elsewhere.
+  under the card of the route and the veil by the controller, and the status bar, with the state of the work. The card
+  of the route, at the top right of the map, shows its distance and duration once computed; the veil covers the map
+  while it is loaded or imported. Undo and Redo bring back the itineraries shown before, enabled when there is one.
+  Save the roadbook, Save the roadbook as… and Generate a detour… are enabled once a route is shown; the seed of a
+  detour shown is at the right of the status bar, in a field that can be selected and copied. The roadbook of the
+  route shown is at the right of the map, its boxes drawn as on paper, the box selected shown on the map. Training ›
+  Symbol quiz or Reading of boxes puts the exercise in the centre, over the three columns, until Back to the roadbook,
+  or an item of the File, Edit and Route menus. The controller keeps the items of the system: Settings… on macOS,
+  Options… and Quit elsewhere.
 -->
 <BorderPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml">
   <top>
@@ -52,6 +53,7 @@
       </Menu>
       <Menu fx:id="trainingMenu" text="%menu.training">
         <MenuItem fx:id="quizItem" text="%menu.quiz" onAction="#train" accelerator="Shortcut+T"/>
+        <MenuItem fx:id="readingItem" text="%menu.reading" onAction="#read" accelerator="Shortcut+Shift+T"/>
         <MenuItem fx:id="roadbookItem" text="%menu.roadbook" onAction="#leaveTraining" disable="true"/>
       </Menu>
       <Menu fx:id="toolsMenu" text="%menu.tools">
