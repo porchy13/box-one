@@ -109,7 +109,7 @@ final class MainControllerEditorTest {
                      final Function<javafx.stage.Window, Optional<Path>> saver) {
     final Services services = new Services(data, background, folder -> Optional.of(router), (map, graph) -> router,
                                            owner -> Optional.empty(), saver, owner -> Optional.empty(), saver,
-                                           saver);
+                                           saver, address -> { });
     final SystemColors colors = new SystemColors(new SimpleObjectProperty<>(ColorScheme.LIGHT),
                                                  new SimpleObjectProperty<>(Color.web("#007AFF")),
                                                  new SimpleObjectProperty<>(Color.WHITE),

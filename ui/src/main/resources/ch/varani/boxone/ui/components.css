@@ -483,3 +483,138 @@
     -fx-spacing: 4;
     -fx-padding: 8;
 }
+
+/* The welcome page (§14), the first page of the window: the name of the application, the terms of use framed in the
+   colour of the warnings, then the two modes side by side, each shown by what it works on. */
+/* The root of the scene of the page: the background of the window (base.css), its viewport transparent over it. */
+.welcome-scroll {
+    -fx-background-color: -c-bg;
+    -fx-background: -c-bg;
+    -fx-padding: 0;
+}
+
+.welcome-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.welcome {
+    -fx-spacing: 16;
+    -fx-padding: 16 32 12 32;
+}
+
+.welcome-header {
+    -fx-spacing: 16;
+    -fx-alignment: center-left;
+}
+
+.welcome-terms {
+    -fx-spacing: 8;
+    -fx-padding: 16 20 16 24;
+    -fx-background-color: -c-warning, -c-surface;
+    -fx-background-insets: 0, 0 0 0 4;
+    -fx-background-radius: 8, 0 8 8 0;
+    -fx-border-color: -c-border;
+    -fx-border-radius: 8;
+}
+
+.welcome-modes {
+    -fx-spacing: 20;
+}
+
+/* The roadbook dimmed as a whole while the terms are not accepted, its button not dimmed twice. */
+.welcome-mode:disabled {
+    -fx-opacity: 0.5;
+}
+
+.welcome-mode:disabled .button {
+    -fx-opacity: 1;
+}
+
+/* The terms in the body size, line height 1.5 (§4), so that the page holds in the window at its default size. */
+.welcome-terms .notice-text {
+    -fx-line-spacing: 0.4em;
+    -fx-text-fill: -c-text;
+}
+
+/* The mark of a waypoint as the sign of an exercise, smaller than in the quiz. */
+.welcome-exercise .box-waypoint {
+    -fx-min-width: 28;
+    -fx-min-height: 28;
+    -fx-max-width: 28;
+    -fx-max-height: 28;
+    -fx-font-size: 0.92em;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 14, 12;
+}
+
+.welcome-mode {
+    -fx-spacing: 12;
+    -fx-padding: 20;
+    -fx-background-color: -c-surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -c-border;
+    -fx-border-radius: 8;
+}
+
+.welcome-mode-head {
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+}
+
+.welcome-strip {
+    -fx-border-color: -c-border;
+    -fx-border-width: 1;
+}
+
+.button.welcome-exercise {
+    -fx-alignment: center-left;
+    -fx-min-height: 60;
+    -fx-pref-height: -1;
+    -fx-padding: 8 12 8 8;
+}
+
+.welcome-exercise-graphic {
+    -fx-spacing: 12;
+    -fx-alignment: center-left;
+}
+
+.welcome-exercise-title {
+    -fx-font-weight: 600;
+}
+
+.welcome-acceptance {
+    -fx-spacing: 12;
+    -fx-alignment: center-left;
+}
+
+/* The foot of the page: a sentence and the link to Terra Pirata, then Quit at the right, under a hairline. */
+.welcome-footer {
+    -fx-spacing: 4;
+    -fx-alignment: center-left;
+    -fx-padding: 8 0 0 0;
+    -fx-border-color: -c-border transparent transparent transparent;
+}
+
+.welcome-footer .hyperlink {
+    -fx-font-size: 0.85em;
+    -fx-text-fill: -c-accent;
+    -fx-padding: 0;
+    -fx-border-color: transparent;
+}
+
+.welcome-footer .hyperlink:focused {
+    -fx-border-color: -c-accent;
+}
+
+/* A line icon (§8): a stroke of 1.6 px, round ends, in the colour of the text. */
+.line-icon, .warning-icon {
+    -fx-fill: transparent;
+    -fx-stroke: -c-text;
+    -fx-stroke-width: 1.6;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.warning-icon {
+    -fx-stroke: -c-warning;
+}

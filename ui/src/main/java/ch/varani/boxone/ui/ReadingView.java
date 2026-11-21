@@ -139,7 +139,7 @@ final class ReadingView {
   private final TrainingMap map;
   /** Gives the seed of each session. */
   private final LongSupplier seeds;
-  /** Goes back to the roadbook. */
+  /** Goes back to the welcome page. */
   private final Runnable back;
   /** The view: the page shown. */
   private final StackPane view = new StackPane();
@@ -178,7 +178,7 @@ final class ReadingView {
    * @param background runs the search, off the JavaFX Application Thread.
    * @param map the map lent by the window.
    * @param seeds gives the seed of each session.
-   * @param back goes back to the roadbook.
+   * @param back goes back to the welcome page, to choose another exercise.
    */
   ReadingView(final QuizText quizText, final Catalogue catalogue, final Supplier<Router> router,
               final Executor background, final TrainingMap map, final LongSupplier seeds, final Runnable back) {
@@ -523,7 +523,7 @@ final class ReadingView {
 
   /**
    * Shows the result of the session: the right answers out of the questions, and the buttons to start again or to go
-   * back to the roadbook; the map given back.
+   * back to the welcome page; the map given back.
    */
   private void showResult() {
     map.release();
@@ -562,7 +562,7 @@ final class ReadingView {
   }
 
   /**
-   * Makes the button going back to the roadbook.
+   * Makes the button going back to the welcome page.
    *
    * @return the button.
    */

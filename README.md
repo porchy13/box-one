@@ -60,9 +60,12 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
 
 ## Features
 
-- **Terms of use at each start**: the terms of the [disclaimer](#disclaimer), to accept ("I accept") or to refuse
-  ("Refuse and quit", or closing the dialog), which quits the application. The roadbooks exported carry them in
-  short, in their description.
+- **Welcome page**: the application starts on a page that shows the terms of the [disclaimer](#disclaimer), to
+  accept with a check box before opening the roadbook editor ("Open the roadbook editor"); the exercises of the
+  training, which compute no route to drive, do not need them (symbol quiz, reading of boxes, roadbook situations), each mode shown by what it works
+  on. File › Change mode… brings the page back, the roadbook kept as it is. A link at its foot opens the site of
+  Terra Pirata in the browser of the system. The roadbooks exported carry the terms in short, in their
+  description.
 - **Map**: the national maps of swisstopo by default (free, no key), or the maps of MapTiler, drawn from
   OpenStreetMap, with a free personal key typed in the settings (File › Settings… on macOS, Tools › Options…
   elsewhere). To get a key, create a free account on [MapTiler Cloud](https://cloud.maptiler.com), then a new key
@@ -197,8 +200,8 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   Pirata shows.
 
 - **Symbol quiz**: Training › Symbol quiz (Shortcut+T) shows a quiz in the centre of the window, over the roadbook,
-  which stays as it is (Training › Back to the roadbook, the button of the quiz, or any item of the File, Edit and
-  Route menus brings it back). Choose what to revise — the 80 symbols, the 44 abbreviations, the 8 marks of the
+  which stays as it is (Training › Back to the roadbook, or any item of the File, Edit and Route menus brings it
+  back; the button "Back to the welcome page" of each exercise shows the welcome page, to choose another one). Choose what to revise — the 80 symbols, the 44 abbreviations, the 8 marks of the
   waypoints, the 3 danger marks of the catalogue of the FIA — and, with the mode "confusions", only the elements that
   look alike (groups of the catalogue), with their neighbours as choices. A session asks each element once, twenty at
   most (three questions for the three danger marks): an element drawn as on paper and its meaning to find among four,

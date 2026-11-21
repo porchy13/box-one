@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -14,7 +15,8 @@ import java.util.function.Function;
  * routing engine and the choice of the files, replaced by fakes in the tests.
  *
  * <p>Immutable, safe for concurrent use; the functions run on the thread of the long work, except {@code chooser},
- * {@code saver}, {@code opener}, {@code exporter} and {@code printer}, which run on the JavaFX Application Thread.</p>
+ * {@code saver}, {@code opener}, {@code exporter}, {@code printer} and {@code browser}, which run on the JavaFX
+ * Application Thread.</p>
  *
  * @param dataFolder the data folder of the application ({@link DataFolder}).
  * @param background runs the long work (load and import of the map, routing), one after the other, off the JavaFX
@@ -28,9 +30,12 @@ import java.util.function.Function;
  * @param opener asks the user for the roadbook to open ({@link RoadbookFiles#opening}, issue #5 of GitLab).
  * @param exporter asks the user for the file of the plain GPX to export ({@link RoadbookFiles#gpx}, phase 6).
  * @param printer asks the user for the file of the PDF strip to export ({@link RoadbookFiles#pdf}, phase 6).
+ * @param browser opens an address in the browser of the system, at the request of the user (the link of the welcome
+ *                page to Terra Pirata; {@code HostServices.showDocument}).
  */
 record Services(Path dataFolder, Executor background, Function<Path, Optional<? extends Router>> loader,
                 BiFunction<Path, Path, ? extends Router> importer, Function<Window, Optional<Path>> chooser,
                 Function<Window, Optional<Path>> saver, Function<Window, Optional<Path>> opener,
-                Function<Window, Optional<Path>> exporter, Function<Window, Optional<Path>> printer) {
+                Function<Window, Optional<Path>> exporter, Function<Window, Optional<Path>> printer,
+                Consumer<String> browser) {
 }

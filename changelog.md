@@ -20,8 +20,15 @@ All notable changes of the project are documented in this file.
   and the finish clicked on the map give the fastest route by car, drawn on the map with its distance and duration.
 - **Terms of use at each start**: the routes are indicative, only the signs, the rules of the road and the local
   laws are binding, the user alone is responsible for the routes and the roadbooks, shared ones included, and the
-  development team accepts no liability; "I accept", or "Refuse and quit". The roadbooks exported carry the terms
-  in short in their description, and the README in full.
+  development team accepts no liability; accepted on the welcome page to open the roadbook editor (see Welcome
+  page). The roadbooks
+  exported carry the terms in short in their description, and the README in full.
+- **Welcome page**: the application starts on a welcome page instead of the roadbook editor: the terms of use in
+  evidence, to accept with a check box before opening the roadbook editor (the training does not need them; from
+  the training, the menus of the roadbook lead to the welcome page until they are accepted), then
+  the two modes side by side, each shown by what it works on: the roadbook editor, with an extract of a strip drawn as on paper, and the training, its three exercises
+  (symbol quiz, reading of boxes, roadbook situations) opened directly from it. File › Change mode… brings it back,
+  the roadbook kept as it is, and the button "Back to the welcome page" of each exercise, to choose another one; a link at its foot opens the site of Terra Pirata in the browser.
 - **Roadbook for Terra Pirata**: File › Save the roadbook as… writes the roadbook of the route as an OpenRally GPX
   file (GPX 1.1, extensions of OpenRally v1.0.3), to import into RDS for Terra Pirata: a box at the start, at each
   instruction of the route and at the finish, with its total distance and its heading (CAP), the track of the route

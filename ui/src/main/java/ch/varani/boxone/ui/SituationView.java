@@ -46,7 +46,7 @@ import java.util.function.LongSupplier;
  * <p><b>Pages</b>, one at a time in the centre of the window:</p>
  * <ol>
  *   <li>the setup: the themes, each with its number of situations, all checked, "Start the session" (disabled while
- *       none is checked) and "Back to the roadbook";</li>
+ *       none is checked) and "Back to the welcome page";</li>
  *   <li>a question: the extract drawn as in the strip ({@link BoxRow}, {@link BoxCell}), the box asked selected, the
  *       question, the behaviours as buttons, taken by a click or the keys 1 to 4; once answered, the right one marked
  *       {@code right}, a wrong one {@code wrong}, a sentence saying it and the explanation, from the regulations of the
@@ -123,7 +123,7 @@ final class SituationView {
   private final Executor background;
   /** Gives the seed of each session. */
   private final LongSupplier seeds;
-  /** Goes back to the roadbook. */
+  /** Goes back to the welcome page. */
   private final Runnable back;
   /** The view: the page shown. */
   private final StackPane view = new StackPane();
@@ -167,7 +167,7 @@ final class SituationView {
    * @param catalogue the catalogue, which draws the boxes.
    * @param background draws the extracts, off the JavaFX Application Thread.
    * @param seeds gives the seed of each session.
-   * @param back goes back to the roadbook.
+   * @param back goes back to the welcome page, to choose another exercise.
    */
   SituationView(final ResourceBundle texts, final Locale locale, final Catalogue catalogue, final Executor background,
                 final LongSupplier seeds, final Runnable back) {
@@ -444,7 +444,7 @@ final class SituationView {
 
   /**
    * Shows the result of the session: the right answers out of the questions, and the buttons to start again or to go
-   * back to the roadbook.
+   * back to the welcome page.
    */
   private void showResult() {
     final Label title = new Label(texts.getString(TrainingView.DONE));
@@ -482,7 +482,7 @@ final class SituationView {
   }
 
   /**
-   * Makes the button going back to the roadbook.
+   * Makes the button going back to the welcome page.
    *
    * @return the button.
    */

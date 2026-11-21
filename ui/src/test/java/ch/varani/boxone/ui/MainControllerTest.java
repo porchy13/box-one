@@ -196,7 +196,8 @@ final class MainControllerTest {
                       final Function<javafx.stage.Window, Optional<Path>> saver,
                       final Function<javafx.stage.Window, Optional<Path>> opener) {
     return show(robot, false, () -> { }, new Services(data, background, loader, importer, chooser, saver, opener,
-                                                      owner -> Optional.empty(), owner -> Optional.empty()),
+                                                      owner -> Optional.empty(), owner -> Optional.empty(),
+                                                      address -> { }),
                 colors);
   }
 
@@ -318,7 +319,8 @@ final class MainControllerTest {
                                new Services(data, background, folder -> Optional.empty(),
                                             (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
                                             owner -> Optional.empty(), owner -> Optional.empty(),
-                                            owner -> Optional.empty(), owner -> Optional.empty()), colors);
+                                            owner -> Optional.empty(), owner -> Optional.empty(), address -> { }),
+                               colors);
     final String loading = text(robot, window, "status");
     final boolean veiled = busy(window).isVisible();
     final String veil = text(robot, window, "busyText");
@@ -340,7 +342,8 @@ final class MainControllerTest {
         () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "trainingMenu", "toolsMenu"),
                            menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "recentMenu", "saveItem", "saveAsItem",
-                                   "exportGpxItem", "exportPdfItem", "quitSeparator", "quitItem"),
+                                   "exportGpxItem", "exportPdfItem", "homeSeparator", "homeItem", "quitSeparator",
+                                   "quitItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()),
         () -> assertEquals(1, exits.get()),
         () -> assertTrue(window.stage().getScene().lookup(".web-view") instanceof WebView),
@@ -366,15 +369,16 @@ final class MainControllerTest {
                                new Services(data, background, folder -> Optional.empty(),
                                             (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
                                             owner -> Optional.empty(), owner -> Optional.empty(),
-                                            owner -> Optional.empty(), owner -> Optional.empty()), colors);
+                                            owner -> Optional.empty(), owner -> Optional.empty(), address -> { }),
+                               colors);
     final List<Menu> menus = menuBar(robot, window).getMenus();
     assertAll(
         () -> assertFalse(window.stage().getScene().getAccelerators().containsKey(MainController.REDO_OTHER)),
         () -> assertEquals(List.of("fileMenu", "editMenu", "routeMenu", "trainingMenu"),
                            menus.stream().map(Menu::getId).toList()),
         () -> assertEquals(List.of("openMapItem", "openRoadbookItem", "recentMenu", "saveItem", "saveAsItem",
-                                   "exportGpxItem", "exportPdfItem", "settingsSeparator",
-                                   "settingsItem"),
+                                   "exportGpxItem", "exportPdfItem", "homeSeparator", "homeItem",
+                                   "settingsSeparator", "settingsItem"),
                            menus.getFirst().getItems().stream().map(MenuItem::getId).toList()));
   }
 
@@ -655,7 +659,7 @@ final class MainControllerTest {
     final Router router = FakeRouter.turning();
     final Services services = new Services(data, background, folder -> Optional.of(router), (map, graph) -> router,
                                            owner -> Optional.empty(), saver, owner -> Optional.empty(),
-                                           owner -> Optional.empty(), owner -> Optional.empty());
+                                           owner -> Optional.empty(), owner -> Optional.empty(), address -> { });
     final Shown window = show(robot, false, exit, services, colors);
     robot.interact(background::runAll);
     final WebView view = map(window);
@@ -1556,7 +1560,8 @@ final class MainControllerTest {
                                new Services(blocked, background, folder -> Optional.empty(),
                                             (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
                                             owner -> Optional.empty(), owner -> Optional.empty(),
-                                            owner -> Optional.empty(), owner -> Optional.empty()), colors);
+                                            owner -> Optional.empty(), owner -> Optional.empty(), address -> { }),
+                               colors);
     fire(robot, window, "optionsItem");
     robot.interact(() -> button(robot, ButtonBar.ButtonData.OK_DONE).fire());
     WaitForAsyncUtils.waitForFxEvents();

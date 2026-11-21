@@ -152,9 +152,11 @@ import java.util.stream.Collectors;
  * <p><b>Training</b> (development plan, phase 7): Training › Symbol quiz shows the quiz of the catalogue
  * ({@link TrainingView}), Training › Reading of boxes the reading of the junctions of random routes drawn in the area
  * of the map seen ({@link ReadingView}, which borrows the map, {@link TrainingMap}, and its clicks), in the centre of
- * the window, over the three columns, which stay as they are; Training › Back to the roadbook, the button of the
- * exercise, or any item of the File, Edit and Route menus but Settings… brings them back, as these items act on the
- * roadbook.</p>
+ * the window, over the three columns, which stay as they are; Training › Back to the roadbook, or any item of the
+ * File, Edit and Route menus but Settings… brings them back, as these items act on the roadbook, or the welcome page
+ * while its terms of use are not accepted, the item then not run (an event filter of the menus); the button "Back
+ * to the welcome page" of the exercise shows the welcome page, to choose another exercise (asked by the maintainer,
+ * 2026-11-21).</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -362,6 +364,12 @@ final class MainController {
   private SituationView situations;
   /** The views of the training mode: the quiz, the reading of boxes and the situations, one shown at a time. */
   private List<Node> trainingModes = List.of();
+  /** The scene of the window: the menus, the map, the strip and the editor, or the training over them. */
+  private Scene mainScene;
+  /** The welcome page, shown at each start and by File › Change mode… (asked by the maintainer, 2026-11-21). */
+  private WelcomeView welcome;
+  /** The scene of the welcome page, put into the window instead of {@link #mainScene} while it is shown. */
+  private Scene welcomeScene;
   /** The file of the roadbook, opened or saved last, written again by Save; {@code null} before the first. */
   private Path file;
   /** The roadbook as it was saved or opened last, or {@code null} if it was never. */
@@ -539,7 +547,7 @@ final class MainController {
    * Builds and shows the window, then loads the graph of the last map imported.
    */
   void show() {
-    final Scene scene = new Scene(Views.load(MainController.class.getResource(VIEW), texts, this), WIDTH, HEIGHT);
+    mainScene = new Scene(Views.load(MainController.class.getResource(VIEW), texts, this), WIDTH, HEIGHT);
     menuBar.setUseSystemMenuBar(true);
     if (mac) {
       fileMenu.getItems().removeAll(quitSeparator, quitItem);
@@ -548,9 +556,9 @@ final class MainController {
       fileMenu.getItems().removeAll(settingsSeparator, settingsItem);
     }
     if (!mac) {
-      scene.getAccelerators().put(REDO_OTHER, this::redo);
+      mainScene.getAccelerators().put(REDO_OTHER, this::redo);
     }
-    final Theme theme = new Theme(scene, colors);
+    final Theme theme = new Theme(mainScene, colors);
     settings = store.load();
     updateRecent();
     map = new MapView(texts, this::clicked, this::moved, this::addBox, this::addWaypoint, this::moveBox);
@@ -593,23 +601,21 @@ final class MainController {
     });
     showRoadbook(List.of());
     final LongSupplier seeds = () -> RandomGenerator.getDefault().nextLong();
-    training = new TrainingView(texts, locale, CATALOGUE, seeds, this::leaveTraining);
+    training = new TrainingView(texts, locale, CATALOGUE, seeds, this::showWelcome);
     trainingMap = new TrainingMap(map, mapPane);
     boxReading = new ReadingView(new QuizText(texts, locale), CATALOGUE, () -> router, services.background(),
-                                 trainingMap, seeds, this::leaveTraining);
-    situations = new SituationView(texts, locale, CATALOGUE, services.background(), seeds, this::leaveTraining);
+                                 trainingMap, seeds, this::showWelcome);
+    situations = new SituationView(texts, locale, CATALOGUE, services.background(), seeds, this::showWelcome);
     trainingModes = List.of(training.getNode(), boxReading.getNode(), situations.getNode());
     for (final Node mode : trainingModes) {
       mode.setVisible(false);
       centre.getChildren().add(mode);
     }
-    for (final Menu menu : List.of(fileMenu, editMenu, routeMenu)) {
-      menu.addEventHandler(ActionEvent.ACTION, event -> {
-        if (event.getTarget() != settingsItem) {
-          leaveTraining();
-        }
-      });
-    }
+    welcome = new WelcomeView(texts, locale, CATALOGUE, services.background(), this::enter, this::quit,
+                              services.browser());
+    welcomeScene = new Scene(welcome.getNode(), WIDTH, HEIGHT);
+    new Theme(welcomeScene, colors);
+    watchRoadbookMenus();
     stage.setOnCloseRequest(event -> {
       if (!mayClose()) {
         event.consume();
@@ -619,10 +625,31 @@ final class MainController {
     stage.getIcons().setAll(icons());
     stage.setMinWidth(MIN_WIDTH);
     stage.setMinHeight(MIN_HEIGHT);
-    stage.setScene(scene);
+    stage.setScene(mainScene);
     stage.centerOnScreen();
     stage.show();
     load();
+  }
+
+  /**
+   * Makes the items of the File, Edit and Route menus, but Settings…, leave the training for the roadbook they act on;
+   * while the roadbook is locked ({@link #isLocked()}), they show the welcome page instead, the item not run (a filter
+   * of its menu, which runs before the action of the item).
+   */
+  private void watchRoadbookMenus() {
+    for (final Menu menu : List.of(fileMenu, editMenu, routeMenu)) {
+      menu.addEventFilter(ActionEvent.ACTION, event -> {
+        if (event.getTarget() != settingsItem && isLocked()) {
+          event.consume();
+          showWelcome();
+        }
+      });
+      menu.addEventHandler(ActionEvent.ACTION, event -> {
+        if (event.getTarget() != settingsItem) {
+          leaveTraining();
+        }
+      });
+    }
   }
 
   /**
@@ -820,6 +847,67 @@ final class MainController {
   }
 
   /**
+   * Shows the welcome page in the window, instead of the menus, the map and the roadbook, which are kept as they are:
+   * at each start, and by File › Change mode….
+   */
+  void showWelcome() {
+    leaveTraining();
+    stage.setScene(welcomeScene);
+    stage.setTitle(texts.getString(TITLE));
+    welcome.focus();
+  }
+
+  /**
+   * Tells whether the roadbook editor is locked: the training is shown, and the terms of use are not accepted on the
+   * welcome page (decision of the maintainer, 2026-11-21: the terms open the roadbook only, the training does not
+   * need them; the ways from the training to the roadbook lead to the welcome page instead).
+   *
+   * @return {@code true} if the roadbook may not be shown.
+   */
+  private boolean isLocked() {
+    return !split.isVisible() && !welcome.isAccepted();
+  }
+
+  /**
+   * Goes back to the roadbook from the training, the item Training › Back to the roadbook: to the welcome page
+   * instead while the terms of use are not accepted.
+   */
+  @FXML
+  private void backToRoadbook() {
+    if (isLocked()) {
+      showWelcome();
+    } else {
+      leaveTraining();
+    }
+  }
+
+  /**
+   * Shows the welcome page to choose another mode: the item File › Change mode….
+   */
+  @FXML
+  private void changeMode() {
+    showWelcome();
+  }
+
+  /**
+   * Leaves the welcome page for the destination chosen there: the roadbook editor, or an exercise of the training on
+   * its setup page.
+   *
+   * @param destination the destination chosen.
+   */
+  private void enter(final WelcomeView.Destination destination) {
+    stage.setScene(mainScene);
+    updateTitle();
+    final Runnable shown = switch (destination) {
+      case ROADBOOK -> this::leaveTraining;
+      case QUIZ -> this::train;
+      case READING -> this::read;
+      case SITUATIONS -> this::situate;
+    };
+    shown.run();
+  }
+
+  /**
    * Shows the training mode in the centre of the window, over the three columns, on its setup page (Training ›
    * Symbol quiz; development plan, phase 7a).
    */
@@ -864,10 +952,9 @@ final class MainController {
   }
 
   /**
-   * Leaves the training mode, if it is shown, back to the three columns: by Training › Back to the roadbook, its
-   * button, or an item of the File, Edit and Route menus, which act on the roadbook.
+   * Leaves the training mode, if it is shown, back to the three columns: by Training › Back to the roadbook, an item
+   * of the File, Edit and Route menus, which act on the roadbook, or before the welcome page is shown.
    */
-  @FXML
   private void leaveTraining() {
     if (split.isVisible()) {
       return;

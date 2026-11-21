@@ -55,7 +55,8 @@ final class MainControllerTrainingTest {
   private final QueueExecutor background = new QueueExecutor();
 
   /**
-   * Shows the main window without map, in the light mode of the system.
+   * Shows the main window without map, in the light mode of the system, its terms of use accepted on the welcome
+   * page, as in the application.
    *
    * @param robot the TestFX robot.
    * @param mac whether the window is shown as on macOS.
@@ -67,7 +68,7 @@ final class MainControllerTrainingTest {
                                            folder -> Optional.of(new GridRouter(GridRouter.Kind.CROSSINGS)),
                                            (map, graph) -> new FakeRouter(), owner -> Optional.empty(),
                                            owner -> Optional.empty(), owner -> Optional.empty(),
-                                           owner -> Optional.empty(), owner -> Optional.empty());
+                                           owner -> Optional.empty(), owner -> Optional.empty(), address -> { });
     final SystemColors colors = new SystemColors(new SimpleObjectProperty<>(ColorScheme.LIGHT),
                                                  new SimpleObjectProperty<>(Color.web("#007AFF")),
                                                  new SimpleObjectProperty<>(Color.WHITE),
@@ -75,7 +76,13 @@ final class MainControllerTrainingTest {
     final AtomicReference<Stage> window = new AtomicReference<>();
     robot.interact(() -> {
       final Stage stage = new Stage();
-      new MainController(stage, TEXTS, Languages.FRENCH, mac, colors, () -> { }, services).show();
+      final MainController controller = new MainController(stage, TEXTS, Languages.FRENCH, mac, colors, () -> { },
+                                                           services);
+      controller.show();
+      controller.showWelcome();
+      ((CheckBox) stage.getScene().lookup("#" + WelcomeView.ACCEPT_ID)).setSelected(true);
+      ((Button) stage.getScene().lookup("#" + WelcomeView.DESTINATION_ID + WelcomeView.Destination.ROADBOOK.name()))
+          .fire();
       window.set(stage);
     });
     return window.get();
@@ -163,13 +170,14 @@ final class MainControllerTrainingTest {
   }
 
   /**
-   * Training › Symbol quiz shows the quiz over the three columns, a session starts in it, Back to the roadbook
-   * brings them back, by the menu or by the button of the quiz; an item of the File menu brings them back too.
+   * Training › Symbol quiz shows the quiz over the three columns, a session starts in it, Training › Back to the
+   * roadbook brings them back; the button of the quiz shows the welcome page, where the quiz is opened again; an item
+   * of the File menu brings the three columns back too.
    *
    * @param robot the TestFX robot.
    */
   @Test
-  @DisplayName("Phase 7a: the quiz shown over the roadbook, the roadbook brought back by the menus and the button")
+  @DisplayName("Phase 7a: the quiz left for the roadbook by the menus, for the welcome page by its button")
   void trainingTest(final FxRobot robot) {
     final Stage window = show(robot, false);
     final boolean before = training(window);
@@ -183,9 +191,10 @@ final class MainControllerTrainingTest {
     final boolean leftByMenu = !training(window);
     fire(robot, window, "quizItem");
     robot.interact(() -> robot.lookup("#" + TrainingView.BACK_ID).queryAs(Button.class).fire());
-    final boolean leftByButton = !training(window);
-    robot.interact(() -> robot.lookup("#" + TrainingView.BACK_ID).queryAs(Button.class).fire());
-    fire(robot, window, "quizItem");
+    final boolean welcome = window.getScene().getRoot().getStyleClass().contains("welcome-scroll");
+    robot.interact(((Button) window.getScene().lookup("#" + WelcomeView.DESTINATION_ID
+                                                     + WelcomeView.Destination.QUIZ.name()))::fire);
+    final boolean quizAgain = training(window);
     fire(robot, window, "openRoadbookItem");
     final boolean leftByFile = !training(window);
     assertAll(
@@ -195,7 +204,8 @@ final class MainControllerTrainingTest {
         () -> assertTrue(backEnabled),
         () -> assertTrue(started),
         () -> assertTrue(leftByMenu),
-        () -> assertTrue(leftByButton),
+        () -> assertTrue(welcome),
+        () -> assertTrue(quizAgain),
         () -> assertTrue(leftByFile),
         () -> assertTrue(item(robot, window, "roadbookItem").isDisable()));
   }

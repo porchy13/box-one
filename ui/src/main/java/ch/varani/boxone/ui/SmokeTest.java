@@ -128,7 +128,7 @@ final class SmokeTest {
     started.await();
     // The terms of use are checked once the toolkit runs, as in the application: their class uses JavaFX controls.
     for (final Locale locale : Languages.ALL) {
-      StartupNotice.PARAGRAPHS.forEach(Languages.bundle(locale)::getString);
+      WelcomeView.TERMS.forEach(Languages.bundle(locale)::getString);
     }
     check(MainController.icons().stream().noneMatch(Image::isError), "The icon of the window cannot be loaded");
     check(inked(DescriptionRenderer.png(NOTES, Optional.empty(), Catalogue.fia())),

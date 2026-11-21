@@ -54,7 +54,7 @@ import java.util.function.LongSupplier;
  *       marked too (style class {@value #WRONG}), and a sentence says "Right", or gives the right answer (DESIGN.md
  *       §14: never a colour alone); "Next question" (Enter), "See the result" after the last one; "Stop the session"
  *       goes back to the setup;</li>
- *   <li>the result: the right answers out of the questions, "New session" and "Back to the roadbook".</li>
+ *   <li>the result: the right answers out of the questions, "New session" and "Back to the welcome page".</li>
  * </ol>
  *
  * <p>Each session is drawn from a new seed ({@link QuizGenerator}); nothing is kept from one session to the next yet
@@ -82,7 +82,7 @@ final class TrainingView {
   static final String NO_TOPIC = "quiz.noTopic";
   /** The key of the button starting a session. */
   static final String START = "quiz.start";
-  /** The key of the button going back to the roadbook. */
+  /** The key of the button going back to the welcome page. */
   static final String BACK = "quiz.back";
   /** The key of the button showing the next question. */
   static final String NEXT = "quiz.next";
@@ -116,7 +116,7 @@ final class TrainingView {
   static final String RESULT_ID = "quizResult";
   /** The identifier of the caption telling that no topic is checked. */
   static final String NO_TOPIC_ID = "quizNoTopic";
-  /** The identifier of the buttons going back to the roadbook. */
+  /** The identifier of the buttons going back to the welcome page. */
   static final String BACK_ID = "quizBack";
   /** The identifier of the mode "confusions". */
   static final String CONFUSIONS_ID = "quizConfusions";
@@ -150,7 +150,7 @@ final class TrainingView {
   private final Catalogue catalogue;
   /** Gives the seed of each session. */
   private final LongSupplier seeds;
-  /** Goes back to the roadbook. */
+  /** Goes back to the welcome page. */
   private final Runnable toRoadbook;
   /** The view: the page shown. */
   private final StackPane view = new StackPane();
@@ -182,7 +182,7 @@ final class TrainingView {
    * @param locale the locale of the application, for the numbers.
    * @param catalogue the catalogue revised.
    * @param seeds gives the seed of each session, e.g. drawn by {@code RandomGenerator.getDefault()}.
-   * @param back goes back to the roadbook.
+   * @param back goes back to the welcome page, to choose another exercise.
    */
   TrainingView(final ResourceBundle texts, final Locale locale, final Catalogue catalogue, final LongSupplier seeds,
                final Runnable back) {
@@ -374,7 +374,7 @@ final class TrainingView {
 
   /**
    * Shows the result of the session: the right answers out of the questions, and the buttons to start again or to go
-   * back to the roadbook.
+   * back to the welcome page.
    */
   private void showResult() {
     final Label title = new Label(texts.getString(DONE));
@@ -471,7 +471,7 @@ final class TrainingView {
   }
 
   /**
-   * Makes the button going back to the roadbook.
+   * Makes the button going back to the welcome page.
    *
    * @return the button.
    */
