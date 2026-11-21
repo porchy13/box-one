@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.testfx.api.FxRobot;
 import org.testfx.framework.junit5.ApplicationExtension;
+import org.testfx.util.WaitForAsyncUtils;
 
 import java.nio.file.Path;
 import java.util.Optional;
@@ -197,6 +198,33 @@ final class MainControllerTrainingTest {
         () -> assertTrue(leftByButton),
         () -> assertTrue(leftByFile),
         () -> assertTrue(item(robot, window, "roadbookItem").isDisable()));
+  }
+
+  /**
+   * Training › Roadbook situations shows the situations over the three columns, the quiz and the reading hidden; a
+   * session starts in it; Back to the roadbook brings the three columns back.
+   *
+   * @param robot the TestFX robot.
+   */
+  @Test
+  @DisplayName("Phase 7: the situations shown over the roadbook, alone, the roadbook brought back")
+  void situationsTest(final FxRobot robot) {
+    final Stage window = show(robot, false);
+    fire(robot, window, "readingItem");
+    fire(robot, window, "situationsItem");
+    final boolean shown = training(window);
+    final long visible = window.getScene().getRoot().lookupAll("." + Pages.STYLE).stream().filter(Node::isVisible)
+                               .count();
+    robot.interact(() -> robot.lookup("#" + SituationView.START_ID).queryAs(Button.class).fire());
+    robot.interact(background::runAll);
+    WaitForAsyncUtils.waitForFxEvents();
+    final boolean started = window.getScene().lookup("#" + SituationView.EXTRACT_ID) != null;
+    fire(robot, window, "roadbookItem");
+    assertAll(
+        () -> assertTrue(shown),
+        () -> assertEquals(1, visible),
+        () -> assertTrue(started),
+        () -> assertFalse(training(window)));
   }
 
   /**

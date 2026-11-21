@@ -358,6 +358,10 @@ final class MainController {
   private ReadingView boxReading;
   /** The map lent to the reading of boxes. */
   private TrainingMap trainingMap;
+  /** The situations of a roadbook of the training mode, over the three columns while they are shown (phase 7). */
+  private SituationView situations;
+  /** The views of the training mode: the quiz, the reading of boxes and the situations, one shown at a time. */
+  private List<Node> trainingModes = List.of();
   /** The file of the roadbook, opened or saved last, written again by Save; {@code null} before the first. */
   private Path file;
   /** The roadbook as it was saved or opened last, or {@code null} if it was never. */
@@ -593,7 +597,9 @@ final class MainController {
     trainingMap = new TrainingMap(map, mapPane);
     boxReading = new ReadingView(new QuizText(texts, locale), CATALOGUE, () -> router, services.background(),
                                  trainingMap, seeds, this::leaveTraining);
-    for (final Node mode : List.of(training.getNode(), boxReading.getNode())) {
+    situations = new SituationView(texts, locale, CATALOGUE, services.background(), seeds, this::leaveTraining);
+    trainingModes = List.of(training.getNode(), boxReading.getNode(), situations.getNode());
+    for (final Node mode : trainingModes) {
       mode.setVisible(false);
       centre.getChildren().add(mode);
     }
@@ -819,7 +825,7 @@ final class MainController {
    */
   @FXML
   private void train() {
-    showTraining(training.getNode(), boxReading.getNode());
+    showTraining(training.getNode());
     training.showSetup();
   }
 
@@ -829,21 +835,31 @@ final class MainController {
    */
   @FXML
   private void read() {
-    showTraining(boxReading.getNode(), training.getNode());
+    showTraining(boxReading.getNode());
     boxReading.showSetup();
   }
 
   /**
-   * Shows an exercise of the training over the three columns, the other one hidden, its map given back.
+   * Shows the situations of a roadbook in the centre of the window, over the three columns, on their setup page
+   * (Training › Roadbook situations; development plan, phase 7).
+   */
+  @FXML
+  private void situate() {
+    showTraining(situations.getNode());
+    situations.showSetup();
+  }
+
+  /**
+   * Shows an exercise of the training over the three columns, the others hidden, the map given back.
    *
    * @param shown the view of the exercise shown.
-   * @param hidden the view of the other exercise.
    */
-  private void showTraining(final Node shown, final Node hidden) {
+  private void showTraining(final Node shown) {
     boxReading.showSetup();
     split.setVisible(false);
-    hidden.setVisible(false);
-    shown.setVisible(true);
+    for (final Node mode : trainingModes) {
+      mode.setVisible(mode == shown);
+    }
     roadbookItem.setDisable(false);
   }
 
@@ -857,8 +873,10 @@ final class MainController {
       return;
     }
     boxReading.showSetup();
-    training.getNode().setVisible(false);
-    boxReading.getNode().setVisible(false);
+    situations.showSetup();
+    for (final Node mode : trainingModes) {
+      mode.setVisible(false);
+    }
     split.setVisible(true);
     roadbookItem.setDisable(true);
     boxList.requestFocus();

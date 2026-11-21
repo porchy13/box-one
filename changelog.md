@@ -118,6 +118,10 @@ All notable changes of the project are documented in this file.
   take among four in words ("Slightly right", "At the roundabout, take the 2nd exit"…), or read the box, with its
   heading, and click on the map, centred on the junction with the route arriving at it drawn and the rest hidden, the
   road to take; the route through the junction is then drawn. The right answer is shown at once, the score at the end.
+- **Roadbook situations**: Training › Roadbook situations shows extracts of a roadbook written for the training, two
+  or three boxes drawn as in the strip, and asks how to behave at one of them, among four proposals: the dangers, the
+  waypoints, the speed zones, the distances and the notes, twenty situations in all. The right answer is shown at once
+  with its explanation, after the regulations of the FIM, the score at the end.
 - **Plain GPX**: File › Export as GPX… writes the route shown for other applications than Terra Pirata: the track
   and one point per box, named by its number and its total distance, with the reminder that the route is indicative
   and the attribution of OpenStreetMap.

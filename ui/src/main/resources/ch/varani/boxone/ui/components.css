@@ -455,6 +455,19 @@
     -fx-font-size: 0.85em;
 }
 
+/* A question of the situations of a roadbook (phase 7): the extract drawn as the strip, framed, the box asked
+   selected; the page scrolls in a small window. */
+.training .situation-scroll, .training .situation-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background: -c-surface;
+    -fx-padding: 0;
+}
+
+.training .situation-extract {
+    -fx-border-color: -c-border;
+    -fx-border-width: 1;
+}
+
 /* A question of the reading of boxes on the map (phase 7b): the box and the answer in a column at the left, the map
    lent by the window at the right, on the whole height. */
 .training .reading-map {

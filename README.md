@@ -215,6 +215,12 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   tulip, and only the crossings of three roads or more are found on the map. The right answer is shown at once, the
   score at the end.
 
+- **Roadbook situations**: Training › Roadbook situations (Shortcut+Alt+T) shows extracts of a roadbook written for
+  the training, two or three boxes drawn as in the strip, the box asked framed, and asks how to behave there, among
+  four proposals answered with the buttons or the keys 1 to 4: the dangers, the waypoints, the speed zones, the
+  distances and the notes, each theme checked or not. The right answer is shown at once with its explanation, after
+  the regulations of the FIM, the score at the end.
+
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.
 
@@ -245,7 +251,7 @@ page of the map) with:
 | `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry; the changes of the user applied to it, and kept by their places when the route changes. |
 | `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first): the tulips, the danger marks, the symbols on the roads, how the abbreviations are written, and which symbols and abbreviations look alike (for the quiz); the drawing of the diagram of a box (its tulip and its notes) and of its description with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
 | `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips and the notes as PNG), as a PDF strip and as a plain GPX. |
-| `training` | The training mode: the questions of the symbol quiz drawn from a seed, the elements that look alike mixed on demand; the junctions of random routes to read, the directions in words, the branch of a click on the map; the sessions and their score. |
+| `training` | The training mode: the questions of the symbol quiz drawn from a seed, the elements that look alike mixed on demand; the junctions of random routes to read, the directions in words, the branch of a click on the map; the situations of a roadbook written by hand; the sessions and their score. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |
 
 ## Dependencies

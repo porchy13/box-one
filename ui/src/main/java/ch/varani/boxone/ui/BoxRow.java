@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -107,11 +108,50 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
   static List<BoxRow> rows(final Roadbook generated, final Roadbook roadbook, final List<OptionalInt> limits,
                            final Catalogue catalogue, final Locale locale, final ResourceBundle texts)
       throws IOException {
+    return rows(generated.boxes(), roadbook.boxes(), limits, catalogue, locale, texts);
+  }
+
+  /**
+   * Builds the rows of an extract of a roadbook, its boxes as they are, without speed limit of the map: a situation
+   * of the training (development plan, phase 7).
+   *
+   * @param boxes the boxes of the extract, in their order.
+   * @param catalogue the catalogue, which draws the tulips and tells the headings shown.
+   * @param locale the locale of the application, for the distances.
+   * @param texts the texts of the user interface.
+   *
+   * @return the rows, one per box, in their order.
+   *
+   * @throws IOException if a diagram cannot be drawn.
+   */
+  static List<BoxRow> rows(final List<Box> boxes, final Catalogue catalogue, final Locale locale,
+                           final ResourceBundle texts) throws IOException {
+    return rows(boxes, boxes, Collections.nCopies(boxes.size(), OptionalInt.empty()), catalogue, locale, texts);
+  }
+
+  /**
+   * Builds the rows of boxes, their diagrams drawn by a catalogue.
+   *
+   * @param generated the boxes generated from the route, its boxes added and removed by the user.
+   * @param shown the same boxes, corrected by the user: those shown.
+   * @param limits the speed limits of the map where the route leaves each box, in their order, in km/h; empty where
+   *               the map gives none.
+   * @param catalogue the catalogue, which draws the tulips and tells the headings shown.
+   * @param locale the locale of the application, for the distances.
+   * @param texts the texts of the user interface.
+   *
+   * @return the rows, one per box, in their order.
+   *
+   * @throws IOException if a diagram cannot be drawn.
+   */
+  private static List<BoxRow> rows(final List<Box> generated, final List<Box> shown, final List<OptionalInt> limits,
+                                   final Catalogue catalogue, final Locale locale, final ResourceBundle texts)
+      throws IOException {
     final NumberFormat kilometres = kilometres(locale);
-    final List<Optional<SpeedZone>> zones = SpeedZone.along(roadbook.boxes());
-    final List<BoxRow> rows = new ArrayList<>(roadbook.boxes().size());
-    for (int i = 0; i < roadbook.boxes().size(); i++) {
-      final Box box = roadbook.boxes().get(i);
+    final List<Optional<SpeedZone>> zones = SpeedZone.along(shown);
+    final List<BoxRow> rows = new ArrayList<>(shown.size());
+    for (int i = 0; i < shown.size(); i++) {
+      final Box box = shown.get(i);
       final Optional<SpeedZone> zone = zones.get(i);
       final String total = kilometres.format(box.total() / METRES_PER_KILOMETRE);
       final String partial = kilometres.format(box.partial() / METRES_PER_KILOMETRE);
@@ -135,7 +175,7 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
         sign = Optional.of(new Image(new ByteArrayInputStream(DescriptionRenderer.sign(zone.get(), catalogue))));
       }
       rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, notes, description, zone,
-                          sign, limits.get(i), box, generated.boxes().get(i)));
+                          sign, limits.get(i), box, generated.get(i)));
     }
     return rows;
   }
