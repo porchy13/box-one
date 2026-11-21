@@ -21,9 +21,9 @@
   Save the roadbook, Save the roadbook as… and Generate a detour… are enabled once a route is shown; the seed of a
   detour shown is at the right of the status bar, in a field that can be selected and copied. The roadbook of the
   route shown is at the right of the map, its boxes drawn as on paper, the box selected shown on the map. Training ›
-  Symbol quiz or Reading of boxes puts the exercise in the centre, over the three columns, until Back to the roadbook,
-  or an item of the File, Edit and Route menus. File › Change mode… brings back the welcome page, where the roadbook
-  or an exercise is chosen. The controller keeps the items of the system: Settings… on macOS, Options… and Quit
+  Symbol quiz, Reading of boxes or Roadbook situations puts the exercise in the centre, over the three columns, the
+  items that act on the roadbook greyed out meanwhile. File › Welcome page brings back the welcome page, where the
+  roadbook or an exercise is chosen. The controller keeps the items of the system: Settings… on macOS, Options… and Quit
   elsewhere.
 -->
 <BorderPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml">
@@ -40,7 +40,7 @@
         <MenuItem fx:id="exportGpxItem" text="%menu.exportGpx" onAction="#exportGpx" disable="true"/>
         <MenuItem fx:id="exportPdfItem" text="%menu.exportPdf" onAction="#exportPdf" disable="true"/>
         <SeparatorMenuItem fx:id="homeSeparator"/>
-        <MenuItem fx:id="homeItem" text="%menu.home" onAction="#changeMode"/>
+        <MenuItem fx:id="homeItem" text="%menu.home" onAction="#showWelcome"/>
         <SeparatorMenuItem fx:id="settingsSeparator"/>
         <MenuItem fx:id="settingsItem" text="%menu.settings" onAction="#settings" accelerator="Shortcut+Comma"/>
         <SeparatorMenuItem fx:id="quitSeparator"/>
@@ -58,7 +58,6 @@
         <MenuItem fx:id="quizItem" text="%menu.quiz" onAction="#train" accelerator="Shortcut+T"/>
         <MenuItem fx:id="readingItem" text="%menu.reading" onAction="#read" accelerator="Shortcut+Shift+T"/>
         <MenuItem fx:id="situationsItem" text="%menu.situations" onAction="#situate" accelerator="Shortcut+Alt+T"/>
-        <MenuItem fx:id="roadbookItem" text="%menu.roadbook" onAction="#backToRoadbook" disable="true"/>
       </Menu>
       <Menu fx:id="toolsMenu" text="%menu.tools">
         <MenuItem fx:id="optionsItem" text="%menu.options" onAction="#settings" accelerator="Shortcut+Comma"/>

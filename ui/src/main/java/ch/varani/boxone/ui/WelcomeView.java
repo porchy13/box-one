@@ -564,15 +564,6 @@ final class WelcomeView {
   }
 
   /**
-   * Tells whether the terms of use are accepted: the roadbook editor may be opened.
-   *
-   * @return {@code true} if the check box of the terms is checked.
-   */
-  boolean isAccepted() {
-    return acceptBox.isSelected();
-  }
-
-  /**
    * Puts the focus on the first control of the page: the check box of the terms while they are not accepted, the
    * button of the roadbook otherwise.
    */

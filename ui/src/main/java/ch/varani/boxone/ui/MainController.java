@@ -29,7 +29,6 @@ import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingException;
 import javafx.beans.binding.Bindings;
 import javafx.concurrent.Task;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
@@ -152,11 +151,10 @@ import java.util.stream.Collectors;
  * <p><b>Training</b> (development plan, phase 7): Training › Symbol quiz shows the quiz of the catalogue
  * ({@link TrainingView}), Training › Reading of boxes the reading of the junctions of random routes drawn in the area
  * of the map seen ({@link ReadingView}, which borrows the map, {@link TrainingMap}, and its clicks), in the centre of
- * the window, over the three columns, which stay as they are; Training › Back to the roadbook, or any item of the
- * File, Edit and Route menus but Settings… brings them back, as these items act on the roadbook, or the welcome page
- * while its terms of use are not accepted, the item then not run (an event filter of the menus); the button "Back
- * to the welcome page" of the exercise shows the welcome page, to choose another exercise (asked by the maintainer,
- * 2026-11-21).</p>
+ * the window, over the three columns, which stay as they are; the button "Back to the welcome page" of the exercise,
+ * or File › Welcome page, shows the welcome page, to choose another exercise or the roadbook; the items of the menus
+ * that act on the roadbook are greyed out meanwhile, as on the welcome page ({@link RoadbookItems}; asked by the
+ * maintainer, 2026-11-21).</p>
  *
  * <p>The places clicked are personal data (AGENTS.md §5): never logged.</p>
  *
@@ -366,10 +364,12 @@ final class MainController {
   private List<Node> trainingModes = List.of();
   /** The scene of the window: the menus, the map, the strip and the editor, or the training over them. */
   private Scene mainScene;
-  /** The welcome page, shown at each start and by File › Change mode… (asked by the maintainer, 2026-11-21). */
+  /** The welcome page, shown at each start and by File › Welcome page (asked by the maintainer, 2026-11-21). */
   private WelcomeView welcome;
   /** The scene of the welcome page, put into the window instead of {@link #mainScene} while it is shown. */
   private Scene welcomeScene;
+  /** The items of the menus that act on the roadbook, enabled only while it is shown. */
+  private RoadbookItems roadbookItems;
   /** The file of the roadbook, opened or saved last, written again by Save; {@code null} before the first. */
   private Path file;
   /** The roadbook as it was saved or opened last, or {@code null} if it was never. */
@@ -460,15 +460,6 @@ final class MainController {
   /** The Tools menu (outside macOS), injected by the view. */
   @FXML
   private Menu toolsMenu;
-  /** The Edit menu, injected by the view. */
-  @FXML
-  private Menu editMenu;
-  /** The Route menu, injected by the view. */
-  @FXML
-  private Menu routeMenu;
-  /** The item Back to the roadbook of the Training menu, injected by the view. */
-  @FXML
-  private MenuItem roadbookItem;
   /** The centre of the window: the three columns, under the training mode, injected by the view. */
   @FXML
   private StackPane centre;
@@ -555,6 +546,8 @@ final class MainController {
     } else {
       fileMenu.getItems().removeAll(settingsSeparator, settingsItem);
     }
+    roadbookItems = new RoadbookItems(List.of(openMapItem, openRoadbookItem, recentMenu, saveItem, saveAsItem,
+                                              exportGpxItem, exportPdfItem, undoItem, redoItem, detourItem));
     if (!mac) {
       mainScene.getAccelerators().put(REDO_OTHER, this::redo);
     }
@@ -615,7 +608,6 @@ final class MainController {
                               services.browser());
     welcomeScene = new Scene(welcome.getNode(), WIDTH, HEIGHT);
     new Theme(welcomeScene, colors);
-    watchRoadbookMenus();
     stage.setOnCloseRequest(event -> {
       if (!mayClose()) {
         event.consume();
@@ -631,25 +623,21 @@ final class MainController {
     load();
   }
 
-  /**
-   * Makes the items of the File, Edit and Route menus, but Settings…, leave the training for the roadbook they act on;
-   * while the roadbook is locked ({@link #isLocked()}), they show the welcome page instead, the item not run (a filter
-   * of its menu, which runs before the action of the item).
-   */
-  private void watchRoadbookMenus() {
-    for (final Menu menu : List.of(fileMenu, editMenu, routeMenu)) {
-      menu.addEventFilter(ActionEvent.ACTION, event -> {
-        if (event.getTarget() != settingsItem && isLocked()) {
-          event.consume();
-          showWelcome();
-        }
-      });
-      menu.addEventHandler(ActionEvent.ACTION, event -> {
-        if (event.getTarget() != settingsItem) {
-          leaveTraining();
-        }
-      });
+  /** Puts the window back in place of the welcome page, if it is shown, with its title. */
+  private void leaveWelcome() {
+    if (stage.getScene() == welcomeScene) {
+      stage.setScene(mainScene);
+      updateTitle();
+      updateItems();
     }
+  }
+
+  /**
+   * Enables the items of the menus that act on the roadbook while the roadbook editor is shown, greys them out on the
+   * welcome page and in the training ({@link RoadbookItems}).
+   */
+  private void updateItems() {
+    roadbookItems.show(stage.getScene() == mainScene && split.isVisible());
   }
 
   /**
@@ -820,8 +808,8 @@ final class MainController {
     }
     history.remember(current());
     edits = changed;
-    undoItem.setDisable(false);
-    redoItem.setDisable(true);
+    roadbookItems.enable(undoItem, true);
+    roadbookItems.enable(redoItem, false);
     toSelect = select;
     updateTitle();
     drawRoadbook(route, true);
@@ -848,45 +836,15 @@ final class MainController {
 
   /**
    * Shows the welcome page in the window, instead of the menus, the map and the roadbook, which are kept as they are:
-   * at each start, and by File › Change mode….
+   * at each start, and by File › Welcome page.
    */
+  @FXML
   void showWelcome() {
     leaveTraining();
     stage.setScene(welcomeScene);
     stage.setTitle(texts.getString(TITLE));
+    updateItems();
     welcome.focus();
-  }
-
-  /**
-   * Tells whether the roadbook editor is locked: the training is shown, and the terms of use are not accepted on the
-   * welcome page (decision of the maintainer, 2026-11-21: the terms open the roadbook only, the training does not
-   * need them; the ways from the training to the roadbook lead to the welcome page instead).
-   *
-   * @return {@code true} if the roadbook may not be shown.
-   */
-  private boolean isLocked() {
-    return !split.isVisible() && !welcome.isAccepted();
-  }
-
-  /**
-   * Goes back to the roadbook from the training, the item Training › Back to the roadbook: to the welcome page
-   * instead while the terms of use are not accepted.
-   */
-  @FXML
-  private void backToRoadbook() {
-    if (isLocked()) {
-      showWelcome();
-    } else {
-      leaveTraining();
-    }
-  }
-
-  /**
-   * Shows the welcome page to choose another mode: the item File › Change mode….
-   */
-  @FXML
-  private void changeMode() {
-    showWelcome();
   }
 
   /**
@@ -896,8 +854,7 @@ final class MainController {
    * @param destination the destination chosen.
    */
   private void enter(final WelcomeView.Destination destination) {
-    stage.setScene(mainScene);
-    updateTitle();
+    leaveWelcome();
     final Runnable shown = switch (destination) {
       case ROADBOOK -> this::leaveTraining;
       case QUIZ -> this::train;
@@ -938,22 +895,24 @@ final class MainController {
   }
 
   /**
-   * Shows an exercise of the training over the three columns, the others hidden, the map given back.
+   * Shows an exercise of the training over the three columns, the others hidden, the map given back; the window put
+   * back first if the welcome page is shown (an item of the Training menu, from the global menu bar of macOS).
    *
    * @param shown the view of the exercise shown.
    */
   private void showTraining(final Node shown) {
+    leaveWelcome();
     boxReading.showSetup();
     split.setVisible(false);
     for (final Node mode : trainingModes) {
       mode.setVisible(mode == shown);
     }
-    roadbookItem.setDisable(false);
+    updateItems();
   }
 
   /**
-   * Leaves the training mode, if it is shown, back to the three columns: by Training › Back to the roadbook, an item
-   * of the File, Edit and Route menus, which act on the roadbook, or before the welcome page is shown.
+   * Leaves the training mode, if it is shown, back to the three columns: by the roadbook chosen on the welcome page,
+   * or before the welcome page is shown.
    */
   private void leaveTraining() {
     if (split.isVisible()) {
@@ -965,7 +924,7 @@ final class MainController {
       mode.setVisible(false);
     }
     split.setVisible(true);
-    roadbookItem.setDisable(true);
+    updateItems();
     boxList.requestFocus();
   }
 
@@ -1061,8 +1020,8 @@ final class MainController {
    * Enables the items Undo and Redo when there is a state to bring back.
    */
   private void enableHistory() {
-    undoItem.setDisable(!history.canUndo());
-    redoItem.setDisable(!history.canRedo());
+    roadbookItems.enable(undoItem, history.canUndo());
+    roadbookItems.enable(redoItem, history.canRedo());
   }
 
   /**
@@ -1169,10 +1128,9 @@ final class MainController {
       routeTitle.setText(texts.getString(ROUTE_TITLE));
       seed.setText("");
     }
-    saveItem.setDisable(shown == null);
-    saveAsItem.setDisable(shown == null);
-    exportGpxItem.setDisable(shown == null);
-    exportPdfItem.setDisable(shown == null);
+    for (final MenuItem item : List.of(saveItem, saveAsItem, exportGpxItem, exportPdfItem)) {
+      roadbookItems.enable(item, shown != null);
+    }
     enableDetour();
     drawRoadbook(shown, false);
   }
@@ -1311,7 +1269,7 @@ final class MainController {
    * Enables the generation of a detour while a route is shown and a graph is loaded.
    */
   private void enableDetour() {
-    detourItem.setDisable(route == null || router == null);
+    roadbookItems.enable(detourItem, route != null && router != null);
   }
 
   /**
@@ -1322,7 +1280,7 @@ final class MainController {
   private void ready(final Router loaded) {
     busy = false;
     busyPane.setVisible(false);
-    openMapItem.setDisable(false);
+    roadbookItems.enable(openMapItem, true);
     router = loaded;
     if (opened) {
       enableDetour();
@@ -1341,7 +1299,7 @@ final class MainController {
       return;
     }
     busy = true;
-    openMapItem.setDisable(true);
+    roadbookItems.enable(openMapItem, false);
     cancelRouting();
     replaceRouter(null);
     enableDetour();
@@ -1607,7 +1565,7 @@ final class MainController {
       items.add(item);
     }
     recentMenu.getItems().setAll(items);
-    recentMenu.setDisable(items.isEmpty());
+    roadbookItems.enable(recentMenu, !items.isEmpty());
   }
 
   /**
@@ -1907,7 +1865,7 @@ final class MainController {
     routing = null;
     busy = false;
     busyPane.setVisible(false);
-    openMapItem.setDisable(false);
+    roadbookItems.enable(openMapItem, true);
     setStatus(error(failure));
   }
 

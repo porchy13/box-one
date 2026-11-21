@@ -36,9 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of {@link MainController} for the training mode (development plan, phase 7a): the quiz shown over the three
- * columns by Training › Symbol quiz, and the roadbook brought back by Training › Back to the roadbook, by the button
- * of the quiz, or by an item of the File, Edit and Route menus but Settings…. Taken out of {@code MainControllerTest},
- * which reached the length allowed (Checkstyle).
+ * columns by Training › Symbol quiz, the roadbook brought back through the welcome page, the items of the menus that
+ * act on the roadbook greyed out meanwhile, Settings… left enabled. Taken out of {@code MainControllerTest}, which
+ * reached the length allowed (Checkstyle).
  */
 @ExtendWith(ApplicationExtension.class)
 final class MainControllerTrainingTest {
@@ -115,6 +115,18 @@ final class MainControllerTrainingTest {
   }
 
   /**
+   * Goes back to the roadbook through the welcome page: File › Welcome page, then the roadbook chosen there.
+   *
+   * @param robot the TestFX robot.
+   * @param window the window, on the training.
+   */
+  private static void toRoadbook(final FxRobot robot, final Stage window) {
+    fire(robot, window, "homeItem");
+    robot.interact(((Button) window.getScene().lookup("#" + WelcomeView.DESTINATION_ID
+                                                     + WelcomeView.Destination.ROADBOOK.name()))::fire);
+  }
+
+  /**
    * Tells whether the training mode is shown, the three columns hidden.
    *
    * @param window the window.
@@ -170,24 +182,23 @@ final class MainControllerTrainingTest {
   }
 
   /**
-   * Training › Symbol quiz shows the quiz over the three columns, a session starts in it, Training › Back to the
-   * roadbook brings them back; the button of the quiz shows the welcome page, where the quiz is opened again; an item
-   * of the File menu brings the three columns back too.
+   * Training › Symbol quiz shows the quiz over the three columns, a session starts in it, the roadbook chosen on the
+   * welcome page (File › Welcome page) brings them back; the button of the quiz shows the welcome page, where the quiz
+   * is opened again; the items of the menus that act on the roadbook are greyed out in the training, enabled again
+   * with the roadbook.
    *
    * @param robot the TestFX robot.
    */
   @Test
-  @DisplayName("Phase 7a: the quiz left for the roadbook by the menus, for the welcome page by its button")
+  @DisplayName("Phase 7a: the quiz left through the welcome page, by File › Welcome page or by its button")
   void trainingTest(final FxRobot robot) {
     final Stage window = show(robot, false);
     final boolean before = training(window);
-    final boolean backDisabled = item(robot, window, "roadbookItem").isDisable();
     fire(robot, window, "quizItem");
     final boolean shown = training(window);
-    final boolean backEnabled = !item(robot, window, "roadbookItem").isDisable();
     robot.interact(() -> robot.lookup("#" + TrainingView.START_ID).queryAs(Button.class).fire());
     final boolean started = window.getScene().lookup("#" + TrainingView.PROGRESS_ID) != null;
-    fire(robot, window, "roadbookItem");
+    toRoadbook(robot, window);
     final boolean leftByMenu = !training(window);
     fire(robot, window, "quizItem");
     robot.interact(() -> robot.lookup("#" + TrainingView.BACK_ID).queryAs(Button.class).fire());
@@ -195,24 +206,24 @@ final class MainControllerTrainingTest {
     robot.interact(((Button) window.getScene().lookup("#" + WelcomeView.DESTINATION_ID
                                                      + WelcomeView.Destination.QUIZ.name()))::fire);
     final boolean quizAgain = training(window);
-    fire(robot, window, "openRoadbookItem");
-    final boolean leftByFile = !training(window);
+    final boolean greyed = item(robot, window, "openRoadbookItem").isDisable()
+                           && item(robot, window, "undoItem").isDisable();
+    toRoadbook(robot, window);
+    final boolean enabled = !item(robot, window, "openRoadbookItem").isDisable();
     assertAll(
         () -> assertFalse(before),
-        () -> assertTrue(backDisabled),
         () -> assertTrue(shown),
-        () -> assertTrue(backEnabled),
         () -> assertTrue(started),
         () -> assertTrue(leftByMenu),
         () -> assertTrue(welcome),
         () -> assertTrue(quizAgain),
-        () -> assertTrue(leftByFile),
-        () -> assertTrue(item(robot, window, "roadbookItem").isDisable()));
+        () -> assertTrue(greyed),
+        () -> assertTrue(enabled));
   }
 
   /**
    * Training › Roadbook situations shows the situations over the three columns, the quiz and the reading hidden; a
-   * session starts in it; Back to the roadbook brings the three columns back.
+   * session starts in it; the roadbook chosen on the welcome page brings the three columns back.
    *
    * @param robot the TestFX robot.
    */
@@ -229,7 +240,7 @@ final class MainControllerTrainingTest {
     robot.interact(background::runAll);
     WaitForAsyncUtils.waitForFxEvents();
     final boolean started = window.getScene().lookup("#" + SituationView.EXTRACT_ID) != null;
-    fire(robot, window, "roadbookItem");
+    toRoadbook(robot, window);
     assertAll(
         () -> assertTrue(shown),
         () -> assertEquals(1, visible),

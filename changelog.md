@@ -25,9 +25,10 @@ All notable changes of the project are documented in this file.
   exported carry the terms in short in their description, and the README in full.
 - **Welcome page**: the application starts on a welcome page instead of the roadbook editor: the terms of use in
   evidence, to accept with a check box before opening the roadbook editor (the training does not need them; from
-  the training, the menus of the roadbook lead to the welcome page until they are accepted), then
+  the training, the roadbook is reached through the welcome page only; the items of the menus that act on the
+  roadbook are greyed out on the welcome page and in the training), then
   the two modes side by side, each shown by what it works on: the roadbook editor, with an extract of a strip drawn as on paper, and the training, its three exercises
-  (symbol quiz, reading of boxes, roadbook situations) opened directly from it. File › Change mode… brings it back,
+  (symbol quiz, reading of boxes, roadbook situations) opened directly from it. File › Welcome page brings it back,
   the roadbook kept as it is, and the button "Back to the welcome page" of each exercise, to choose another one; a link at its foot opens the site of Terra Pirata in the browser.
 - **Roadbook for Terra Pirata**: File › Save the roadbook as… writes the roadbook of the route as an OpenRally GPX
   file (GPX 1.1, extensions of OpenRally v1.0.3), to import into RDS for Terra Pirata: a box at the start, at each
