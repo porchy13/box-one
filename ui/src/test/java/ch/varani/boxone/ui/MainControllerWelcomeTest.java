@@ -191,6 +191,9 @@ final class MainControllerWelcomeTest {
     open(robot, window, WelcomeView.Destination.SITUATIONS);
     final boolean situations = shown(window, SituationView.START_ID);
     changeMode(robot);
+    open(robot, window, WelcomeView.Destination.RIDE);
+    final boolean ride = shown(window, RideView.START_ID);
+    changeMode(robot);
     robot.interact(() -> ((CheckBox) window.getScene().lookup("#" + WelcomeView.ACCEPT_ID)).setSelected(true));
     open(robot, window, WelcomeView.Destination.ROADBOOK);
     final boolean roadbook = shown(window, "split") && !welcome(window);
@@ -203,6 +206,7 @@ final class MainControllerWelcomeTest {
         () -> assertTrue(back),
         () -> assertTrue(reading),
         () -> assertTrue(situations),
+        () -> assertTrue(ride),
         () -> assertTrue(roadbook),
         () -> assertTrue(((CheckBox) window.getScene().lookup("#" + WelcomeView.ACCEPT_ID)).isSelected()));
   }

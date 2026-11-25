@@ -129,7 +129,7 @@ public final class ReadingGenerator {
    *
    * @return the point.
    */
-  private static GeoPoint point(final GeoPoint southWest, final GeoPoint northEast, final RandomGenerator random) {
+  static GeoPoint point(final GeoPoint southWest, final GeoPoint northEast, final RandomGenerator random) {
     return new GeoPoint(southWest.latitude() + random.nextDouble() * (northEast.latitude() - southWest.latitude()),
                         southWest.longitude() + random.nextDouble() * (northEast.longitude() - southWest.longitude()));
   }

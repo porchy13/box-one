@@ -360,6 +360,8 @@ final class MainController {
   private TrainingMap trainingMap;
   /** The situations of a roadbook of the training mode, over the three columns while they are shown (phase 7). */
   private SituationView situations;
+  /** The simulated run of the training mode, over the three columns while it is shown (phase 7c). */
+  private RideView rideView;
   /** The views of the training mode: the quiz, the reading of boxes and the situations, one shown at a time. */
   private List<Node> trainingModes = List.of();
   /** The scene of the window: the menus, the map, the strip and the editor, or the training over them. */
@@ -564,7 +566,9 @@ final class MainController {
     busyHint.managedProperty().bind(busyHint.visibleProperty());
     routeCard.visibleProperty().bind(summary.textProperty().isNotEmpty());
     seedLabel.setLabelFor(seed);
-    seed.getParent().visibleProperty().bind(seed.textProperty().isNotEmpty());
+    // The state of the work and the seed concern the roadbook: hidden while the training is shown.
+    status.visibleProperty().bind(split.visibleProperty());
+    seed.getParent().visibleProperty().bind(seed.textProperty().isNotEmpty().and(split.visibleProperty()));
     seed.getParent().managedProperty().bind(seed.getParent().visibleProperty());
     StackPane.setMargin(routeCard, new Insets(CARD_MARGIN));
     split.setDividerPositions(ROADBOOK_DIVIDER, EDITOR_DIVIDER);
@@ -599,7 +603,10 @@ final class MainController {
     boxReading = new ReadingView(new QuizText(texts, locale), CATALOGUE, () -> router, services.background(),
                                  trainingMap, seeds, this::showWelcome);
     situations = new SituationView(texts, locale, CATALOGUE, services.background(), seeds, this::showWelcome);
-    trainingModes = List.of(training.getNode(), boxReading.getNode(), situations.getNode());
+    rideView = new RideView(new QuizText(texts, locale), CATALOGUE, services.background(),
+                            new RideView.Sources(this::currentRoadbook, () -> router, trainingMap::getArea), seeds,
+                            this::showWelcome);
+    trainingModes = List.of(training.getNode(), boxReading.getNode(), situations.getNode(), rideView.getNode());
     for (final Node mode : trainingModes) {
       mode.setVisible(false);
       centre.getChildren().add(mode);
@@ -860,6 +867,7 @@ final class MainController {
       case QUIZ -> this::train;
       case READING -> this::read;
       case SITUATIONS -> this::situate;
+      case RIDE -> this::ride;
     };
     shown.run();
   }
@@ -895,6 +903,28 @@ final class MainController {
   }
 
   /**
+   * Shows the simulated run in the centre of the window, over the three columns, on its setup page (Training ›
+   * Simulated run; development plan, phase 7c).
+   */
+  @FXML
+  private void ride() {
+    showTraining(rideView.getNode());
+    rideView.showSetup();
+  }
+
+  /**
+   * Gives the roadbook open in the editor, for a simulated run: the route shown and the boxes of the strip.
+   *
+   * @return the roadbook, or nothing while no route is shown.
+   */
+  private Optional<Roadbook> currentRoadbook() {
+    if (route == null || boxList.getItems().isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(new Roadbook(route, boxList.getItems().stream().map(BoxRow::box).toList()));
+  }
+
+  /**
    * Shows an exercise of the training over the three columns, the others hidden, the map given back; the window put
    * back first if the welcome page is shown (an item of the Training menu, from the global menu bar of macOS).
    *
@@ -903,6 +933,7 @@ final class MainController {
   private void showTraining(final Node shown) {
     leaveWelcome();
     boxReading.showSetup();
+    rideView.showSetup();
     split.setVisible(false);
     for (final Node mode : trainingModes) {
       mode.setVisible(mode == shown);
@@ -920,6 +951,7 @@ final class MainController {
     }
     boxReading.showSetup();
     situations.showSetup();
+    rideView.showSetup();
     for (final Node mode : trainingModes) {
       mode.setVisible(false);
     }
@@ -1282,6 +1314,7 @@ final class MainController {
     busyPane.setVisible(false);
     roadbookItems.enable(openMapItem, true);
     router = loaded;
+    rideView.refresh();
     if (opened) {
       enableDetour();
     } else {

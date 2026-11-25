@@ -13,6 +13,7 @@ import javafx.application.ColorScheme;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.event.ActionEvent;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -44,6 +45,7 @@ import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -389,6 +391,45 @@ final class MainControllerEditorTest {
         () -> assertTrue(content.contains("<name>" + first + "</name>")),
         () -> assertTrue(content.contains(TEXTS.getString(MainController.EXPORT_NOTICE))),
         () -> assertEquals(TEXTS.getString(MainController.GPX_ERROR), text(robot, window, "status")));
+  }
+
+  /**
+   * Training › Simulated run offers the roadbook open once a route is shown and its strip drawn, not before; the run
+   * starts on it.
+   *
+   * @param robot the TestFX robot.
+   *
+   * @throws Exception if the page of the map does not load in time.
+   */
+  @Test
+  @DisplayName("Phase 7c: the roadbook shown offered to the simulated run, ridden")
+  void rideTest(final FxRobot robot) throws Exception {
+    final Shown window = show(robot, FakeRouter.turning(), owner -> Optional.empty());
+    robot.interact(background::runAll);
+    final WebView view = map(window);
+    fire(robot, window, "rideItem");
+    final boolean before = window.stage().getScene().lookup("#" + RideView.OPEN_ID).isDisabled();
+    robot.interact(() -> {
+      window.controller().showWelcome();
+      ((CheckBox) window.stage().getScene().lookup("#" + WelcomeView.ACCEPT_ID)).setSelected(true);
+      ((Button) window.stage().getScene().lookup("#" + WelcomeView.DESTINATION_ID
+                                                 + WelcomeView.Destination.ROADBOOK.name())).fire();
+    });
+    MapPages.click(robot, view, STATION_LATITUDE, STATION_LONGITUDE);
+    MapPages.click(robot, view, CASTLE_LATITUDE, CASTLE_LONGITUDE);
+    robot.interact(background::runAll);
+    fire(robot, window, "rideItem");
+    final boolean drawing = window.stage().getScene().lookup("#" + RideView.OPEN_ID).isDisabled();
+    robot.interact(background::runAll);
+    fire(robot, window, "rideItem");
+    final boolean offered = !window.stage().getScene().lookup("#" + RideView.OPEN_ID).isDisabled();
+    robot.interact(((Button) window.stage().getScene().lookup("#" + RideView.START_ID))::fire);
+    robot.interact(background::runAll);
+    assertAll(
+        () -> assertTrue(before),
+        () -> assertTrue(drawing),
+        () -> assertTrue(offered),
+        () -> assertNotNull(window.stage().getScene().lookup("#" + RideView.CANVAS_ID)));
   }
 
   /**

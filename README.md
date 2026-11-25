@@ -223,6 +223,20 @@ native menus (the global menu bar on macOS), light or dark theme, accent and col
   four proposals answered with the buttons or the keys 1 to 4: the dangers, the waypoints, the speed zones, the
   distances and the notes, each theme checked or not. The right answer is shown at once with its explanation, after
   the regulations of the FIM, the score at the end.
+- **Simulated run**: Training › Simulated run (Shortcut+R) rides the roadbook open, or a route drawn at random in the
+  area of the map seen, in 8 bits, as on the arcade games of the time: the motorbike seen from behind on the real road
+  in perspective, each junction drawn with the roads of the map around it as they bend (every branch of its tulip
+  without map), a roundabout with its ring, the road beyond the next junction seen but drawn as the other roads, the
+  tarmac roads in grey between white edges and the tracks in brown, trees, houses and castles at the roadside where the
+  tulips place them, bumps and holes on the road with a warning sign before them, the beacons of the waypoints; a speedometer at the bottom left of the
+  road and the trip meter of a rally at the bottom right, drawn in pixels; at the left, the penalties, the next waypoint as the NAV-GPS shows it, the
+  speed zone and the limiter, and the roadbook scrolling. Ridden with the keys: ↑ or W the throttle, ↓ or S the brake,
+  ← → or A D the turns, + − or E Q correct the trip by 10 m (it drifts with the line ridden), L the limiter, Space
+  pauses, H or F1 shows the controls. The run is never lost; it gives penalties, after the regulations of the FIM: a
+  tulip not followed 15 min, the motorbike put back stopped before the junction to take it again, its trip as it was there, a waypoint not passed within its radius of validation the penalty of its kind (15 min, a
+  WPN 60, a WPP 2), each impulse of speeding in a speed zone 10 s to 6 min after the excess, a bump or a hole passed
+  faster than 40 km/h a fall, 5 min; the finish lists them by box. A stretch longer than 1 km between two boxes is
+  shortened, its distance added to the trip.
 
 The settings and the imported map are kept in the data folder of the user: `~/Library/Application Support/Box One`
 on macOS, `%LOCALAPPDATA%\Box One` on Windows, `$XDG_DATA_HOME/box-one` (or `~/.local/share/box-one`) on Linux.
@@ -254,7 +268,7 @@ page of the map) with:
 | `roadbook` | A route turned into the boxes of its roadbook: total and partial distances, heading, and the tulip of each junction, simplified from its geometry; the changes of the user applied to it, and kept by their places when the route changes. |
 | `catalog` | The catalogues of symbols, one JSON file each with SVG paths (the FIA first): the tulips, the danger marks, the symbols on the roads, how the abbreviations are written, and which symbols and abbreviations look alike (for the quiz); the drawing of the diagram of a box (its tulip and its notes) and of its description with them, as PNG. Symbols redrawn after the road book lexicon of the FIA, whose icons are provided by rallynavigator.com (see `NOTICE`). |
 | `export` | The roadbook written for Terra Pirata (GPX 1.1 with the extensions of OpenRally v1.0.3, the tulips and the notes as PNG), as a PDF strip and as a plain GPX. |
-| `training` | The training mode: the questions of the symbol quiz drawn from a seed, the elements that look alike mixed on demand; the junctions of random routes to read, the directions in words, the branch of a click on the map; the situations of a roadbook written by hand; the sessions and their score. |
+| `training` | The training mode: the questions of the symbol quiz drawn from a seed, the elements that look alike mixed on demand; the junctions of random routes to read, the directions in words, the branch of a click on the map; the situations of a roadbook written by hand; the road of a simulated run, its bends from the route, and the routes drawn at random for it; the sessions and their score. |
 | `ui` | JavaFX user interface (map in a `WebView` with Leaflet), entry point and installers. |
 
 ## Dependencies

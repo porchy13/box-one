@@ -58,6 +58,7 @@
         <MenuItem fx:id="quizItem" text="%menu.quiz" onAction="#train" accelerator="Shortcut+T"/>
         <MenuItem fx:id="readingItem" text="%menu.reading" onAction="#read" accelerator="Shortcut+Shift+T"/>
         <MenuItem fx:id="situationsItem" text="%menu.situations" onAction="#situate" accelerator="Shortcut+Alt+T"/>
+        <MenuItem fx:id="rideItem" text="%menu.ride" onAction="#ride" accelerator="Shortcut+R"/>
       </Menu>
       <Menu fx:id="toolsMenu" text="%menu.tools">
         <MenuItem fx:id="optionsItem" text="%menu.options" onAction="#settings" accelerator="Shortcut+Comma"/>

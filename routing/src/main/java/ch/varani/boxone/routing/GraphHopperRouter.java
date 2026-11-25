@@ -149,6 +149,8 @@ public final class GraphHopperRouter implements Router {
   private final FeatureReader featureReader;
   /** The reader of the speed limits of the map along the routes (phase 5, increment 5b). */
   private final SpeedLimitReader limitReader;
+  /** The reader of the roads around a place (phase 7c). */
+  private final RoadReader roadReader;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -171,6 +173,8 @@ public final class GraphHopperRouter implements Router {
                                              hopper.getEncodingManager());
     this.featureReader = new FeatureReader(hopper.getLocationIndex(), roads, hopper.getEncodingManager(), features);
     this.limitReader = new SpeedLimitReader(hopper.getLocationIndex(), roads, hopper.getEncodingManager());
+    this.roadReader = new RoadReader(hopper.getBaseGraph(), hopper.getLocationIndex(), hopper.getEncodingManager(),
+                                     junctionReader);
   }
 
   /**
@@ -387,6 +391,16 @@ public final class GraphHopperRouter implements Router {
   @Override
   public OptionalInt speedLimit(final Route route, final int index) {
     return limitReader.limit(route, index);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The roads are the edges of the graph a car may drive found by the index of its places ({@link RoadReader}).</p>
+   */
+  @Override
+  public List<MapRoad> roads(final GeoPoint centre, final double radius) {
+    return roadReader.roads(centre, radius);
   }
 
   /**

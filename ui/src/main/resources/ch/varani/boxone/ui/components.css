@@ -231,6 +231,19 @@
     -fx-text-fill: -c-ink;
 }
 
+/* A box close to the box before it (FIA, Appendix III, §5.6.11: less than 300 m): its distances highlighted in green,
+   and a vertical arrow beside the partial distance of the box before it, as on the strip on paper. */
+.roadbook-strip .box-distances.close {
+    -fx-background-color: -c-strip-close;
+    -fx-background-radius: 2;
+}
+
+.roadbook-strip .box-arrow {
+    -fx-text-fill: -c-ink;
+    -fx-font-weight: 700;
+    -fx-padding: 0 4 0 0;
+}
+
 /* The waypoint of a box (phase 5, increment 4): its letter in a circle under the number, in the colours of the FIA
    (Appendix III, §5.12.2 and §5.12.3): the text and the ring in black, or in blue for a WPN, on the colour of its
    kind. */
@@ -617,4 +630,43 @@
 
 .warning-icon {
     -fx-stroke: -c-warning;
+}
+
+/* The simulated run (phase 7c): the road in 8 bits on the whole height at the left, at the right a column with the
+   trip in large figures, the speed and the strip of the roadbook. */
+.training .ride-run {
+    -fx-spacing: 16;
+}
+
+.training .ride-side {
+    -fx-spacing: 8;
+    -fx-min-width: 400;
+    -fx-pref-width: 420;
+    -fx-max-width: 440;
+}
+
+/* Over the road, in the colours of the run: the word flashing after a penalty, the panel of the controls, on black
+   as the screens of the arcade games, and the speed and the trip at the bottom corners, as a dashboard. */
+.training .ride-flash {
+    -fx-font-size: 2.31em;
+    -fx-font-weight: 700;
+    -fx-text-fill: -c-ride-white;
+    -fx-background-color: -c-ride-red;
+    -fx-padding: 8 16 8 16;
+    -fx-translate-y: 24;
+}
+
+.training .ride-flash.info {
+    -fx-background-color: -c-ride-blue;
+}
+
+.training .ride-help {
+    -fx-background-color: -c-ride-black;
+    -fx-padding: 24 32 24 32;
+    -fx-spacing: 12;
+    -fx-alignment: center;
+}
+
+.training .ride-help .label {
+    -fx-text-fill: -c-ride-white;
 }

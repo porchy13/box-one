@@ -5,6 +5,9 @@ All notable changes of the project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Distances at the pin**: the total distance of a box is the distance of its pin, where the route arrives at the
+  junction, 30 m before its centre (or halfway from the box before when closer), as the pin of the tulip marks it;
+  the start and the finish are unchanged.
 - **Project**: multi-module Maven project (modules `core` and `ui`), quality gate (Checkstyle, tests, 100 % Jacoco
   coverage, Javadoc), installers built by `jpackage` (`mvn -P installer clean verify`) and smoke test of the packaged
   application (`--smoke-test`).
@@ -126,6 +129,19 @@ All notable changes of the project are documented in this file.
   take among four in words ("Slightly right", "At the roundabout, take the 2nd exit"…), or read the box, with its
   heading, and click on the map, centred on the junction with the route arriving at it drawn and the rest hidden, the
   road to take; the route through the junction is then drawn. The right answer is shown at once, the score at the end.
+- **Close boxes in the strip**: a box less than 300 m after the box before it has its distances highlighted in green
+  in the strip of the window, and the box before it a vertical arrow, as on the PDF strip.
+- **Simulated run**: Training › Simulated run rides the roadbook open, or a route drawn at random on the map, in 8
+  bits as on the arcade games of the time: the motorbike seen from behind on the real road in perspective, every
+  branch of each junction and the ring of a roundabout drawn as the map draws them (the roads of the map within
+  120 m that make it, its branches carried straight on, the road ridden and the roads meeting it, seen from 320 m ahead and never thinner than a line, with their white edges and the dashed middle line of the tarmac roads, seen from a camera high enough to read the next junction in time, the road taken
+  not standing out), the tarmac roads in grey between white edges and the tracks in brown, trees, houses and castles at
+  the roadside where the tulips place them, bumps and holes in relief on the road with a warning sign 50 m before, the
+  beacons of the waypoints, the messages on red for a penalty and on blue for an information, a speedometer and a trip meter in pixels at the bottom corners of the road, ridden with the
+  keys (arrows or WASD, the trip drifting and corrected with + − or E Q, L the limiter of the speed zones), the roadbook
+  scrolling at the left; never lost, it gives penalties after the regulations of the FIM (a tulip not followed 15 min,
+  the motorbike put back stopped before the junction to take it again, its trip as it was there, a waypoint missed after its kind, the speeding in a zone by impulses, a fall on a bump or a hole 5 min), listed at
+  the finish; the long stretches between two boxes shortened; H shows the controls.
 - **Roadbook situations**: Training › Roadbook situations shows extracts of a roadbook written for the training, two
   or three boxes drawn as in the strip, and asks how to behave at one of them, among four proposals: the dangers, the
   waypoints, the speed zones, the distances and the notes, twenty situations in all. The right answer is shown at once

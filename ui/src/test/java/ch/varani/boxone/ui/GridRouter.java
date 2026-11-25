@@ -5,6 +5,7 @@ import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Junction;
 import ch.varani.boxone.core.JunctionShape;
 import ch.varani.boxone.core.Route;
+import ch.varani.boxone.routing.MapRoad;
 import ch.varani.boxone.routing.RoadKind;
 import ch.varani.boxone.routing.Router;
 import ch.varani.boxone.routing.RoutingError;
@@ -30,6 +31,8 @@ final class GridRouter implements Router {
   private static final int WEST = 3;
   /** The length of a route, in metres: not read by the tests. */
   private static final double LENGTH = 1000;
+  /** The half length of the roads around a place, in degrees: about 200 m. */
+  private static final double ROADS = 0.002;
 
   /** What the router does. */
   private final Kind kind;
@@ -79,6 +82,28 @@ final class GridRouter implements Router {
   @Override
   public List<Junction> junctions(final Route route) {
     return route.maneuvers().stream().map(index -> junction(route.points(), index)).toList();
+  }
+
+  /**
+   * Gives the roads around a place: a crossing of two straight roads through it, a tarmac road north to south and a
+   * track west to east.
+   *
+   * @param centre the place.
+   * @param radius the distance around it, in metres.
+   *
+   * @return the two roads, {@value #ROADS} degrees of latitude either side of the place, each cut at the place, its
+   *         node, as the edges of a map.
+   */
+  @Override
+  public List<MapRoad> roads(final GeoPoint centre, final double radius) {
+    return List.of(new MapRoad(List.of(new GeoPoint(centre.latitude() - ROADS, centre.longitude()), centre),
+                                 BranchKind.TARMAC),
+                   new MapRoad(List.of(centre, new GeoPoint(centre.latitude() + ROADS, centre.longitude())),
+                                 BranchKind.TARMAC),
+                   new MapRoad(List.of(new GeoPoint(centre.latitude(), centre.longitude() - ROADS), centre),
+                                 BranchKind.TRACK),
+                   new MapRoad(List.of(centre, new GeoPoint(centre.latitude(), centre.longitude() + ROADS)),
+                                 BranchKind.TRACK));
   }
 
   /**

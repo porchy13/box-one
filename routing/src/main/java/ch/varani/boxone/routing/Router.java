@@ -128,6 +128,23 @@ public interface Router extends AutoCloseable {
   }
 
   /**
+   * Reads the roads of the map around a place, as their lines (development plan, phase 7c; asked by the maintainer on
+   * 2026-11-21: the branches of a junction of the simulated run drawn as the map draws them): every road a car may
+   * drive one way at least, footways and cycleways excepted, whose line passes near the place.
+   *
+   * <p>By default, for a router without the roads of a map, there are none.</p>
+   *
+   * @param centre the place, often a junction of a route: personal data, never logged.
+   * @param radius the distance around it, in metres, positive.
+   *
+   * @return the roads, their lines whole, each road once, with their kinds: those that pass within the square of the
+   *         radius around the place, a few farther ones possibly; none without map.
+   */
+  default List<MapRoad> roads(final GeoPoint centre, final double radius) {
+    return List.of();
+  }
+
+  /**
    * Reads the speed limit of the map where a route leaves one of its points: the limit of the road it takes from the
    * point, or of the road it arrives by at its finish (development plan, phase 5, increment 5b; decision of the
    * maintainer, 2026-11-20: an information for the user, never a speed zone placed automatically).

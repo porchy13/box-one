@@ -93,6 +93,8 @@ final class BoxRowTest {
                            rows.stream().map(BoxRow::zone).toList()),
         () -> assertEquals(List.of(true, false, true, true),
                            rows.stream().map(row -> row.sign().isPresent()).toList()),
+        () -> assertEquals(List.of(false, true, true, false), rows.stream().map(BoxRow::close).toList()),
+        () -> assertEquals(List.of(true, true, false, false), rows.stream().map(BoxRow::closeNext).toList()),
         () -> assertTrue(rows.get(2).description().endsWith(
             ", waypoint DZ, fin de la limite de vitesse 30 km/h, limite de vitesse 50 km/h")),
         () -> assertTrue(rows.getFirst().description().endsWith(", waypoint DZ, limite de vitesse 30 km/h")),

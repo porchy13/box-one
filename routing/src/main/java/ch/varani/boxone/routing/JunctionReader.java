@@ -262,13 +262,24 @@ final class JunctionReader {
     while (edges.next()) {
       if (edges.get(access) || edges.getReverse(access)) {
         final PointList line = edges.fetchWayGeometry(FetchMode.ALL);
-        final Surface hard = surface == null ? Surface.MISSING : edges.get(surface);
         branches.add(new Branch(edges.getEdge(), edges.getAdjNode(), bearing(line, 1), bearing(line, reach(line)),
-                                kind(edges.get(roadClass), hard), edges.get(ring), edges.getName(),
+                                kind(edges), edges.get(ring), edges.getName(),
                                 edges.getReverse(access), edges.get(access)));
       }
     }
     return branches;
+  }
+
+  /**
+   * Tells the kind of the road of an edge, as a tulip draws it, from its class and its surface (unknown in a graph
+   * imported before phase 4).
+   *
+   * @param edge the edge.
+   *
+   * @return its kind ({@link #kind(RoadClass, Surface)}).
+   */
+  BranchKind kind(final EdgeIteratorState edge) {
+    return kind(edge.get(roadClass), surface == null ? Surface.MISSING : edge.get(surface));
   }
 
   /**

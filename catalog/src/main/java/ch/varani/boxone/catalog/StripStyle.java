@@ -16,6 +16,16 @@ import java.util.Objects;
 public record StripStyle(Color close) {
 
   // *******************************************************************************************************************
+  // Constants
+  // *******************************************************************************************************************
+
+  /**
+   * The distance under which a box is close to the box before it, in metres (FIA, Appendix III, §5.6.11: "less than 300
+   * metres"): its distance box highlighted, and the box before it marked with a vertical arrow.
+   */
+  public static final double CLOSE_DISTANCE = 300;
+
+  // *******************************************************************************************************************
   // Construction & Initialization
   // *******************************************************************************************************************
 

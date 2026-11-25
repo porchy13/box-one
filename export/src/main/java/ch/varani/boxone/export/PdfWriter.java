@@ -1,6 +1,7 @@
 package ch.varani.boxone.export;
 
 import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.catalog.StripStyle;
 import ch.varani.boxone.catalog.DescriptionRenderer;
 import ch.varani.boxone.catalog.DiagramRenderer;
 import ch.varani.boxone.catalog.WaypointMark;
@@ -93,7 +94,7 @@ public final class PdfWriter {
   /** The width of the kilometres to the finish in the header, in millimetres. */
   static final float REMAINING_WIDTH = 30;
   /** The distance under which the next box is close, in metres (§5.6.11: "less than 300 metres"). */
-  static final double CLOSE = 300;
+  static final double CLOSE = StripStyle.CLOSE_DISTANCE;
   /** The space between the edges of a box and what it holds, in millimetres. */
   static final float INSET = 1.5f;
   /** The width of the frame of the partial distance, in millimetres. */

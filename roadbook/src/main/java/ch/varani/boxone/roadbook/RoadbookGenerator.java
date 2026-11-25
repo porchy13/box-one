@@ -23,8 +23,12 @@ import java.util.function.IntFunction;
  *       it ({@link Geodesy#distance(GeoPoint, GeoPoint)});</li>
  *   <li>the boxes are placed at the start, at the points of the maneuvers of the route, in their order, and at the
  *       finish, numbered from {@value Box#FIRST};</li>
- *   <li>the total distance of a box is the distance of its point from the start, its partial distance the difference
- *       with the total distance of the previous box (0 for the first box);</li>
+ *   <li>the total distance of a box is the distance from the start of its pin, where the route arrives at its
+ *       junction (FIA, Appendix III, §5.6.2 and Diagram 2: the pin marks the position of the kilometre, at the bottom
+ *       of the entry; asked by the maintainer on 2026-11-22): {@value #PIN_SETBACK} m before its point, the node of
+ *       the junction, or half the way from the point of the previous box if that is shorter; the start and the finish
+ *       at their points; its partial distance the difference with the total distance of the previous box (0 for the
+ *       first box). The place of the box stays its point, the junction;</li>
  *   <li>the heading of a box is the heading from the point where the route leaves its junction (its point, or, for
  *       a roundabout, the point where the route leaves the ring: {@link Junction#departure()}) to the first point of
  *       the line at least {@value #HEADING_DISTANCE} metres further, or to the finish if none is, rounded to the
@@ -53,6 +57,14 @@ public final class RoadbookGenerator {
    * roadbooks read in Terra Pirata.
    */
   public static final double HEADING_DISTANCE = 30;
+  /**
+   * The distance of the pin of a box before the node of its junction, in metres: where the route arrives at the
+   * junction, the position of the kilometre (FIA, Appendix III, §5.6.2, Diagram 2; asked by the maintainer on
+   * 2026-11-22). Chosen by the maintainer on 2026-11-22, after a trial where 10 m put the motorbike on the junction
+   * when the trip read the box: the pin of the tulip is drawn at 82 % of the half side of the diagram below its centre,
+   * about 33 m at the scale of the simulated run (40 m the half side).
+   */
+  public static final double PIN_SETBACK = 30;
 
   // *******************************************************************************************************************
   // Construction & Initialization
@@ -120,7 +132,9 @@ public final class RoadbookGenerator {
     double previous = 0;
     for (int rank = 0; rank < places.size(); rank++) {
       final int index = places.get(rank);
-      final double total = along[index];
+      final boolean pinned = rank > 0 && rank < places.size() - 1;
+      final double setback = pinned ? Math.min(PIN_SETBACK, (along[index] - along[places.get(rank - 1)]) / 2) : 0;
+      final double total = along[index] - setback;
       final Optional<Junction> junction = junctions.apply(rank);
       final int departure = Math.min(index + junction.map(Junction::departure).orElse(0), points.size() - 2);
       final OptionalInt heading = rank == places.size() - 1 ? OptionalInt.empty()

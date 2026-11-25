@@ -124,4 +124,24 @@ final class RouterTest {
         () -> assertThrows(IndexOutOfBoundsException.class, () -> router.speedLimit(route, beyond)));
   }
 
+  /**
+   * A router without the roads of a map gives no road around a place.
+   */
+  @Test
+  @DisplayName("Phase 7c: a router without map gives no road around a place")
+  void defaultRoadsTest() {
+    final Router router = new Router() {
+      @Override
+      public Route route(final List<GeoPoint> points, final Set<RoadKind> avoided) {
+        return new Route(points, List.of(1), 0, Duration.ZERO);
+      }
+
+      @Override
+      public void close() {
+        // Nothing to release.
+      }
+    };
+    assertEquals(List.of(), router.roads(STATION, 1));
+  }
+
 }

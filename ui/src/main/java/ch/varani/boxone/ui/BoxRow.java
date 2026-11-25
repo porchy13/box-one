@@ -1,6 +1,7 @@
 package ch.varani.boxone.ui;
 
 import ch.varani.boxone.catalog.Catalogue;
+import ch.varani.boxone.catalog.StripStyle;
 import ch.varani.boxone.catalog.DescriptionRenderer;
 import ch.varani.boxone.catalog.DiagramRenderer;
 import ch.varani.boxone.core.Box;
@@ -52,10 +53,14 @@ import java.util.stream.Collectors;
  *              km/h; empty if the map gives none, or without map.
  * @param box the box shown, with the corrections of the user.
  * @param generated the box as generated from the route, without the corrections of the user.
+ * @param close whether the box is less than {@value StripStyle#CLOSE_DISTANCE} m after the box before it (FIA,
+ *              Appendix III, §5.6.11): its distances highlighted in green.
+ * @param closeNext whether the next box is less than {@value StripStyle#CLOSE_DISTANCE} m after this one: the vertical
+ *                  arrow beside its partial distance.
  */
 record BoxRow(int number, GeoPoint place, String total, String partial, Optional<String> heading,
               Optional<Image> tulip, String notes, String description, Optional<SpeedZone> zone, Optional<Image> sign,
-              OptionalInt limit, Box box, Box generated) {
+              OptionalInt limit, Box box, Box generated, boolean close, boolean closeNext) {
 
   // *******************************************************************************************************************
   // Constants
@@ -174,8 +179,11 @@ record BoxRow(int number, GeoPoint place, String total, String partial, Optional
       if (zone.filter(SpeedZone::isSigned).isPresent()) {
         sign = Optional.of(new Image(new ByteArrayInputStream(DescriptionRenderer.sign(zone.get(), catalogue))));
       }
+      final boolean close = i > 0 && box.total() - shown.get(i - 1).total() < StripStyle.CLOSE_DISTANCE;
+      final boolean closeNext = i + 1 < shown.size()
+                                && shown.get(i + 1).total() - box.total() < StripStyle.CLOSE_DISTANCE;
       rows.add(new BoxRow(box.number(), box.position(), total, partial, heading, tulip, notes, description, zone,
-                          sign, limits.get(i), box, generated.get(i)));
+                          sign, limits.get(i), box, generated.get(i), close, closeNext));
     }
     return rows;
   }

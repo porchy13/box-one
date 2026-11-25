@@ -10,6 +10,8 @@
     /* The roadbook, drawn as on paper in both themes (DESIGN.md §14; FIA: "in colour on white background"). */
     -c-paper: #FFFFFF;
     -c-ink: #000000;
+    /* The distances of a box close to the box before it (FIA, Appendix III, §5.6.11), as the strip on paper. */
+    -c-strip-close: #A6E3A1;
     /* The circles of the waypoints in the roadbook (FIA, Appendix III, §5.12.3), the same in both themes. */
     -c-wp-cyan: #00B4E6;
     -c-wp-blue: #1E50C8;
@@ -18,5 +20,34 @@
     /* The circles of the speed zones and their frame (§5.9.1 and §5.9.2), as the zones of the catalogue of the FIA. */
     -c-wp-orange: #F39200;
     -c-wp-green: #3AAA35;
+    /* The simulated run in 8 bits (phase 7c; asked by the maintainer, 2026-11-21: as the arcade games of the time),
+       drawn the same in both themes, as the roadbook: the sky, the hills, the grass, the road and its edges, the
+       tracks, and the colours of the motorbike and of its rider. */
+    -c-ride-sky: #5C94FC;
+    -c-ride-hill: #00A844;
+    -c-ride-grass: #00B800;
+    -c-ride-grass-dark: #009800;
+    -c-ride-road: #747474;
+    -c-ride-road-dark: #6C6C6C;
+    -c-ride-track: #B0783C;
+    -c-ride-track-dark: #A06830;
+    -c-ride-edge: #FCFCFC;
+    -c-ride-bump: #BCBCBC;
+    -c-ride-hole: #383838;
+    -c-ride-bump-dark: #505050;
+    -c-ride-hole-wall: #6C4400;
+    -c-ride-unlit: #282828;
+    -c-ride-leaf: #005800;
+    -c-ride-trunk: #7C4C00;
+    -c-ride-lane: #FCFCFC;
+    -c-ride-black: #000000;
+    -c-ride-white: #FCFCFC;
+    -c-ride-orange: #FC7400;
+    -c-ride-blue: #0058F8;
+    -c-ride-grey: #7C7C7C;
+    -c-ride-red: #D82800;
+    -c-ride-red-dark: #881400;
+    -c-ride-grey-light: #BCBCBC;
+    -c-ride-grey-dark: #3C3C3C;
     -c-shadow: rgba(0, 0, 0, 0.40);
 }

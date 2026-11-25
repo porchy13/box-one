@@ -1,5 +1,6 @@
 package ch.varani.boxone.routing;
 
+import ch.varani.boxone.core.BranchKind;
 import ch.varani.boxone.core.GeoPoint;
 import ch.varani.boxone.core.Junction;
 import ch.varani.boxone.core.JunctionShape;
@@ -11,6 +12,7 @@ import com.graphhopper.routing.ev.RoadAccess;
 import com.graphhopper.routing.ev.RoadClass;
 import com.graphhopper.routing.ev.Subnetwork;
 import com.graphhopper.routing.ev.VehicleAccess;
+import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.FetchMode;
 import com.graphhopper.util.Instruction;
@@ -160,6 +162,42 @@ final class GraphHopperRouterTest {
         () -> assertTrue(route.distance() > MIN_DISTANCE && route.distance() < MAX_DISTANCE),
         () -> assertTrue(route.duration().isPositive()),
         () -> assertFalse(route.maneuvers().isEmpty()));
+  }
+
+  /**
+   * The roads around the castle are lines of two points at least, one of them passing within the radius, each road
+   * once, and none farther than a few cells of the index; a radius not positive is refused.
+   */
+  @Test
+  @DisplayName("Phase 7c: the roads of the map around a place are read as their lines")
+  void roadsTest() {
+    final double radius = 100;
+    final List<MapRoad> roads = router.roads(CASTLE, radius);
+    final List<MapRoad> wide = router.roads(CASTLE, MAX_DISTANCE);
+    assertAll(
+        () -> assertFalse(roads.isEmpty()),
+        () -> assertEquals(roads.size(), Set.copyOf(roads).size()),
+        () -> assertTrue(roads.stream().flatMap(road -> road.line().stream())
+                              .anyMatch(point -> fromCastle(point) <= radius)),
+        () -> assertTrue(roads.stream().allMatch(road -> road.line().stream()
+                                                             .anyMatch(point -> fromCastle(point) <= MAX_DISTANCE))),
+        () -> assertTrue(wide.stream().anyMatch(road -> road.kind() == BranchKind.TRACK)),
+        () -> assertTrue(wide.stream().anyMatch(road -> road.kind() == BranchKind.TARMAC)),
+        () -> assertTrue(wide.size() > roads.size()),
+        () -> assertThrows(IllegalArgumentException.class, () -> router.roads(CASTLE, 0)),
+        () -> assertThrows(IllegalArgumentException.class, () -> router.roads(CASTLE, Double.NaN)));
+  }
+
+  /**
+   * Computes the distance of a point from the castle.
+   *
+   * @param point the point.
+   *
+   * @return the distance, in metres.
+   */
+  private static double fromCastle(final GeoPoint point) {
+    return DistanceCalcEarth.DIST_EARTH.calcDist(CASTLE.latitude(), CASTLE.longitude(), point.latitude(),
+                                                 point.longitude());
   }
 
   /**

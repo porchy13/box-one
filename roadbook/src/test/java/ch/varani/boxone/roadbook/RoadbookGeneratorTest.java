@@ -48,6 +48,8 @@ final class RoadbookGeneratorTest {
   private static final List<Double> TEE = List.of(0.0, 90.0, 180.0);
   /** The tolerance of the distances, in metres. */
   private static final double TOLERANCE = 1e-6;
+  /** The degrees of latitude of a point about 11 m north of the start: a junction close to it. */
+  private static final double NEAR_DEGREES = 0.0001;
 
   /**
    * Creates a route on a line, with its maneuvers; its length is the length of the line.
@@ -63,7 +65,8 @@ final class RoadbookGeneratorTest {
 
   /**
    * A route north, a turn to the right, then east: three boxes, at the start, at the turn and at the finish, with
-   * their distances along the line and their headings, north then east.
+   * their distances along the line, the one of the turn at its pin, before the junction, and their headings, north
+   * then east.
    */
   @Test
   @DisplayName("Phase 2: one box at the start, one at each maneuver and one at the finish, with total, partial, CAP")
@@ -79,14 +82,30 @@ final class RoadbookGeneratorTest {
         () -> assertEquals(List.of(START, NORTH, FINISH), boxes.stream().map(Box::position).toList()),
         () -> assertEquals(0, boxes.get(0).total()),
         () -> assertEquals(0, boxes.get(0).partial()),
-        () -> assertEquals(first, boxes.get(1).total(), TOLERANCE),
-        () -> assertEquals(first, boxes.get(1).partial(), TOLERANCE),
+        () -> assertEquals(first - RoadbookGenerator.PIN_SETBACK, boxes.get(1).total(), TOLERANCE),
+        () -> assertEquals(first - RoadbookGenerator.PIN_SETBACK, boxes.get(1).partial(), TOLERANCE),
         () -> assertEquals(first + second, boxes.get(2).total(), TOLERANCE),
-        () -> assertEquals(second, boxes.get(2).partial(), TOLERANCE),
+        () -> assertEquals(second + RoadbookGenerator.PIN_SETBACK, boxes.get(2).partial(), TOLERANCE),
         () -> assertEquals(route.distance(), roadbook.distance(), TOLERANCE),
         () -> assertEquals(OptionalInt.of(0), boxes.get(0).heading()),
         () -> assertEquals(OptionalInt.of(EAST), boxes.get(1).heading()),
         () -> assertEquals(OptionalInt.empty(), boxes.get(2).heading()));
+  }
+
+  /**
+   * The pin of a box is never farther before its junction than half the way from the junction of the box before.
+   */
+  @Test
+  @DisplayName("Phase 7c: the pin of a box at most halfway from the junction of the box before")
+  void pinTest() {
+    final GeoPoint near = new GeoPoint(START.latitude() + NEAR_DEGREES, START.longitude());
+    final Roadbook roadbook = RoadbookGenerator.generate(route(List.of(START, near, NORTH, FINISH), List.of(1, 2)));
+    final double close = Geodesy.distance(START, near);
+    final double between = Geodesy.distance(near, NORTH);
+    assertAll(
+        () -> assertEquals(close / 2, roadbook.boxes().get(1).total(), TOLERANCE),
+        () -> assertEquals(close + between - RoadbookGenerator.PIN_SETBACK, roadbook.boxes().get(2).total(),
+                           TOLERANCE));
   }
 
   /**

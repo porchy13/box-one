@@ -22,7 +22,9 @@ import java.util.Optional;
  * tulip, the symbols and the danger mark of the notes); at the right, the heading where the catalogue shows it, and
  * the description under it (the sign of the speed limit at the start and at the finish of a speed zone, §5.9.5, then
  * the abbreviations and the free text of the notes, phase 5). A box of a speed zone is framed (§5.9.1); a DZ that
- * finishes another zone has the circle of a FZ above its own (§37.2.3). The box has
+ * finishes another zone has the circle of a FZ above its own (§37.2.3). A box less than 300 m after the box before it
+ * has its distances highlighted in green, and the box before it a vertical arrow beside its partial distance
+ * (§5.6.11, as the strip on paper). The box has
  * its number, its distances, its notes, its waypoint and its speed limit as accessible text.
  *
  * <p>Confined to the JavaFX Application Thread.</p>
@@ -43,8 +45,14 @@ final class BoxCell extends ListCell<BoxRow> {
   static final String ZONE_STYLE = "speed-zone";
   /** The side of the sign of a speed limit in the strip, in pixels: as large as the heading. */
   static final double SIGN_SIDE = 36;
+  /** The style class of the distances of a box close to the box before it, highlighted in green. */
+  static final String CLOSE_STYLE = "close";
+  /** The vertical arrow of a box close to the next one, pointing down (FIA, Appendix III, §5.6.11). */
+  static final String ARROW = "\u2193";
   /** The style class of the paper of a box. */
   private static final String PAPER_STYLE = "box-paper";
+  /** The style class of the distances of a box. */
+  private static final String DISTANCES_STYLE = "box-distances";
 
   // *******************************************************************************************************************
   // Attributes
@@ -60,6 +68,10 @@ final class BoxCell extends ListCell<BoxRow> {
   private final Label total = new Label();
   /** The partial distance. */
   private final Label partial = new Label();
+  /** The vertical arrow beside the partial distance, when the next box is close; hidden otherwise. */
+  private final Label arrowLabel = new Label(ARROW);
+  /** The distances: the total, the partial and the arrow; highlighted when the box is close to the one before. */
+  private final VBox distances;
   /** The diagram: the tulip and the notes drawn on it. */
   private final ImageView tulip = new ImageView();
   /** The heading. */
@@ -99,8 +111,11 @@ final class BoxCell extends ListCell<BoxRow> {
     sign.setPreserveRatio(true);
     sign.setSmooth(true);
     sign.managedProperty().bind(sign.visibleProperty());
-    final VBox distances = new VBox(total, partial);
-    distances.getStyleClass().add("box-distances");
+    arrowLabel.getStyleClass().add("box-arrow");
+    final HBox partials = new HBox(arrowLabel, partial);
+    partials.setAlignment(Pos.CENTER_RIGHT);
+    distances = new VBox(total, partials);
+    distances.getStyleClass().add(DISTANCES_STYLE);
     distances.setAlignment(Pos.TOP_RIGHT);
     final Region space = new Region();
     HBox.setHgrow(space, Priority.ALWAYS);
@@ -143,6 +158,11 @@ final class BoxCell extends ListCell<BoxRow> {
     finish.setVisible(box.zone().filter(zone -> zone.finished().isPresent()).isPresent());
     total.setText(box.total());
     partial.setText(box.partial());
+    arrowLabel.setVisible(box.closeNext());
+    distances.getStyleClass().setAll(DISTANCES_STYLE);
+    if (box.close()) {
+      distances.getStyleClass().add(CLOSE_STYLE);
+    }
     tulip.setImage(box.tulip().orElse(null));
     heading.setText(box.heading().orElse(""));
     sign.setImage(box.sign().orElse(null));

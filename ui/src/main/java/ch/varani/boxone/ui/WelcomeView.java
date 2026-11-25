@@ -16,6 +16,7 @@ import ch.varani.boxone.core.WaypointKind;
 import javafx.concurrent.Task;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
@@ -55,8 +56,9 @@ import java.util.function.Consumer;
  *       no route to drive (decisions of the maintainer, 2026-11-21);</li>
  *   <li>the roadbook: an extract of a strip drawn as on paper ({@link BoxRow}, {@link BoxCell}: the boxes the editor
  *       makes), and "Open the roadbook editor";</li>
- *   <li>the training: its three exercises as buttons, each with its sign drawn as on paper (a danger mark, a tulip, a
- *       waypoint) and what it trains, chosen here directly (decision of the maintainer, 2026-11-21);</li>
+ *   <li>the training: its four exercises as buttons, each with its sign drawn as on paper (a danger mark, a tulip, a
+ *       waypoint, the motorbike of the simulated run) and what it trains, chosen here directly (decision of the
+ *       maintainer, 2026-11-21);</li>
  *   <li>"Quit";</li>
  *   <li>at the foot, a link to the site of Terra Pirata, opened in the browser of the system (asked by the
  *       maintainer, 2026-11-21).</li>
@@ -236,7 +238,9 @@ final class WelcomeView {
     /** The reading of boxes. */
     READING,
     /** The situations of a roadbook. */
-    SITUATIONS
+    SITUATIONS,
+    /** The simulated run. */
+    RIDE
 
   }
 
@@ -405,7 +409,8 @@ final class WelcomeView {
                 exercise(Destination.QUIZ, Pages.image(DiagramRenderer.icon(Danger.LEVEL_2, catalogue, DRAWN_SIDE),
                                                        DRAWN_SIDE)),
                 exercise(Destination.READING, tulip()),
-                exercise(Destination.SITUATIONS, waypoint()));
+                exercise(Destination.SITUATIONS, waypoint()),
+                exercise(Destination.RIDE, moto()));
   }
 
   /**
@@ -503,6 +508,19 @@ final class WelcomeView {
     mark.getStyleClass().addAll(BoxCell.WAYPOINT_STYLE,
                                 BoxCell.WAYPOINT_KIND_STYLE + WaypointKind.WPM.name().toLowerCase(Locale.ROOT));
     return mark;
+  }
+
+  /**
+   * Draws the sign of the simulated run: its motorbike in 8 bits ({@link RideRenderer#MOTO}).
+   *
+   * @return the motorbike, at the side of a drawing on a sign.
+   */
+  private static Node moto() {
+    final Canvas canvas = new Canvas(DRAWN_SIDE, DRAWN_SIDE);
+    final double pixel = (double) DRAWN_SIDE / RideRenderer.MOTO.size();
+    RideRenderer.drawSprite(canvas.getGraphicsContext2D(), RideRenderer.MOTO, DRAWN_SIDE / 2.0, DRAWN_SIDE, pixel, 0,
+                            RidePalette.load());
+    return canvas;
   }
 
   /**
